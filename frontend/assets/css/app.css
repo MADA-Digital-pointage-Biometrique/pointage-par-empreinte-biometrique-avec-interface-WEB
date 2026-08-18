@@ -1,0 +1,184 @@
+/* ============================================================
+   Styles partagés & Charte Graphique (MADA Digital)
+   ============================================================ */
+
+:root {
+    --orange-primary: #F46A21;       /* Orange principal / Orange vif */
+    --orange-gold: #F9AE3F;          /* Jaune/orange / Orange doré */
+    --text-primary: #303030;          /* Texte principal / Gris très foncé */
+    --bg-main: #FFFFFF;               /* Fond / Blanc */
+    --bg-secondary: #F7F8FA;          /* Fond secondaire / Gris très clair */
+    --orange-accent-light: #FFF1E8;   /* Accent / Orange clair */
+
+    --card-bg: #FFFFFF;
+    --card-border: rgba(226, 232, 240, 0.8);
+    --menu-primary-glow: rgba(244, 106, 33, 0.25);
+    --menu-secondary-glow: rgba(249, 174, 63, 0.15);
+    --menu-accent: #F46A21;
+    --menu-border-glass: rgba(255, 255, 255, 0.12);
+}
+
+.dark {
+    --text-primary: #E2E8F0;
+    --bg-main: #1C1917;
+    --bg-secondary: #0C0A09;
+    --card-bg: #1C1917;
+    --card-border: rgba(255, 255, 255, 0.08);
+    --orange-accent-light: rgba(244, 106, 33, 0.15);
+}
+
+/* Smooth transitions for theme switching */
+*, *::before, *::after {
+    transition-property: background-color, border-color, color;
+    transition-duration: 180ms;
+    transition-timing-function: ease;
+}
+/* Exclude elements where transitions would look wrong */
+.material-symbols-outlined, [class*="animate-"], .biometric-scan::after {
+    transition: none !important;
+}
+
+body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); color: var(--text-primary); }
+
+/* Custom Scrollbar for Dropdowns and Sidebar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(244, 106, 33, 0.25); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(244, 106, 33, 0.45); }
+
+/* Glassmorphic Shell & Sidebar */
+.glass-sidebar {
+    background: linear-gradient(180deg, #1C1917 0%, #292524 60%, #303030 100%);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+}
+.glass-topbar {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.dark .glass-topbar {
+    background: rgba(24, 24, 27, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* Sidebar Menu Nav Items */
+.nav-item-link {
+    position: relative;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 0.5rem;
+    margin: 0 0.5rem;
+}
+.nav-item-link::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%) scaleY(0);
+    width: 4px;
+    height: 60%;
+    background: var(--orange-primary);
+    border-radius: 0 4px 4px 0;
+    transition: transform 0.2s ease, background 0.2s ease;
+    box-shadow: 0 0 10px rgba(244, 106, 33, 0.8);
+}
+.nav-item-link.active-menu {
+    background: linear-gradient(90deg, rgba(244, 106, 33, 0.25) 0%, rgba(249, 174, 63, 0.12) 100%);
+    color: #ffffff !important;
+    font-weight: 600;
+    border: 1px solid rgba(244, 106, 33, 0.4);
+}
+.nav-item-link.active-menu::before {
+    transform: translateY(-50%) scaleY(1);
+}
+.nav-item-link:hover:not(.active-menu) {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff !important;
+    transform: translateX(3px);
+}
+
+/* Menu Dropdown Card Panels */
+.menu-dropdown-panel {
+    animation: menuFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform-origin: top right;
+    box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0,0,0,0.1);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+}
+.dark .menu-dropdown-panel {
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.6);
+}
+@keyframes menuFadeIn {
+    0% { opacity: 0; transform: translateY(-8px) scale(0.97); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Biometric Scanner Line Animation */
+.biometric-scan { position: relative; overflow: hidden; }
+.biometric-scan::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--orange-primary) 50%, transparent);
+    animation: scan 2s infinite linear;
+    box-shadow: 0 0 12px var(--orange-primary);
+}
+@keyframes scan {
+    0% { top: 0; opacity: 0; }
+    15% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+}
+
+/* Pulse ring animation */
+.pulse-ring { animation: pulse 1.2s infinite; }
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(244, 106, 33, .45); }
+    70% { box-shadow: 0 0 0 24px rgba(244, 106, 33, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(244, 106, 33, 0); }
+}
+
+/* Mobile Sidenav Overlay */
+@media (max-width: 767px) {
+    .sidenav { transform: translateX(-100%); transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1); }
+    body.nav-open .sidenav { transform: translateX(0); box-shadow: 0 0 50px rgba(0,0,0,.6); }
+    body.nav-open::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(28, 25, 23, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 15;
+    }
+}
+
+/* Material Symbols icon settings */
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+}
+.material-symbols-outlined.filled {
+    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Filter Badge Pills */
+.filter-pill {
+    transition: all 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+}
+.filter-pill.active {
+    background-color: var(--orange-primary);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(244, 106, 33, 0.35);
+}
+
+/* Card Hover Elevation */
+.card-hover {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease;
+}
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.08);
+}

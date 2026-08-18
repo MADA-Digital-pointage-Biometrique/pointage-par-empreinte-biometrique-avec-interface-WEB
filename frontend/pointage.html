@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Borne de Pointage Biométrique - MADA Digital</title>
+    <script>!function(){var e=localStorage.getItem('mada-theme'),d=window.matchMedia('(prefers-color-scheme: dark)').matches;(e==='dark'||(e===null&&d))&&document.documentElement.classList.add('dark')}();</script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="assets/js/theme.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="bg-[#F7F8FA] dark:bg-stone-950 text-[#303030] dark:text-slate-100 antialiased flex transition-colors" data-page="pointage">
+    <div id="app-shell"></div>
+    <div id="topbar-slot"></div>
+
+    <div class="flex-1 md:ml-[280px] flex flex-col min-h-screen">
+        <main class="flex-1 mt-16 p-md md:p-xl max-w-container-max mx-auto w-full">
+            <div id="flash"></div>
+
+            <!-- Page Header -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-lg">
+                <div>
+                    <h2 class="font-bold text-2xl tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-blue-600">fingerprint</span>
+                        Borne de Pointage Biométrique
+                    </h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-[13px] mt-0.5">Terminal interactif et historique des horodatages</p>
+                </div>
+            </div>
+
+            <!-- Main Layout Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
+                <!-- Biometric Terminal Card -->
+                <div class="col-span-1 lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-lg shadow-sm flex flex-col items-center text-center relative overflow-hidden">
+                    <div class="w-full flex items-center justify-between mb-md border-b border-slate-100 dark:border-slate-800 pb-sm">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Capteur Optique SDK</span>
+                        <span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Actif
+                        </span>
+                    </div>
+
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-md">Sélectionnez l'employé à pointer :</p>
+                    
+                    <div class="w-full mb-md">
+                        <select id="user-select" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-md py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+
+                    <!-- Scanner Animation Button -->
+                    <div class="relative group my-md cursor-pointer" id="btn-scan">
+                        <div class="w-36 h-36 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-800 text-white flex items-center justify-center shadow-xl shadow-blue-500/25 group-hover:scale-105 transition-transform duration-300 biometric-scan relative overflow-hidden" id="bio-icon">
+                            <span class="material-symbols-outlined text-[72px]" id="scanner-icon">fingerprint</span>
+                        </div>
+                    </div>
+                    <p class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-lg" id="scan-hint">Cliquez sur l'empreinte pour valider le scan</p>
+
+                    <!-- Scan Feedback Result Panel -->
+                    <div class="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 rounded-xl p-md hidden text-left" id="user-card">
+                        <div class="flex items-center gap-md">
+                            <div class="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-sm" id="card-avatar">--</div>
+                            <div>
+                                <div class="font-bold text-sm text-slate-900 dark:text-white" id="card-name">--</div>
+                                <div class="text-xs font-mono text-slate-400" id="card-mat">--</div>
+                            </div>
+                        </div>
+                        <div class="mt-sm text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1" id="card-status">
+                            <span class="material-symbols-outlined text-sm">check_circle</span> Accès autorisé
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pointage History Log & Filter Menu -->
+                <div class="col-span-1 lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+                    <!-- History Filter Menu Toolbar -->
+                    <div class="p-md border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex flex-wrap items-center justify-between gap-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-blue-600">history</span>
+                            <h3 class="font-bold text-sm text-slate-900 dark:text-white">Registre des Horodatages</h3>
+                        </div>
+
+                        <button class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer" id="btn-refresh-history">
+                            <span class="material-symbols-outlined text-[14px]">refresh</span> Actualiser
+                        </button>
+                    </div>
+
+                    <!-- History Table -->
+                    <div class="overflow-x-auto flex-1">
+                        <table class="w-full text-left border-collapse text-[13px]">
+                            <thead>
+                                <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/30 dark:bg-slate-900">
+                                    <th class="py-md px-md">Employé</th>
+                                    <th class="py-md px-md">Entrée</th>
+                                    <th class="py-md px-md">Sortie</th>
+                                    <th class="py-md px-md text-right">Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60" id="history-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="assets/js/data.js"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/pages/pointage.js"></script>
+</body>
+</html>

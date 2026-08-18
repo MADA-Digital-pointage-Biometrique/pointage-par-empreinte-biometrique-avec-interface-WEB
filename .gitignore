@@ -1,0 +1,5 @@
+config/database.php
+*.log
+.vscode/
+.idea/
+Thumbs.db

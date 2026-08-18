@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Historique des Pointages & Rapports - MADA Digital</title>
+    <script>!function(){var e=localStorage.getItem('mada-theme'),d=window.matchMedia('(prefers-color-scheme: dark)').matches;(e==='dark'||(e===null&&d))&&document.documentElement.classList.add('dark')}();</script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="assets/js/theme.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="bg-[#F7F8FA] dark:bg-stone-950 text-[#303030] dark:text-slate-100 antialiased flex transition-colors" data-page="historique" data-search="1">
+    <!-- Dynamic App Shell & Topbar loaded by app.js -->
+    <div id="app-shell"></div>
+    <div id="topbar-slot"></div>
+
+    <div class="flex-1 md:ml-[280px] flex flex-col min-h-screen">
+        <main class="flex-1 mt-16 p-md md:p-xl max-w-container-max mx-auto w-full">
+            <div id="flash"></div>
+
+            <!-- Page Header & Action Controls -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-lg">
+                <div>
+                    <h2 class="font-bold text-2xl tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-blue-600">history</span>
+                        Historique Général des Pointages
+                    </h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-[13px] mt-0.5">Registre complet des entrées, sorties et heures de présence biométriques</p>
+                </div>
+                <div class="flex items-center gap-sm">
+                    <button class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold px-md py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-2 cursor-pointer" id="btn-export-history">
+                        <span class="material-symbols-outlined text-[18px]">download</span> Exporter CSV
+                    </button>
+                    <button class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold px-md py-2.5 rounded-xl shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 cursor-pointer" onclick="window.print()">
+                        <span class="material-symbols-outlined text-[18px]">print</span> Imprimer Rapport
+                    </button>
+                </div>
+            </div>
+
+            <!-- Header Summary KPI Stats Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+                <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-md shadow-sm">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Total Registres</span>
+                        <span class="material-symbols-outlined text-blue-600">receipt_long</span>
+                    </div>
+                    <div class="text-2xl font-black text-slate-900 dark:text-white" id="stat-total-records">0</div>
+                    <div class="text-[11px] text-slate-400 mt-1">Horodatages enregistrés sur la période</div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-md shadow-sm">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Taux de Ponctualité</span>
+                        <span class="material-symbols-outlined text-emerald-600">verified</span>
+                    </div>
+                    <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400" id="stat-ponctualite">0%</div>
+                    <div class="text-[11px] text-slate-400 mt-1">Pointages avant 09:00 AM</div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-md shadow-sm">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Total Retards</span>
+                        <span class="material-symbols-outlined text-amber-600">warning</span>
+                    </div>
+                    <div class="text-2xl font-black text-amber-600 dark:text-amber-400" id="stat-retards-count">0</div>
+                    <div class="text-[11px] text-slate-400 mt-1">Horodatages après l'heure légale</div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-md shadow-sm">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Présences Complètes</span>
+                        <span class="material-symbols-outlined text-indigo-600">task_alt</span>
+                    </div>
+                    <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400" id="stat-completes">0</div>
+                    <div class="text-[11px] text-slate-400 mt-1">Pointages entrée et sortie enregistrés</div>
+                </div>
+            </div>
+
+            <!-- History Multi-Criteria Filter Menu Toolbar -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm p-md mb-lg flex flex-wrap items-center justify-between gap-md">
+                <div class="flex flex-wrap items-center gap-md">
+                    <!-- Period Filter Menu -->
+                    <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs font-semibold" id="period-pills">
+                        <button class="period-pill active px-3 py-1.5 rounded-lg cursor-pointer transition-all" data-period="all">Tous</button>
+                        <button class="period-pill text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white cursor-pointer transition-all" data-period="today">Aujourd'hui</button>
+                        <button class="period-pill text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white cursor-pointer transition-all" data-period="7d">7 Derniers jours</button>
+                        <button class="period-pill text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white cursor-pointer transition-all" data-period="30d">30 Derniers jours</button>
+                    </div>
+
+                    <!-- Status Filter Menu Dropdown -->
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-2 border border-slate-200 dark:border-slate-700">
+                        <span class="material-symbols-outlined text-slate-400 text-[18px]">filter_list</span>
+                        <select id="filter-status" class="bg-transparent border-none text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-0">
+                            <option value="">Tous les Statuts</option>
+                            <option value="present">Présents (À l'heure)</option>
+                            <option value="retard">En Retard</option>
+                            <option value="encours">Journée en cours (Sans sortie)</option>
+                        </select>
+                    </div>
+
+                    <!-- Department Filter Menu Dropdown -->
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-2 border border-slate-200 dark:border-slate-700">
+                        <span class="material-symbols-outlined text-slate-400 text-[18px]">corporate_fare</span>
+                        <select id="filter-dept" class="bg-transparent border-none text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-0">
+                            <option value="">Tous les Départements</option>
+                            <option value="Direction Générale">Direction Générale</option>
+                            <option value="Ressources Humaines">Ressources Humaines</option>
+                            <option value="Ingénierie & IT">Ingénierie & IT</option>
+                            <option value="Marketing & Comm">Marketing & Comm</option>
+                            <option value="Technique & Support">Technique & Support</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="text-xs font-mono text-slate-400" id="records-count-summary">
+                    Affichage du registre...
+                </div>
+            </div>
+
+            <!-- Attendance History Table Card -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-[13px]">
+                        <thead>
+                            <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/50 dark:bg-slate-900">
+                                <th class="py-md px-md">Employé</th>
+                                <th class="py-md px-md">Date</th>
+                                <th class="py-md px-md">Département</th>
+                                <th class="py-md px-md">Heure Entrée</th>
+                                <th class="py-md px-md">Heure Sortie</th>
+                                <th class="py-md px-md">Durée Estimée</th>
+                                <th class="py-md px-md text-right">Statut Biométrique</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60" id="history-table-body">
+                            <!-- Dynamically loaded -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="assets/js/data.js"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/pages/historique.js"></script>
+</body>
+</html>
