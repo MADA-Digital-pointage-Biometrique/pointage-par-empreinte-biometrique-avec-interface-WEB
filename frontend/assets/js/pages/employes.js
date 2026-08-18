@@ -213,3 +213,7 @@ function initPage() {
         }
     });
 }
+
+window.PAGE_MODULES = window.PAGE_MODULES || {};
+window.PAGE_MODULES['employes'] = initPage;
+window.initPage = initPage;

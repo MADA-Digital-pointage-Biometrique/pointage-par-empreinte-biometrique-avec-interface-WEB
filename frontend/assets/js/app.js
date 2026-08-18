@@ -50,7 +50,7 @@ function buildShell() {
     const appShell = document.getElementById('app-shell');
     if (appShell) {
         appShell.innerHTML = `
-            <nav class="sidenav glass-sidebar hidden md:flex flex-col text-on-primary font-body-md fixed left-0 top-0 h-full w-[280px] border-r border-white/10 shadow-2xl py-lg z-20 transition-all">
+            <nav class="sidenav glass-sidebar hidden md:flex flex-col font-body-md fixed left-0 top-0 h-full w-[280px] py-lg z-20 transition-all">
                 <!-- Brand Header -->
                 <div class="px-lg mb-lg flex items-center justify-between">
                     <div class="flex items-center gap-md">
@@ -59,15 +59,15 @@ function buildShell() {
                             <span class="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#1C1917] animate-pulse"></span>
                         </div>
                         <div>
-                            <h1 class="font-headline-sm text-[18px] font-bold text-white tracking-tight flex items-center gap-xs">
+                            <h1 class="font-headline-sm text-[18px] font-bold tracking-tight flex items-center gap-xs nav-brand-title">
                                 MADA Digital
                             </h1>
-                            <p class="font-label-md text-[11px] text-orange-200/70 font-medium uppercase tracking-wider">Pointage Biométrique</p>
+                            <p class="font-label-md text-[11px] font-medium uppercase tracking-wider nav-brand-sub">Pointage Biométrique</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="w-full h-px bg-white/10 mb-md"></div>
+                <div class="w-full h-px nav-divider mb-md"></div>
 
                 <!-- Navigation Sections -->
                 <div class="flex flex-col gap-md flex-grow overflow-y-auto px-xs">
@@ -76,7 +76,7 @@ function buildShell() {
                         if (validItems.length === 0) return '';
                         return `
                             <div>
-                                <div class="px-md mb-xs font-label-md text-[10px] font-bold tracking-widest text-orange-200/50 uppercase">
+                                <div class="px-md mb-xs font-label-md text-[10px] font-bold tracking-widest uppercase nav-section-title">
                                     ${sec.title}
                                 </div>
                                 <ul class="flex flex-col gap-xs">
@@ -84,13 +84,13 @@ function buildShell() {
                                         const isActive = i.page === current;
                                         return `
                                         <li>
-                                            <a class="nav-item-link flex items-center justify-between px-md py-sm text-[14px] text-slate-300 ${isActive ? 'active-menu' : ''}" href="${i.link}">
+                                            <a class="nav-item-link flex items-center justify-between px-md py-sm text-[14px] ${isActive ? 'active-menu' : ''}" href="${i.link}">
                                                 <div class="flex items-center gap-md">
                                                     ${icon(i.icon, 20, isActive)}
                                                     <span>${i.label}</span>
                                                 </div>
-                                                ${i.badge ? `<span class="bg-[#FFF1E8]/15 text-[#F9AE3F] text-[10px] font-semibold px-2 py-0.5 rounded-full border border-[#F9AE3F]/30">${i.badge}</span>` : ''}
-                                                ${i.badgeId ? `<span id="${i.badgeId}" class="bg-stone-800 text-stone-200 text-[10px] font-mono px-2 py-0.5 rounded-full"></span>` : ''}
+                                                ${i.badge ? `<span class="nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge}</span>` : ''}
+                                                ${i.badgeId ? `<span id="${i.badgeId}" class="nav-badge-count text-[10px] font-mono px-2 py-0.5 rounded-full"></span>` : ''}
                                             </a>
                                         </li>`;
                                     }).join('')}
@@ -101,24 +101,24 @@ function buildShell() {
                 </div>
 
                 <!-- Sidebar Footer : User Mini Profile Menu Card -->
-                <div class="mt-auto px-md pt-md border-t border-white/10">
-                    <div class="bg-stone-900/80 backdrop-blur-md rounded-xl p-sm border border-white/10 flex items-center justify-between gap-sm">
+                <div class="mt-auto px-md pt-md nav-footer-border">
+                    <div class="nav-user-zone rounded-xl p-sm flex items-center justify-between gap-sm">
                         <div class="flex items-center gap-sm min-w-0">
                             <div class="relative">
                                 <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[13px] shadow-sm">
                                     ${initialsOf(user)}
                                 </div>
-                                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-stone-900 rounded-full"></span>
+                                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 nav-user-status-border rounded-full"></span>
                             </div>
                             <div class="min-w-0 flex-1">
-                                <div class="font-semibold text-white text-[13px] truncate">${user.prenom} ${user.nom}</div>
-                                <div class="text-[11px] text-stone-400 truncate flex items-center gap-1">
-                                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-[#F9AE3F]"></span>
-                                    ${user.role === 'super_admin' ? 'Super Admin' : 'Admin RH'} · <span class="font-mono text-[10px] text-stone-300">${user.matricule}</span>
+                                <div class="font-semibold text-[13px] truncate nav-user-name">${user.prenom} ${user.nom}</div>
+                                <div class="text-[11px] truncate flex items-center gap-1 nav-user-info">
+                                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-[#F97316]"></span>
+                                    ${user.role === 'super_admin' ? 'Super Admin' : 'Admin RH'} · <span class="font-mono text-[10px] nav-user-matricule">${user.matricule}</span>
                                 </div>
                             </div>
                         </div>
-                        <button id="btn-logout" title="Déconnexion" class="text-stone-400 hover:text-red-400 hover:bg-red-500/10 p-1.5 rounded-lg transition-colors cursor-pointer">
+                        <button id="btn-logout" title="Déconnexion" class="nav-logout-btn p-1.5 rounded-lg transition-colors cursor-pointer">
                             ${icon('logout', 20)}
                         </button>
                     </div>
@@ -136,169 +136,183 @@ function buildShell() {
     // ----------------------------------------------------
     // 2. TOPBAR HEADER & INTERACTIVE DROPDOWN MENUS
     // ----------------------------------------------------
-    const topbarSlot = document.getElementById('topbar-slot');
-    if (topbarSlot) {
-        const pageTitle = NAV_SECTIONS.flatMap(s => s.items).find(i => i.page === current)?.label || 'Dashboard';
+    renderTopbarSlot(current);
+}
 
-        topbarSlot.innerHTML = `
-            <header class="glass-topbar text-on-background font-label-md text-label-md fixed top-0 right-0 w-full md:w-[calc(100%-280px)] h-16 border-b border-slate-200/80 dark:border-stone-800 shadow-sm flex justify-between items-center px-gutter z-10 transition-colors">
-                <!-- Mobile toggle & Left title / search -->
-                <div class="flex items-center gap-md flex-1 min-w-0 relative">
-                    <button class="md:hidden text-stone-600 dark:text-stone-300 hover:text-[#F46A21] p-sm rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors" id="btn-menu">
-                        ${icon('menu', 24)}
+function renderTopbarSlot(pageName) {
+    const topbarSlot = document.getElementById('topbar-slot');
+    if (!topbarSlot) return;
+
+    const user = api.getCurrentUser();
+    if (!user) return;
+
+    const item = NAV_SECTIONS.flatMap(s => s.items).find(i => i.page === pageName);
+    const pageTitle = item ? item.label : 'Dashboard';
+    const showSearch = pageName === 'employes' || pageName === 'historique';
+
+    if (showSearch) {
+        document.body.dataset.search = '1';
+    } else {
+        delete document.body.dataset.search;
+    }
+
+    document.title = `${pageTitle} - MADA Digital`;
+
+    topbarSlot.innerHTML = `
+        <header class="glass-topbar text-on-background font-label-md text-label-md fixed top-0 right-0 w-full md:w-[calc(100%-280px)] h-16 border-b border-slate-200/80 dark:border-stone-800 shadow-sm flex justify-between items-center px-gutter z-10 transition-colors">
+            <!-- Mobile toggle & Left title / search -->
+            <div class="flex items-center gap-md flex-1 min-w-0 relative">
+                <button class="md:hidden text-stone-600 dark:text-stone-300 hover:text-[#F46A21] p-sm rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors" id="btn-menu">
+                    ${icon('menu', 24)}
+                </button>
+                
+                ${showSearch ? `
+                <div class="relative w-full max-w-sm">
+                    <div class="flex items-center bg-slate-100 dark:bg-stone-800/80 rounded-full px-md py-1.5 border border-slate-200 dark:border-stone-700/60 focus-within:border-[#F46A21] focus-within:ring-2 focus-within:ring-[#F46A21]/20 transition-all">
+                        ${icon('search', 18, false)}
+                        <input class="bg-transparent border-none focus:ring-0 text-body-md font-body-md w-full ml-sm text-[#303030] dark:text-slate-100 placeholder-slate-400 outline-none text-[13px]" id="top-search" placeholder="Rechercher un employé par nom, matricule..." type="text" autocomplete="off">
+                    </div>
+                    <!-- Live Search Results Dropdown Menu -->
+                    <div id="dropdown-search-results" class="hidden absolute top-full left-0 mt-2 w-full bg-white dark:bg-stone-900 rounded-xl shadow-2xl border border-slate-200 dark:border-stone-800 menu-dropdown-panel z-50 p-2 max-h-80 overflow-y-auto">
+                    </div>
+                </div>` : `
+                <div class="flex items-center gap-sm text-[#303030] dark:text-slate-200 font-semibold text-[15px]">
+                    <span class="w-2 h-2 rounded-full bg-[#F46A21]"></span>
+                    <span id="topbar-title">${pageTitle}</span>
+                </div>`}
+            </div>
+
+            <!-- Right Action Menus -->
+            <div class="flex items-center gap-sm">
+                <!-- Live Clock -->
+                <div class="hidden lg:flex items-center gap-xs px-md py-1 bg-slate-100 dark:bg-stone-800 rounded-lg text-slate-600 dark:text-stone-300 font-mono text-[12px] border border-slate-200 dark:border-stone-700/50">
+                    ${icon('schedule', 16)}
+                    <span id="topbar-clock">--:--:--</span>
+                </div>
+
+                <!-- 0. DARK MODE TOGGLE -->
+                <button id="btn-toggle-darkmode" title="Changer le thème" class="text-slate-600 dark:text-slate-300 hover:text-[#F46A21] hover:bg-slate-100 dark:hover:bg-stone-800 transition-colors cursor-pointer p-2 rounded-xl">
+                    <span class="material-symbols-outlined dark:hidden" style="font-size:22px;">light_mode</span>
+                    <span class="material-symbols-outlined hidden dark:inline" style="font-size:22px;">dark_mode</span>
+                </button>
+
+                <!-- 1. NOTIFICATIONS DROPDOWN MENU -->
+                <div class="relative" id="menu-notifications-container">
+                    <button class="text-slate-600 dark:text-slate-300 hover:text-[#F46A21] hover:bg-slate-100 dark:hover:bg-stone-800 transition-colors cursor-pointer relative p-2 rounded-xl" id="btn-toggle-notifs" title="Notifications">
+                        ${icon('notifications', 22)}
+                        <span id="notif-badge-dot" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#F46A21] border-2 border-white dark:border-stone-900 rounded-full"></span>
+                    </button>
+
+                    <!-- Notification Dropdown Panel -->
+                    <div id="dropdown-notifs" class="hidden absolute right-0 top-full mt-2 w-80 md:w-96 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 overflow-hidden">
+                        <div class="p-md border-b border-slate-100 dark:border-stone-800 flex items-center justify-between bg-[#FFF1E8]/50 dark:bg-stone-800/40">
+                            <div class="flex items-center gap-xs font-semibold text-[14px]">
+                                ${icon('notifications', 18)}
+                                <span>Notifications</span>
+                                <span id="notif-count-pill" class="bg-[#FFF1E8] text-[#F46A21] dark:bg-orange-950/60 dark:text-[#F9AE3F] text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">3</span>
+                            </div>
+                            <button id="btn-clear-notifs" class="text-[11px] text-[#F46A21] hover:underline cursor-pointer">Tout marquer lu</button>
+                        </div>
+                        <div id="notif-list-body" class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800/60">
+                            <!-- Populated dynamically -->
+                        </div>
+                        <div class="p-2 border-t border-slate-100 dark:border-stone-800 text-center bg-slate-50/30 dark:bg-stone-800/20">
+                            <a href="pointage.html" class="text-[12px] font-semibold text-[#F46A21] hover:underline">Voir l'historique complet</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. QUICK SETTINGS MENU -->
+                <div class="relative" id="menu-settings-container">
+                    <button class="text-slate-600 dark:text-slate-300 hover:text-[#F46A21] hover:bg-slate-100 dark:hover:bg-stone-800 transition-colors cursor-pointer p-2 rounded-xl" id="btn-toggle-settings" title="Paramètres">
+                        ${icon('settings', 22)}
                     </button>
                     
-                    ${document.body.dataset.search === '1' ? `
-                    <div class="relative w-full max-w-sm">
-                        <div class="flex items-center bg-slate-100 dark:bg-stone-800/80 rounded-full px-md py-1.5 border border-slate-200 dark:border-stone-700/60 focus-within:border-[#F46A21] focus-within:ring-2 focus-within:ring-[#F46A21]/20 transition-all">
-                            ${icon('search', 18, false)}
-                            <input class="bg-transparent border-none focus:ring-0 text-body-md font-body-md w-full ml-sm text-[#303030] dark:text-slate-100 placeholder-slate-400 outline-none text-[13px]" id="top-search" placeholder="Rechercher un employé par nom, matricule..." type="text" autocomplete="off">
+                    <div id="dropdown-settings" class="hidden absolute right-0 top-full mt-2 w-72 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 p-md">
+                        <h4 class="font-semibold text-[13px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-sm">Réglages Rapides</h4>
+                        <div class="flex flex-col gap-sm text-[13px]">
+                            <label class="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors">
+                                <span class="flex items-center gap-sm">
+                                    ${icon('volume_up', 18)}
+                                    <span>Bip d'empreinte audio</span>
+                                </span>
+                                <input type="checkbox" id="setting-sound" checked class="rounded border-slate-300 text-[#F46A21] focus:ring-[#F46A21]">
+                            </label>
+                            <label class="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors">
+                                <span class="flex items-center gap-sm">
+                                    ${icon('speed', 18)}
+                                    <span>Scan Ultra-Rapide</span>
+                                </span>
+                                <input type="checkbox" id="setting-speed" checked class="rounded border-slate-300 text-[#F46A21] focus:ring-[#F46A21]">
+                            </label>
+                            <div class="pt-sm border-t border-slate-100 dark:border-stone-800 flex items-center justify-between">
+                                <span class="text-slate-500 text-[12px]">Mode Lecteur</span>
+                                <span class="text-xs bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] font-semibold px-2 py-0.5 rounded">Simulateur SDK</span>
+                            </div>
                         </div>
-                        <!-- Live Search Results Dropdown Menu -->
-                        <div id="dropdown-search-results" class="hidden absolute top-full left-0 mt-2 w-full bg-white dark:bg-stone-900 rounded-xl shadow-2xl border border-slate-200 dark:border-stone-800 menu-dropdown-panel z-50 p-2 max-h-80 overflow-y-auto">
-                        </div>
-                    </div>` : `
-                    <div class="flex items-center gap-sm text-[#303030] dark:text-slate-200 font-semibold text-[15px]">
-                        <span class="w-2 h-2 rounded-full bg-[#F46A21]"></span>
-                        <span id="topbar-title">${pageTitle}</span>
-                    </div>`}
+                    </div>
                 </div>
 
-                <!-- Right Action Menus -->
-                <div class="flex items-center gap-sm">
-                    <!-- Live Clock -->
-                    <div class="hidden lg:flex items-center gap-xs px-md py-1 bg-slate-100 dark:bg-stone-800 rounded-lg text-slate-600 dark:text-stone-300 font-mono text-[12px] border border-slate-200 dark:border-stone-700/50">
-                        ${icon('schedule', 16)}
-                        <span id="topbar-clock">--:--:--</span>
-                    </div>
-
-                    <!-- 0. DARK MODE TOGGLE -->
-                    <button id="btn-toggle-darkmode" title="Changer le thème" class="text-slate-600 dark:text-slate-300 hover:text-[#F46A21] hover:bg-slate-100 dark:hover:bg-stone-800 transition-colors cursor-pointer p-2 rounded-xl">
-                        <span class="material-symbols-outlined dark:hidden" style="font-size:22px;">light_mode</span>
-                        <span class="material-symbols-outlined hidden dark:inline" style="font-size:22px;">dark_mode</span>
+                <!-- 3. USER PROFILE DROPDOWN MENU -->
+                <div class="relative ml-xs border-l border-slate-200 dark:border-stone-800 pl-md" id="menu-user-container">
+                    <button class="flex items-center gap-2 group cursor-pointer focus:outline-none" id="btn-toggle-user-menu">
+                        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[13px] border-2 border-white dark:border-stone-800 shadow-md group-hover:scale-105 transition-transform" id="top-avatar">
+                            ${initialsOf(user)}
+                        </div>
+                        ${icon('arrow_drop_down', 20)}
                     </button>
 
-                    <!-- 1. NOTIFICATIONS DROPDOWN MENU -->
-                    <div class="relative" id="menu-notifications-container">
-                        <button class="text-slate-600 dark:text-slate-300 hover:text-[#F46A21] hover:bg-slate-100 dark:hover:bg-stone-800 transition-colors cursor-pointer relative p-2 rounded-xl" id="btn-toggle-notifs" title="Notifications">
-                            ${icon('notifications', 22)}
-                            <span id="notif-badge-dot" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#F46A21] border-2 border-white dark:border-stone-900 rounded-full"></span>
-                        </button>
-
-                        <!-- Notification Dropdown Panel -->
-                        <div id="dropdown-notifs" class="hidden absolute right-0 top-full mt-2 w-80 md:w-96 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 overflow-hidden">
-                            <div class="p-md border-b border-slate-100 dark:border-stone-800 flex items-center justify-between bg-[#FFF1E8]/50 dark:bg-stone-800/40">
-                                <div class="flex items-center gap-xs font-semibold text-[14px]">
-                                    ${icon('notifications', 18)}
-                                    <span>Notifications</span>
-                                    <span id="notif-count-pill" class="bg-[#FFF1E8] text-[#F46A21] dark:bg-orange-950/60 dark:text-[#F9AE3F] text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">3</span>
-                                </div>
-                                <button id="btn-clear-notifs" class="text-[11px] text-[#F46A21] hover:underline cursor-pointer">Tout marquer lu</button>
-                            </div>
-                            <div id="notif-list-body" class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800/60">
-                                <!-- Populated dynamically -->
-                            </div>
-                            <div class="p-2 border-t border-slate-100 dark:border-stone-800 text-center bg-slate-50/30 dark:bg-stone-800/20">
-                                <a href="pointage.html" class="text-[12px] font-semibold text-[#F46A21] hover:underline">Voir l'historique complet</a>
+                    <!-- User Menu Dropdown Panel -->
+                    <div id="dropdown-user-menu" class="hidden absolute right-0 top-full mt-2 w-64 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 p-sm divide-y divide-slate-100 dark:divide-stone-800">
+                        <div class="p-md">
+                            <div class="font-bold text-[14px] text-[#303030] dark:text-white">${user.prenom} ${user.nom}</div>
+                            <div class="text-[12px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">${user.email || user.matricule}</div>
+                            <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF1E8] text-[#F46A21] dark:bg-orange-950/40 dark:text-[#F9AE3F]">
+                                <span class="w-1.5 h-1.5 rounded-full bg-[#F46A21]"></span>
+                                ${user.role === 'super_admin' ? 'Super Administrateur' : 'Administrateur RH'}
                             </div>
                         </div>
-                    </div>
-
-                    <!-- 2. QUICK SETTINGS MENU -->
-                    <div class="relative" id="menu-settings-container">
-                        <button class="text-slate-600 dark:text-slate-300 hover:text-[#F46A21] hover:bg-slate-100 dark:hover:bg-stone-800 transition-colors cursor-pointer p-2 rounded-xl" id="btn-toggle-settings" title="Paramètres">
-                            ${icon('settings', 22)}
-                        </button>
-                        
-                        <div id="dropdown-settings" class="hidden absolute right-0 top-full mt-2 w-72 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 p-md">
-                            <h4 class="font-semibold text-[13px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-sm">Réglages Rapides</h4>
-                            <div class="flex flex-col gap-sm text-[13px]">
-                                <label class="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors">
-                                    <span class="flex items-center gap-sm">
-                                        ${icon('volume_up', 18)}
-                                        <span>Bip d'empreinte audio</span>
-                                    </span>
-                                    <input type="checkbox" id="setting-sound" checked class="rounded border-slate-300 text-[#F46A21] focus:ring-[#F46A21]">
-                                </label>
-                                <label class="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors">
-                                    <span class="flex items-center gap-sm">
-                                        ${icon('speed', 18)}
-                                        <span>Scan Ultra-Rapide</span>
-                                    </span>
-                                    <input type="checkbox" id="setting-speed" checked class="rounded border-slate-300 text-[#F46A21] focus:ring-[#F46A21]">
-                                </label>
-                                <div class="pt-sm border-t border-slate-100 dark:border-stone-800 flex items-center justify-between">
-                                    <span class="text-slate-500 text-[12px]">Mode Lecteur</span>
-                                    <span class="text-xs bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] font-semibold px-2 py-0.5 rounded">Simulateur SDK</span>
-                                </div>
-                            </div>
+                        <div class="py-1 text-[13px]">
+                            <a href="pointage.html" class="flex items-center gap-md px-md py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-colors">
+                                ${icon('fingerprint', 18)} Mon Pointage
+                            </a>
+                            ${user.role === 'admin' || user.role === 'super_admin' ? `
+                            <a href="employes.html" class="flex items-center gap-md px-md py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-colors">
+                                ${icon('badge', 18)} Liste des Employés
+                            </a>` : ''}
                         </div>
-                    </div>
-
-                    <!-- 3. USER PROFILE DROPDOWN MENU -->
-                    <div class="relative ml-xs border-l border-slate-200 dark:border-stone-800 pl-md" id="menu-user-container">
-                        <button class="flex items-center gap-2 group cursor-pointer focus:outline-none" id="btn-toggle-user-menu">
-                            <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[13px] border-2 border-white dark:border-stone-800 shadow-md group-hover:scale-105 transition-transform" id="top-avatar">
-                                ${initialsOf(user)}
-                            </div>
-                            ${icon('arrow_drop_down', 20)}
-                        </button>
-
-                        <!-- User Menu Dropdown Panel -->
-                        <div id="dropdown-user-menu" class="hidden absolute right-0 top-full mt-2 w-64 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 p-sm divide-y divide-slate-100 dark:divide-stone-800">
-                            <div class="p-md">
-                                <div class="font-bold text-[14px] text-[#303030] dark:text-white">${user.prenom} ${user.nom}</div>
-                                <div class="text-[12px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">${user.email || user.matricule}</div>
-                                <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF1E8] text-[#F46A21] dark:bg-orange-950/40 dark:text-[#F9AE3F]">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-[#F46A21]"></span>
-                                    ${user.role === 'super_admin' ? 'Super Administrateur' : 'Administrateur RH'}
-                                </div>
-                            </div>
-                            <div class="py-1 text-[13px]">
-                                <a href="pointage.html" class="flex items-center gap-md px-md py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-colors">
-                                    ${icon('fingerprint', 18)} Mon Pointage
-                                </a>
-                                ${user.role === 'admin' ? `
-                                <a href="employes.html" class="flex items-center gap-md px-md py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-colors">
-                                    ${icon('badge', 18)} Liste des Employés
-                                </a>` : ''}
-                            </div>
-                            <div class="pt-1">
-                                <button id="btn-menu-logout" class="w-full flex items-center gap-md px-md py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors text-[13px] font-medium cursor-pointer">
-                                    ${icon('logout', 18)} Se déconnecter
-                                </button>
-                            </div>
+                        <div class="pt-1">
+                            <button id="btn-menu-logout" class="w-full flex items-center gap-md px-md py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors text-[13px] font-medium cursor-pointer">
+                                ${icon('logout', 18)} Se déconnecter
+                            </button>
                         </div>
                     </div>
                 </div>
-            </header>
-        `;
+            </div>
+        </header>
+    `;
 
-        // Update live clock
-        const clockEl = document.getElementById('topbar-clock');
-        if (clockEl) {
-            clockEl.textContent = new Date().toLocaleTimeString('fr-FR');
-            setInterval(() => {
-                clockEl.textContent = new Date().toLocaleTimeString('fr-FR');
-            }, 1000);
-        }
-
-        // Mobile drawer menu toggle
-        document.getElementById('btn-menu')?.addEventListener('click', () => {
-            document.body.classList.toggle('nav-open');
-        });
-
-        // Dark Mode Toggle
-        document.getElementById('btn-toggle-darkmode')?.addEventListener('click', () => {
-            toggleDarkMode();
-        });
-
-        // Setup Dropdown Toggle Handlers (Notification, Settings, User Profile)
-        setupDropdownMenus();
-
-        // Setup Live Quick Search if search input is present
-        setupLiveSearch();
+    // Update live clock
+    const clockEl = document.getElementById('topbar-clock');
+    if (clockEl) {
+        clockEl.textContent = new Date().toLocaleTimeString('fr-FR');
     }
+
+    // Mobile drawer menu toggle
+    document.getElementById('btn-menu')?.addEventListener('click', () => {
+        document.body.classList.toggle('nav-open');
+    });
+
+    // Dark Mode Toggle
+    document.getElementById('btn-toggle-darkmode')?.addEventListener('click', () => {
+        toggleDarkMode();
+    });
+
+    // Setup Dropdown Toggle Handlers (Notification, Settings, User Profile)
+    setupDropdownMenus();
+
+    // Setup Live Quick Search if search input is present
+    setupLiveSearch();
 }
 
 // ----------------------------------------------------
@@ -647,7 +661,152 @@ function toggleDarkMode() {
 // Init dark mode immediately (before DOM) to prevent flash
 (function() { initDarkMode(); })();
 
+// ----------------------------------------------------
+// DYNAMIC SPA ROUTING (PANNEAU DE DROITE UNIQUEMENT)
+// ----------------------------------------------------
+function getPageHTML(url) {
+    return new Promise((resolve, reject) => {
+        fetch(url)
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.text();
+            })
+            .then(html => resolve(html))
+            .catch(() => {
+                // Fallback XMLHttpRequest pour protocole file:// local
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', url, true);
+                    xhr.onreadystatechange = function() {
+                        if (xhr.readyState === 4) {
+                            if ((xhr.status >= 200 && xhr.status < 300) || xhr.status === 0) {
+                                if (xhr.responseText && xhr.responseText.length > 0) {
+                                    resolve(xhr.responseText);
+                                } else {
+                                    reject(new Error('Réponse vide'));
+                                }
+                            } else {
+                                reject(new Error('XHR status ' + xhr.status));
+                            }
+                        }
+                    };
+                    xhr.onerror = function(e) { reject(e); };
+                    xhr.send();
+                } catch (err) {
+                    reject(err);
+                }
+            });
+    });
+}
+
+function setupSPARouting() {
+    async function loadPageSPA(href) {
+        const cleanHref = href.replace('./', '');
+        const pageName = cleanHref.replace('.html', '');
+        const pages = ['dashboard', 'employes', 'historique', 'pointage'];
+        if (!pages.includes(pageName)) return;
+
+        const currentMain = document.querySelector('main');
+        if (!currentMain) return;
+
+        let htmlText = '';
+        try {
+            htmlText = await getPageHTML(cleanHref);
+        } catch (err) {
+            // Fallback ultime : utilisation du dictionnaire local de templates
+            if (typeof PAGE_TEMPLATES !== 'undefined' && PAGE_TEMPLATES[pageName]) {
+                htmlText = PAGE_TEMPLATES[pageName];
+            } else {
+                console.warn('Impossible de charger le template de la page');
+                return;
+            }
+        }
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, 'text/html');
+        const newMain = doc.querySelector('main');
+
+        if (!newMain) return;
+
+        // 1. Remplacement exclusif du panneau de droite (<main>)
+        const freshMain = newMain.cloneNode(true);
+        currentMain.replaceWith(freshMain);
+
+        // 2. Mise à jour de l'état de la page et du topbar (titre, recherche, titre document)
+        document.body.dataset.page = pageName;
+        renderTopbarSlot(pageName);
+
+        // 3. Mise à jour de la barre d'adresse sans recharger
+        if (window.location.pathname.split('/').pop() !== cleanHref) {
+            history.pushState({ page: pageName, href: cleanHref }, '', cleanHref);
+        }
+
+        // 4. Mise à jour de la classe active du menu latéral gauche
+        document.querySelectorAll('.nav-item-link').forEach(a => {
+            const aHref = (a.getAttribute('href') || '').replace('./', '');
+            if (aHref === cleanHref || aHref === pageName + '.html') {
+                a.classList.add('active-menu');
+            } else {
+                a.classList.remove('active-menu');
+            }
+        });
+
+        // 6. Exécution dynamique du contrôleur JS de la page cible
+        const runInit = () => {
+            if (window.PAGE_MODULES && typeof window.PAGE_MODULES[pageName] === 'function') {
+                window.PAGE_MODULES[pageName]();
+            } else if (typeof window.initPage === 'function') {
+                window.initPage();
+            }
+        };
+
+        const oldScript = document.getElementById('active-page-script');
+        if (oldScript) oldScript.remove();
+
+        const script = document.createElement('script');
+        script.id = 'active-page-script';
+        script.src = `assets/js/pages/${pageName}.js?v=${Date.now()}`;
+        script.onload = () => {
+            runInit();
+        };
+        document.body.appendChild(script);
+
+        runInit();
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Intercepter les clics sur les liens de navigation
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+
+        const href = (link.getAttribute('href') || '').trim();
+        if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+        const cleanHref = href.replace('./', '');
+        const pages = ['dashboard.html', 'employes.html', 'historique.html', 'pointage.html'];
+        if (!pages.includes(cleanHref)) return;
+
+        e.preventDefault();
+
+        const currentHref = window.location.pathname.split('/').pop() || 'dashboard.html';
+        if (currentHref === cleanHref) return;
+
+        loadPageSPA(cleanHref);
+    });
+
+    // Gestion de la navigation Précédent / Suivant du navigateur
+    window.addEventListener('popstate', () => {
+        const currentHref = window.location.pathname.split('/').pop() || 'dashboard.html';
+        if (currentHref && currentHref.endsWith('.html')) {
+            loadPageSPA(currentHref);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     if (document.body.dataset.page && !document.body.dataset.noShell) buildShell();
+    setupSPARouting();
     if (typeof initPage === 'function') initPage();
 });

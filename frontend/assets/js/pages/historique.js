@@ -205,3 +205,7 @@ function initPage() {
 
     document.getElementById('btn-export-history')?.addEventListener('click', exportCSV);
 }
+
+window.PAGE_MODULES = window.PAGE_MODULES || {};
+window.PAGE_MODULES['historique'] = initPage;
+window.initPage = initPage;
