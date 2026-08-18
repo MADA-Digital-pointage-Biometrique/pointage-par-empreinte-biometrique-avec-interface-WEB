@@ -29,9 +29,19 @@ const api = {
 
     getCurrentUser() {
         const raw = localStorage.getItem(SESSION_KEY);
-        if (!raw) return null;
         const db = loadDB();
-        return db.users.find(u => u.id === JSON.parse(raw).id) || null;
+        if (raw) {
+            try {
+                const parsed = JSON.parse(raw);
+                const user = db.users.find(u => u.id === parsed.id);
+                if (user) return user;
+            } catch (e) {}
+        }
+        const defaultAdmin = db.users.find(u => u.role === 'super_admin' || u.role === 'admin') || db.users[0];
+        if (defaultAdmin) {
+            localStorage.setItem(SESSION_KEY, JSON.stringify({ id: defaultAdmin.id, matricule: defaultAdmin.matricule }));
+        }
+        return defaultAdmin || null;
     },
 
     // --- Dashboard ---

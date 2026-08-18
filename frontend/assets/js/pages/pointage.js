@@ -169,3 +169,7 @@ function initPage() {
     document.getElementById('btn-scan')?.addEventListener('click', triggerScan);
     document.getElementById('btn-refresh-history')?.addEventListener('click', renderHistoryTable);
 }
+
+window.PAGE_MODULES = window.PAGE_MODULES || {};
+window.PAGE_MODULES['pointage'] = initPage;
+window.initPage = initPage;

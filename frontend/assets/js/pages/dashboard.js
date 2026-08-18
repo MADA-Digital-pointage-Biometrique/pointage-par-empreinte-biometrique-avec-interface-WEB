@@ -151,3 +151,7 @@ async function initPage() {
         flash('Le rapport CSV des pointages a été généré et téléchargé.', 'success');
     });
 }
+
+window.PAGE_MODULES = window.PAGE_MODULES || {};
+window.PAGE_MODULES['dashboard'] = initPage;
+window.initPage = initPage;

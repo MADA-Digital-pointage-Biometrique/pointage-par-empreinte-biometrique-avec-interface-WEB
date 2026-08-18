@@ -4,14 +4,33 @@
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Historique des Pointages & Rapports - MADA Digital</title>
-    <script>!function(){var e=localStorage.getItem('mada-theme'),d=window.matchMedia('(prefers-color-scheme: dark)').matches;(e==='dark'||(e===null&&d))&&document.documentElement.classList.add('dark')}();</script>
+    <script>
+        /* ── ANTI-FLASH : doit s'exécuter avant tout rendu ── */
+        (function() {
+            document.documentElement.classList.add('page-loading');
+            var saved = localStorage.getItem('mada-theme');
+            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (saved === 'dark' || (saved === null && prefersDark)) {
+                document.documentElement.classList.add('dark');
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        document.documentElement.classList.remove('page-loading');
+                    });
+                });
+            });
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="assets/js/theme.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/app.css">
 </head>
-<body class="bg-[#F7F8FA] dark:bg-stone-950 text-[#303030] dark:text-slate-100 antialiased flex transition-colors" data-page="historique" data-search="1">
+<body class="bg-[#F7F8FA] dark:bg-stone-950 text-[#303030] dark:text-slate-100 antialiased flex" data-page="historique" data-search="1">
     <!-- Dynamic App Shell & Topbar loaded by app.js -->
     <div id="app-shell"></div>
     <div id="topbar-slot"></div>
@@ -143,9 +162,10 @@
         </main>
     </div>
 
-    <script src="assets/js/data.js"></script>
-    <script src="assets/js/api.js"></script>
-    <script src="assets/js/app.js"></script>
-    <script src="assets/js/pages/historique.js"></script>
+    <script src="assets/js/data.js?v=1.2"></script>
+    <script src="assets/js/api.js?v=1.2"></script>
+    <script src="assets/js/templates.js?v=1.2"></script>
+    <script src="assets/js/app.js?v=1.2"></script>
+    <script src="assets/js/pages/historique.js?v=1.2"></script>
 </body>
 </html>
