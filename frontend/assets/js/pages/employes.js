@@ -2,12 +2,15 @@
 // Page : Gestion des employés & Empreintes
 // ============================================================
 
-let allUsers = [];
+function initials(u) {
+    if (!u || !u.prenom || !u.nom) return 'U';
+    return (u.prenom[0] + u.nom[0]).toUpperCase();
+}
 
 function avatar(u) {
     return `
         <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-[12px] shadow-sm">
-            ${initialsOf(u)}
+            ${initials(u)}
         </div>`;
 }
 

@@ -34,5 +34,3 @@ CREATE TABLE IF NOT EXISTS empreintes (
     UNIQUE KEY uniq_empreinte (user_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-
--- Compte admin par défaut : voir database/seed.php (matricule ADM001 / mot de passe admin123)

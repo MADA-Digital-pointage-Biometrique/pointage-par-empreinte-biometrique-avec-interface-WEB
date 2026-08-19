@@ -40,40 +40,71 @@
 }
 
 .dark {
-    /* ── PALETTE OFFICIELLE DU MODE SOMBRE ── */
-    --bg-main:              #1E2530;
-    --bg-card:              #2A3240;
-    --background:           #1E2530;
-    --bg-secondary:         #19202A;
-    --sidebar:              #19202A;
-    --card:                 #2A3240;
-    --card-bg:              #2A3240;
+    /* ── PALETTE OFFICIELLE DESIGN SYSTEM DARK ── */
+    --bg-app:               #111827;
+    --bg-surface:           #1F2937;
+    --bg-surface-2:         #111827;
+    --bg-black-100:         #000000;
 
-    --text-primary:         #FFFFFF;
-    --text-secondary:       #A0A7B5;
-    --text-muted:           #5C667A;
+    --bg-main:              #111827;
+    --bg-card:              #1F2937;
+    --background:           #111827;
+    --bg-secondary:         #111827;
+    --sidebar:              #111827;
+    --card:                 #1F2937;
+    --card-bg:              #1F2937;
 
-    --accent-orange:        #FF6B00;
-    --accent-blue:          #007BFF;
-    --accent-green:         #00C853;
-    --icon-neutral:         #5C667A;
+    --border-default:       #374151;
+    --border-strong:        #374151;
+    --border:               #374151;
+    --card-border:          #374151;
 
-    --border:               #3A4556;
-    --card-border:          #3A4556;
-    --hover-light:          #323C4C;
+    --text-primary:         #F9FAFB;
+    --text-secondary:       #9CA3AF;
+    --text-muted:           #9CA3AF;
+    --text-on-accent:       #FFFFFF;
 
-    --primary:              #FF6B00;
-    --primary-hover:        #FF8124;
-    --orange-primary:       #FF6B00;
-    --orange-accent-light:  #3A2618;
-    --menu-primary-glow:    rgba(255, 107, 0, 0.20);
-    --menu-secondary-glow:  rgba(255, 129, 36, 0.10);
+    --accent-default:       #3B82F6;
+    --accent-hover:         #2563EB;
+    --accent-weak:          #1E40AF;
 
-    /* ── États ── */
-    --success:              #00C853;
-    --warning:              #F59E0B;
-    --danger:               #EF4444;
-    --info:                 #007BFF;
+    --primary:              #3B82F6;
+    --primary-hover:        #2563EB;
+    --accent-orange:        #3B82F6;
+    --accent-blue:          #3B82F6;
+    --accent-green:         #15803D;
+    --icon-neutral:         #9CA3AF;
+    --hover-light:          #1F2937;
+
+    --orange-primary:       #3B82F6;
+    --orange-accent-light:  #1E40AF;
+    --menu-primary-glow:    rgba(59, 130, 246, 0.20);
+    --menu-secondary-glow:  rgba(37, 99, 235, 0.10);
+
+    /* ── Statuts (Design System Dark Tokens) ── */
+    --status-success-bg:    #15803D;
+    --status-success-fg:    #DCFCE7;
+    --status-done-bg:       #FEE2E2;
+    --status-done-fg:       #B91C1C;
+    --status-warning-bg:    #FEF9C3;
+    --status-warning-fg:    #A16207;
+    --status-info-bg:       #FCE7FD;
+    --status-info-fg:       #E527E9;
+    --status-paid-bg:       #ECFEFF;
+    --status-paid-fg:       #22D3EE;
+    --status-danger-bg:     #F7EBF0;
+    --status-danger-fg:     #BB5785;
+    --status-noshow-bg:     #F5EBEF;
+    --status-noshow-fg:     #BB7696;
+    --status-nonight-bg:    #FFEDD5;
+    --status-nonight-fg:    #F97316;
+    --status-free-bg:       #EDE9FE;
+    --status-free-fg:       #6D28D9;
+
+    --success:              #15803D;
+    --warning:              #FEF9C3;
+    --danger:               #F7EBF0;
+    --info:                 #FCE7FD;
 }
 
 /* ── HARMONISATION GLOBALE DU MODE SOMBRE DANS TOUTES LES PAGES ── */
@@ -174,9 +205,9 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
     box-shadow: 4px 0 16px rgba(0, 0, 0, 0.05);
 }
 .dark .glass-sidebar {
-    /* ── DARK : profond bleu-ardoise ── */
-    background: linear-gradient(180deg, #19202A 0%, #1E2530 60%, #222C3A 100%);
-    border-right: 1px solid #3A4556;
+    /* ── DARK : fond sombre bg.app ── */
+    background: #111827;
+    border-right: 1px solid #374151;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
 }
 .glass-topbar {
@@ -186,27 +217,27 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
     -webkit-backdrop-filter: blur(12px);
 }
 .dark .glass-topbar {
-    background: rgba(30, 37, 48, 0.97);
+    background: rgba(17, 24, 39, 0.97);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid #3A4556;
+    border-bottom: 1px solid #374151;
 }
 
 /* ── SIDEBAR COLOR TOKENS ─────────────────────────────────── */
 
 /* Brand title & subtitle */
 .nav-brand-title        { color: #1E293B; }
-.dark .nav-brand-title  { color: #FFFFFF; }
+.dark .nav-brand-title  { color: #F9FAFB; }
 .nav-brand-sub          { color: #94A3B8; }
-.dark .nav-brand-sub    { color: #737D8F; }
+.dark .nav-brand-sub    { color: #9CA3AF; }
 
 /* Divider horizontal */
 .nav-divider            { background-color: #E2E8F0; }
-.dark .nav-divider      { background-color: #3A4556; }
+.dark .nav-divider      { background-color: #374151; }
 
 /* Titres de sections (VUE GÉNÉRALE, GESTION…) */
 .nav-section-title      { color: #EA580C; opacity: 0.75; }
-.dark .nav-section-title{ color: #7B8799; opacity: 0.90; }
+.dark .nav-section-title{ color: #9CA3AF; opacity: 0.90; }
 
 /* Badge "En service" */
 .nav-badge-service {
@@ -215,9 +246,9 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
     border:           1px solid #FDBA74;
 }
 .dark .nav-badge-service {
-    background-color: #3A2618;
-    color:            #FF8124;
-    border-color:     rgba(255, 107, 0, 0.35);
+    background-color: #1E40AF;
+    color:            #FFFFFF;
+    border-color:     #3B82F6;
 }
 
 /* Badge count (nombre d'items) */
@@ -226,13 +257,13 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
     color:            #64748B;
 }
 .dark .nav-badge-count {
-    background-color: #2A3240;
-    color:            #A0A7B5;
+    background-color: #1F2937;
+    color:            #9CA3AF;
 }
 
 /* Bordure supérieure du footer */
 .nav-footer-border      { border-top: 1px solid #E2E8F0; }
-.dark .nav-footer-border{ border-top: 1px solid #3A4556; }
+.dark .nav-footer-border{ border-top: 1px solid #374151; }
 
 /* Zone utilisateur (card bas de sidebar) */
 .nav-user-zone {
@@ -270,7 +301,7 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
     background: var(--primary);
     border-radius: 0 4px 4px 0;
     transition: transform 0.2s ease, background 0.2s ease;
-    box-shadow: 0 0 10px rgba(255, 122, 0, 0.65);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.65);
 }
 /* Actif — light mode */
 .nav-item-link.active-menu {
@@ -281,9 +312,9 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
 }
 /* Actif — dark mode */
 .dark .nav-item-link.active-menu {
-    background: #3A2618;
-    color: #FF6B00 !important;
-    border-color: rgba(255, 107, 0, 0.40);
+    background: #1E40AF;
+    color: #FFFFFF !important;
+    border-color: #3B82F6;
 }
 .nav-item-link.active-menu::before {
     transform: translateY(-50%) scaleY(1);
@@ -296,8 +327,8 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
 }
 /* Hover — dark mode */
 .dark .nav-item-link:hover:not(.active-menu) {
-    background: #323C4C;
-    color: #FFFFFF !important;
+    background: #1F2937;
+    color: #F9FAFB !important;
 }
 
 /* Menu Dropdown Card Panels */
@@ -308,10 +339,13 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
     border: 1px solid #E5E7EB;
 }
 .dark .menu-dropdown-panel {
-    border-color: #3A4556;
-    background-color: #2A3240;
+    border-color: #374151;
+    background-color: #1F2937;
     box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.70);
 }
+/* Anti-flash minimal pour l'icône Light/Dark */
+html:not(.dark) .dark\:inline { display: none !important; }
+html.dark .dark\:hidden { display: none !important; }
 @keyframes menuFadeIn {
     0% { opacity: 0; transform: translateY(-8px) scale(0.97); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -400,4 +434,121 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
 .card-hover:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.08);
+}
+/* ============================================================
+   MODE MONO-FICHIER (index.html) : vue connexion plein écran
+   ============================================================ */
+body.auth-view #main-viewport {
+    margin-left: 0 !important;
+}
+
+body.auth-view .glass-sidebar,
+body.auth-view .glass-topbar {
+    display: none !important;
+}
+
+body.auth-view #spa-main {
+    margin-top: 0;
+    max-width: none;
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ============================================================
+   SIDEBAR RÉDUCTIBLE (mode bureau md+ uniquement)
+   ============================================================ */
+.glass-sidebar {
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[class*="md:ml-[280px]"] {
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (min-width: 768px) {
+    body.sidebar-collapsed .glass-sidebar {
+        width: 76px;
+    }
+
+    body.sidebar-collapsed [class*="md:ml-[280px]"] {
+        margin-left: 76px !important;
+    }
+
+    body.sidebar-collapsed .glass-topbar {
+        width: calc(100% - 76px) !important;
+    }
+
+    /* Masquer les textes : icônes seules */
+    body.sidebar-collapsed .nav-brand-title,
+    body.sidebar-collapsed .nav-brand-sub,
+    body.sidebar-collapsed .nav-section-title,
+    body.sidebar-collapsed .nav-item-link span:not(.material-symbols-outlined),
+    body.sidebar-collapsed .nav-badge-service,
+    body.sidebar-collapsed .nav-badge-count,
+    body.sidebar-collapsed .nav-user-name,
+    body.sidebar-collapsed .nav-user-info,
+    body.sidebar-collapsed .sidebar-toggle-label,
+    body.sidebar-collapsed #btn-logout {
+        display: none;
+    }
+
+    /* Centrer les icônes des liens */
+    body.sidebar-collapsed .nav-item-link {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    /* Zone utilisateur : avatar seul, centré */
+    body.sidebar-collapsed .nav-user-zone {
+        justify-content: center;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    /* Bouton de repli : icône seule, centrée, rotation pour indiquer l'expansion */
+    body.sidebar-collapsed #btn-toggle-sidebar {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    body.sidebar-collapsed #btn-toggle-sidebar .material-symbols-outlined {
+        transform: rotate(180deg);
+    }
+
+    /* Header de marque : logo centré */
+    body.sidebar-collapsed .glass-sidebar .px-lg {
+        justify-content: center;
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+}
+
+/* ============================================================
+   TOOLTIP D'ONGLET (indice au survol des liens de navigation)
+   ============================================================ */
+.nav-tooltip {
+    position: fixed;
+    transform: translateY(-50%);
+    z-index: 100;
+    background: #FFFFFF;
+    color: #303030;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: menuFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.dark .nav-tooltip {
+    background: #2A3240;
+    color: #E5E7EB;
+    border-color: #3A4556;
 }

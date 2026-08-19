@@ -25,6 +25,12 @@ const NAV_SECTIONS = [
             { page: 'employes', link: 'employes.html', icon: 'badge', label: 'Employés & Empreintes', adminOnly: true, badgeId: 'badge-count-emp' },
             { page: 'historique', link: 'historique.html', icon: 'history', label: 'Historique des Pointages' },
         ]
+    },
+    {
+        title: 'SYSTÈME',
+        items: [
+            { page: 'parametres', link: 'parametres.html', icon: 'settings', label: 'Paramètres', collapseToggle: true },
+        ]
     }
 ];
 
@@ -34,6 +40,48 @@ let notificationsList = [
     { id: 2, title: 'Nouvel enrôlement', time: 'Il y a 25 min', text: 'Empreinte enregistrée pour ADM001', read: false, icon: 'fingerprint', color: 'text-blue-500' },
     { id: 3, title: 'Retard détecté', time: 'Hier à 08:45', text: 'EMP002 (Sophie Martin) a pointé en retard', read: true, icon: 'warning', color: 'text-amber-500' }
 ];
+
+// ----------------------------------------------------
+// SIDEBAR RÉDUCTIBLE (bureau uniquement, md+)
+// ----------------------------------------------------
+function setSidebarCollapsed(collapsed) {
+    document.body.classList.toggle('sidebar-collapsed', !!collapsed);
+    storage.set('mada-sidebar', collapsed ? '1' : '0');
+    const btn = document.getElementById('btn-toggle-sidebar');
+    if (btn) btn.title = collapsed ? 'Développer le menu' : 'Réduire le menu';
+}
+
+function toggleSidebar() {
+    setSidebarCollapsed(!document.body.classList.contains('sidebar-collapsed'));
+}
+
+function initSidebar() {
+    const collapsed = storage.get('mada-sidebar') === '1';
+    document.body.classList.toggle('sidebar-collapsed', collapsed);
+    const btn = document.getElementById('btn-toggle-sidebar');
+    if (btn) btn.title = collapsed ? 'Développer le menu' : 'Réduire le menu';
+}
+
+// Tooltip (indice d'onglet) au survol des liens de navigation
+function setupNavTooltips() {
+    const tip = document.createElement('div');
+    tip.className = 'nav-tooltip hidden';
+    document.body.appendChild(tip);
+
+    document.querySelectorAll('.nav-item-link').forEach(a => {
+        a.addEventListener('mouseenter', () => {
+            const label = a.dataset.label || '';
+            if (!label) return;
+            tip.textContent = label;
+            const r = a.getBoundingClientRect();
+            tip.style.top = (r.top + r.height / 2) + 'px';
+            tip.style.left = (r.right + 10) + 'px';
+            tip.classList.remove('hidden');
+        });
+        a.addEventListener('mouseleave', () => tip.classList.add('hidden'));
+        a.addEventListener('click', () => tip.classList.add('hidden'));
+    });
+}
 
 function buildShell() {
     const user = api.getCurrentUser();
@@ -71,20 +119,18 @@ function buildShell() {
 
                 <!-- Navigation Sections -->
                 <div class="flex flex-col gap-md flex-grow overflow-y-auto px-xs">
-                    ${NAV_SECTIONS.map(sec => {
+                    ${NAV_SECTIONS.map((sec, idx) => {
                         const validItems = sec.items.filter(i => !i.adminOnly || user.role === 'admin' || user.role === 'super_admin');
                         if (validItems.length === 0) return '';
                         return `
                             <div>
-                                <div class="px-md mb-xs font-label-md text-[10px] font-bold tracking-widest uppercase nav-section-title">
-                                    ${sec.title}
-                                </div>
+                                ${idx > 0 ? `<div class="w-full h-px nav-divider mx-sm"></div>` : ''}
                                 <ul class="flex flex-col gap-xs">
                                     ${validItems.map(i => {
                                         const isActive = i.page === current;
                                         return `
                                         <li>
-                                            <a class="nav-item-link flex items-center justify-between px-md py-sm text-[14px] ${isActive ? 'active-menu' : ''}" href="${i.link}">
+                                            <a class="nav-item-link flex items-center justify-between px-md py-sm text-[14px] ${isActive ? 'active-menu' : ''}" href="${i.link}" data-label="${i.label}">
                                                 <div class="flex items-center gap-md">
                                                     ${icon(i.icon, 20, isActive)}
                                                     <span>${i.label}</span>
@@ -92,7 +138,16 @@ function buildShell() {
                                                 ${i.badge ? `<span class="nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge}</span>` : ''}
                                                 ${i.badgeId ? `<span id="${i.badgeId}" class="nav-badge-count text-[10px] font-mono px-2 py-0.5 rounded-full"></span>` : ''}
                                             </a>
-                                        </li>`;
+                                        </li>
+                                        ${i.collapseToggle ? `
+                                        <li>
+                                            <button id="btn-toggle-sidebar" title="Réduire le menu" class="hidden md:flex w-full items-center justify-between px-md py-sm rounded-xl text-[14px] font-semibold text-slate-500 dark:text-stone-400 hover:text-[#F46A21] hover:bg-orange-50 dark:hover:bg-stone-800/60 transition-colors cursor-pointer">
+                                                <div class="flex items-center gap-md">
+                                                    <span class="material-symbols-outlined transition-transform duration-300" style="font-size:20px;">menu_open</span>
+                                                    <span class="sidebar-toggle-label">Réduire le menu</span>
+                                                </div>
+                                            </button>
+                                        </li>` : ''}`;
                                     }).join('')}
                                 </ul>
                             </div>
@@ -128,10 +183,14 @@ function buildShell() {
     }
 
     // Attach logout click
-    document.getElementById('btn-logout')?.addEventListener('click', () => {
-        api.logout();
-        window.location.href = 'login.html';
-    });
+    document.getElementById('btn-logout')?.addEventListener('click', performLogout);
+
+    // Attach sidebar collapse toggle + restore l'état mémorisé
+    document.getElementById('btn-toggle-sidebar')?.addEventListener('click', toggleSidebar);
+    initSidebar();
+
+    // Tooltips de survol sur les onglets
+    setupNavTooltips();
 
     // ----------------------------------------------------
     // 2. TOPBAR HEADER & INTERACTIVE DROPDOWN MENUS
@@ -297,6 +356,7 @@ function renderTopbarSlot(pageName) {
     if (clockEl) {
         clockEl.textContent = new Date().toLocaleTimeString('fr-FR');
     }
+    startLiveClock();
 
     // Mobile drawer menu toggle
     document.getElementById('btn-menu')?.addEventListener('click', () => {
@@ -318,6 +378,16 @@ function renderTopbarSlot(pageName) {
 // ----------------------------------------------------
 // DROPDOWN MENUS INTERACTION HANDLER
 // ----------------------------------------------------
+let liveClockInterval = null;
+
+// Horloge temps réel de la topbar (survit aux re-rendus de la topbar)
+function startLiveClock() {
+    if (liveClockInterval) return;
+    liveClockInterval = setInterval(() => {
+        const el = document.getElementById('topbar-clock');
+        if (el) el.textContent = new Date().toLocaleTimeString('fr-FR');
+    }, 1000);
+}
 function setupDropdownMenus() {
     const notifBtn = document.getElementById('btn-toggle-notifs');
     const notifDropdown = document.getElementById('dropdown-notifs');
@@ -370,10 +440,7 @@ function setupDropdownMenus() {
             userMenuDropdown.classList.toggle('hidden', !isHidden);
         });
 
-        document.getElementById('btn-menu-logout')?.addEventListener('click', () => {
-            api.logout();
-            window.location.href = 'login.html';
-        });
+document.getElementById('btn-menu-logout')?.addEventListener('click', performLogout);
     }
 
     // Close dropdowns on outside click
@@ -640,7 +707,7 @@ function closeModal(id) {
 // DARK MODE ENGINE
 // ----------------------------------------------------
 function initDarkMode() {
-    const saved = localStorage.getItem('mada-theme');
+    const saved = storage.get('mada-theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const isDark = saved ? saved === 'dark' : prefersDark;
     document.documentElement.classList.toggle('dark', isDark);
@@ -648,7 +715,7 @@ function initDarkMode() {
 
 function toggleDarkMode() {
     const isDark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('mada-theme', isDark ? 'dark' : 'light');
+    storage.set('mada-theme', isDark ? 'dark' : 'light');
 
     // Animate icon swap with a tiny flash
     const btn = document.getElementById('btn-toggle-darkmode');
@@ -666,36 +733,17 @@ function toggleDarkMode() {
 // ----------------------------------------------------
 function getPageHTML(url) {
     return new Promise((resolve, reject) => {
+        if (window.location.protocol === 'file:') {
+            reject(new Error('Protocole file:// détecté, basculement automatique sur les templates intégrés'));
+            return;
+        }
         fetch(url)
             .then(res => {
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 return res.text();
             })
             .then(html => resolve(html))
-            .catch(() => {
-                // Fallback XMLHttpRequest pour protocole file:// local
-                try {
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('GET', url, true);
-                    xhr.onreadystatechange = function() {
-                        if (xhr.readyState === 4) {
-                            if ((xhr.status >= 200 && xhr.status < 300) || xhr.status === 0) {
-                                if (xhr.responseText && xhr.responseText.length > 0) {
-                                    resolve(xhr.responseText);
-                                } else {
-                                    reject(new Error('Réponse vide'));
-                                }
-                            } else {
-                                reject(new Error('XHR status ' + xhr.status));
-                            }
-                        }
-                    };
-                    xhr.onerror = function(e) { reject(e); };
-                    xhr.send();
-                } catch (err) {
-                    reject(err);
-                }
-            });
+            .catch(err => reject(err));
     });
 }
 
@@ -703,7 +751,7 @@ function setupSPARouting() {
     async function loadPageSPA(href) {
         const cleanHref = href.replace('./', '');
         const pageName = cleanHref.replace('.html', '');
-        const pages = ['dashboard', 'employes', 'historique', 'pointage'];
+        const pages = ['dashboard', 'employes', 'historique', 'pointage', 'parametres'];
         if (!pages.includes(pageName)) return;
 
         const currentMain = document.querySelector('main');
@@ -713,11 +761,13 @@ function setupSPARouting() {
         try {
             htmlText = await getPageHTML(cleanHref);
         } catch (err) {
-            // Fallback ultime : utilisation du dictionnaire local de templates
+            // Fallback ultime : utilisation du dictionnaire local de templates (compatible file://)
             if (typeof PAGE_TEMPLATES !== 'undefined' && PAGE_TEMPLATES[pageName]) {
                 htmlText = PAGE_TEMPLATES[pageName];
             } else {
-                console.warn('Impossible de charger le template de la page');
+                // Aucun template intégré disponible (templates.js absent) :
+                // bascule sur une navigation classique (rechargement complet de la page).
+                window.location.href = href;
                 return;
             }
         }
@@ -752,26 +802,19 @@ function setupSPARouting() {
         });
 
         // 6. Exécution dynamique du contrôleur JS de la page cible
-        const runInit = () => {
-            if (window.PAGE_MODULES && typeof window.PAGE_MODULES[pageName] === 'function') {
-                window.PAGE_MODULES[pageName]();
-            } else if (typeof window.initPage === 'function') {
-                window.initPage();
-            }
-        };
-
         const oldScript = document.getElementById('active-page-script');
         if (oldScript) oldScript.remove();
 
         const script = document.createElement('script');
         script.id = 'active-page-script';
-        script.src = `assets/js/pages/${pageName}.js?v=${Date.now()}`;
+        const isFileProtocol = window.location.protocol === 'file:';
+        script.src = `assets/js/pages/${pageName}.js` + (isFileProtocol ? '' : `?v=${Date.now()}`);
         script.onload = () => {
-            runInit();
+            if (window.PAGE_MODULES && typeof window.PAGE_MODULES[pageName] === 'function') {
+                window.PAGE_MODULES[pageName]();
+            }
         };
         document.body.appendChild(script);
-
-        runInit();
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -785,7 +828,7 @@ function setupSPARouting() {
         if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript:')) return;
 
         const cleanHref = href.replace('./', '');
-        const pages = ['dashboard.html', 'employes.html', 'historique.html', 'pointage.html'];
+        const pages = ['dashboard.html', 'employes.html', 'historique.html', 'pointage.html', 'parametres.html'];
         if (!pages.includes(cleanHref)) return;
 
         e.preventDefault();
@@ -805,7 +848,97 @@ function setupSPARouting() {
     });
 }
 
+// ============================================================
+// MODE MONO-FICHIER (index.html / double-clic, protocole file://)
+// Toutes les vues sont intégrées dans templates.js : la navigation
+// reste dans la page, sans fetch ni rechargement.
+// ============================================================
+const SINGLE_FILE_MODE = (window.location.pathname.split('/').pop() || 'index.html') === 'index.html';
+const SPA_PAGES = ['login', 'dashboard', 'employes', 'historique', 'pointage', 'parametres'];
+
+function performLogout() {
+    api.logout();
+    if (SINGLE_FILE_MODE) {
+        switchPage('login');
+    } else {
+        window.location.href = 'login.html';
+    }
+}
+
+function switchPage(pageName) {
+    if (typeof PAGE_TEMPLATES === 'undefined' || !PAGE_TEMPLATES[pageName]) return;
+
+    const main = document.getElementById('spa-main');
+    if (main) main.innerHTML = PAGE_TEMPLATES[pageName];
+
+    document.body.dataset.page = pageName;
+    document.body.classList.toggle('auth-view', pageName === 'login');
+
+    if (pageName === 'login') {
+        document.title = 'MADA Digital – Connexion';
+        document.getElementById('topbar-slot')?.replaceChildren();
+        delete document.body.dataset.search;
+    } else {
+        renderTopbarSlot(pageName);
+    }
+
+    // Classe active sur le menu latéral
+    document.querySelectorAll('.nav-item-link').forEach(a => {
+        const target = (a.getAttribute('href') || '').replace('./', '').replace('.html', '');
+        a.classList.toggle('active-menu', target === pageName);
+    });
+
+    // Initialisation du contrôleur de page
+    const mod = window.PAGE_MODULES && window.PAGE_MODULES[pageName];
+    if (mod) mod();
+
+    // Barre d'adresse (ne change rien sous file://, gère l'historique en http)
+    const cleanHref = pageName + '.html';
+    if (window.location.pathname.split('/').pop() !== cleanHref) {
+        try {
+            history.pushState({ page: pageName, href: cleanHref }, '', cleanHref);
+        } catch (e) { /* file:// : pushState bloqué, on ignore */ }
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function initSingleFileApp() {
+    // Absence de session ? (getCurrentUser créerait une session auto si appelé)
+    const hasSession = storage.get(SESSION_KEY) !== null;
+    const user = hasSession ? api.getCurrentUser() : null;
+    if (user) {
+        buildShell();
+        switchPage('dashboard');
+    } else {
+        switchPage('login');
+    }
+}
+
+// Interception des liens internes (mono-fichier uniquement)
+(function setupSingleFileRouting() {
+    if (!SINGLE_FILE_MODE) return;
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+        const href = (link.getAttribute('href') || '').trim();
+        if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript:')) return;
+        const pageName = href.replace('./', '').replace('.html', '');
+        if (!SPA_PAGES.includes(pageName)) return;
+        e.preventDefault();
+        switchPage(pageName);
+    });
+    window.addEventListener('popstate', () => {
+        const current = (window.location.pathname.split('/').pop() || 'index.html').replace('.html', '');
+        if (SPA_PAGES.includes(current)) switchPage(current);
+    });
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
+    if (SINGLE_FILE_MODE) {
+        initSingleFileApp();
+        return;
+    }
     if (document.body.dataset.page && !document.body.dataset.noShell) buildShell();
     setupSPARouting();
     if (typeof initPage === 'function') initPage();

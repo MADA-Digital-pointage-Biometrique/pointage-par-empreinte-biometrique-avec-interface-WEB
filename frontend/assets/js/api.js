@@ -19,16 +19,16 @@ const api = {
             return { ok: false, message: 'Accès réservé. Les employés n\'ont pas de compte d\'accès au tableau de bord.' };
         }
 
-        localStorage.setItem(SESSION_KEY, JSON.stringify({ id: user.id, matricule: user.matricule }));
+        storage.set(SESSION_KEY, JSON.stringify({ id: user.id, matricule: user.matricule }));
         return { ok: true, user };
     },
 
     logout() {
-        localStorage.removeItem(SESSION_KEY);
+        storage.remove(SESSION_KEY);
     },
 
     getCurrentUser() {
-        const raw = localStorage.getItem(SESSION_KEY);
+        const raw = storage.get(SESSION_KEY);
         const db = loadDB();
         if (raw) {
             try {
@@ -39,7 +39,7 @@ const api = {
         }
         const defaultAdmin = db.users.find(u => u.role === 'super_admin' || u.role === 'admin') || db.users[0];
         if (defaultAdmin) {
-            localStorage.setItem(SESSION_KEY, JSON.stringify({ id: defaultAdmin.id, matricule: defaultAdmin.matricule }));
+            storage.set(SESSION_KEY, JSON.stringify({ id: defaultAdmin.id, matricule: defaultAdmin.matricule }));
         }
         return defaultAdmin || null;
     },
