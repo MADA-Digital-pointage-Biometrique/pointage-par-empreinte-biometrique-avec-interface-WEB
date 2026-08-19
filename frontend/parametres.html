@@ -82,36 +82,40 @@
                     </div>
                 </div>
 
-                <!-- Card : Préférences de pointage -->
+                <!-- Card : Sécurité — modification du mot de passe -->
                 <div class="lg:col-span-2 bg-white dark:bg-stone-900 border border-slate-200/80 dark:border-stone-800 rounded-2xl p-lg shadow-sm">
                     <div class="flex items-center gap-2 mb-xs">
-                        <span class="material-symbols-outlined text-[#F46A21] text-[20px]">fingerprint</span>
-                        <h3 class="font-bold text-[15px] text-slate-900 dark:text-white">Préférences de pointage</h3>
+                        <span class="material-symbols-outlined text-[#F46A21] text-[20px]">lock</span>
+                        <h3 class="font-bold text-[15px] text-slate-900 dark:text-white">Sécurité — Mot de passe</h3>
                     </div>
-                    <p class="text-[13px] text-slate-500 dark:text-stone-400 mb-lg">Paramètres du terminal biométrique et des notifications.</p>
-                    <div class="flex flex-col gap-sm text-[13px]">
-                        <label class="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors">
-                            <span class="flex items-center gap-sm">
-                                <span class="material-symbols-outlined text-[18px] text-slate-400">volume_up</span>
-                                <span>Bip d'empreinte audio</span>
-                            </span>
-                            <input type="checkbox" id="pg-sound" checked class="rounded border-slate-300 text-[#F46A21] focus:ring-[#F46A21]">
-                        </label>
-                        <label class="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors">
-                            <span class="flex items-center gap-sm">
-                                <span class="material-symbols-outlined text-[18px] text-slate-400">speed</span>
-                                <span>Scan Ultra-Rapide</span>
-                            </span>
-                            <input type="checkbox" id="pg-speed" checked class="rounded border-slate-300 text-[#F46A21] focus:ring-[#F46A21]">
-                        </label>
-                        <label class="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors">
-                            <span class="flex items-center gap-sm">
-                                <span class="material-symbols-outlined text-[18px] text-slate-400">notifications</span>
-                                <span>Alertes de retard en temps réel</span>
-                            </span>
-                            <input type="checkbox" id="pg-retards" checked class="rounded border-slate-300 text-[#F46A21] focus:ring-[#F46A21]">
-                        </label>
-                    </div>
+                    <p class="text-[13px] text-slate-500 dark:text-stone-400 mb-lg">Modifiez le mot de passe de votre compte. Vous l'utiliserez à la prochaine connexion.</p>
+                    <form id="form-change-password" class="flex flex-col gap-sm" autocomplete="off">
+                        <div>
+                            <label class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-stone-400 mb-1.5 block" for="pw-current">Mot de passe actuel</label>
+                            <div class="flex items-center bg-slate-100 dark:bg-stone-800/80 rounded-xl px-md border border-slate-200 dark:border-stone-700 focus-within:border-[#F46A21] focus-within:ring-2 focus-within:ring-[#F46A21]/20 transition-all">
+                                <span class="material-symbols-outlined text-slate-400 mr-sm text-[18px]">lock</span>
+                                <input type="password" id="pw-current" class="bg-transparent border-none w-full py-2.5 outline-none text-[13px] text-[#303030] dark:text-slate-100 placeholder-slate-400" placeholder="Votre mot de passe actuel" autocomplete="current-password" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-stone-400 mb-1.5 block" for="pw-new">Nouveau mot de passe</label>
+                            <div class="flex items-center bg-slate-100 dark:bg-stone-800/80 rounded-xl px-md border border-slate-200 dark:border-stone-700 focus-within:border-[#F46A21] focus-within:ring-2 focus-within:ring-[#F46A21]/20 transition-all">
+                                <span class="material-symbols-outlined text-slate-400 mr-sm text-[18px]">key</span>
+                                <input type="password" id="pw-new" class="bg-transparent border-none w-full py-2.5 outline-none text-[13px] text-[#303030] dark:text-slate-100 placeholder-slate-400" placeholder="Au moins 6 caractères" autocomplete="new-password" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-stone-400 mb-1.5 block" for="pw-confirm">Confirmer le nouveau mot de passe</label>
+                            <div class="flex items-center bg-slate-100 dark:bg-stone-800/80 rounded-xl px-md border border-slate-200 dark:border-stone-700 focus-within:border-[#F46A21] focus-within:ring-2 focus-within:ring-[#F46A21]/20 transition-all">
+                                <span class="material-symbols-outlined text-slate-400 mr-sm text-[18px]">verified_user</span>
+                                <input type="password" id="pw-confirm" class="bg-transparent border-none w-full py-2.5 outline-none text-[13px] text-[#303030] dark:text-slate-100 placeholder-slate-400" placeholder="Répétez le nouveau mot de passe" autocomplete="new-password" required>
+                            </div>
+                        </div>
+                        <button type="submit" id="btn-change-password" class="mt-xs w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] text-white text-[13px] font-semibold py-2.5 px-lg rounded-xl hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span class="material-symbols-outlined text-[18px]">password</span>
+                            <span id="pw-btn-label">Mettre à jour le mot de passe</span>
+                        </button>
+                    </form>
                 </div>
 
                 <!-- Card : Gestion des données -->

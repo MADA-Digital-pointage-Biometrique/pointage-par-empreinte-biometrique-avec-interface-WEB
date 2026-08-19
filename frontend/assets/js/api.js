@@ -23,6 +23,24 @@ const api = {
         return { ok: true, user };
     },
 
+    async changePassword(currentPassword, newPassword) {
+        await this._delay(400);
+        const db = loadDB();
+        const user = this.getCurrentUser();
+        if (!user) return { ok: false, message: 'Session invalide. Reconnectez-vous.' };
+        const target = db.users.find(u => u.id === user.id);
+        if (!target) return { ok: false, message: 'Utilisateur introuvable.' };
+        if (target.password !== currentPassword) {
+            return { ok: false, message: 'Le mot de passe actuel est incorrect.' };
+        }
+        if (typeof newPassword !== 'string' || newPassword.length < 6) {
+            return { ok: false, message: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' };
+        }
+        target.password = newPassword;
+        saveDB(db);
+        return { ok: true, message: 'Mot de passe modifié avec succès.' };
+    },
+
     logout() {
         storage.remove(SESSION_KEY);
     },

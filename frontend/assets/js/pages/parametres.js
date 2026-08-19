@@ -67,6 +67,39 @@ function initPage() {
     const nameEl = document.getElementById('settings-name');
     if (nameEl) nameEl.dataset.bound = '1';
 
+    // --- Sécurité : modification du mot de passe ---
+    const pwForm = document.getElementById('form-change-password');
+    pwForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const current = document.getElementById('pw-current')?.value || '';
+        const next = document.getElementById('pw-new')?.value || '';
+        const confirm = document.getElementById('pw-confirm')?.value || '';
+
+        if (next !== confirm) {
+            flash('Les deux nouveaux mots de passe ne correspondent pas.', 'warning');
+            return;
+        }
+        if (next.length < 6) {
+            flash('Le nouveau mot de passe doit contenir au moins 6 caractères.', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('btn-change-password');
+        const label = document.getElementById('pw-btn-label');
+        if (btn) btn.disabled = true;
+        if (label) label.textContent = 'Mise à jour en cours…';
+        const res = await api.changePassword(current, next);
+        if (btn) btn.disabled = false;
+        if (label) label.textContent = 'Mettre à jour le mot de passe';
+
+        if (res.ok) {
+            flash(res.message, 'success');
+            pwForm.reset();
+        } else {
+            flash(res.message, 'danger');
+        }
+    });
+
     const btnReset = document.getElementById('btn-reset-data');
     btnReset?.addEventListener('click', () => {
         showConfirmModal({

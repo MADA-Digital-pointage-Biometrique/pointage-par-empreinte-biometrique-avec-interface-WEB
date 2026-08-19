@@ -145,7 +145,7 @@ function buildShell() {
                 <div class="mt-auto px-xs pt-md nav-footer-border">
                     <ul class="flex flex-col gap-xs">
                         <li>
-                            <button id="btn-toggle-sidebar" data-label="Réduire le menu" class="nav-item-link hidden md:flex w-full items-center justify-between px-md py-sm text-[14px] cursor-pointer">
+                            <button id="btn-toggle-sidebar" data-label="Réduire le menu" class="nav-item-link hidden md:flex items-center justify-between px-md py-sm text-[14px] cursor-pointer">
                                 <div class="flex items-center gap-md">
                                     <span class="material-symbols-outlined transition-transform duration-300" style="font-size:20px;">menu_open</span>
                                     <span>Réduire le menu</span>
@@ -153,7 +153,7 @@ function buildShell() {
                             </button>
                         </li>
                         <li>
-                            <button id="btn-toggle-darkmode" data-label="Mode sombre" class="nav-item-link flex w-full items-center justify-between px-md py-sm text-[14px] cursor-pointer">
+                            <button id="btn-toggle-darkmode" data-label="Mode sombre" class="nav-item-link flex items-center justify-between px-md py-sm text-[14px] cursor-pointer">
                                 <div class="flex items-center gap-md">
                                     <span class="material-symbols-outlined dark:hidden" style="font-size:20px;">light_mode</span>
                                     <span class="material-symbols-outlined hidden dark:inline" style="font-size:20px;">dark_mode</span>
@@ -170,7 +170,7 @@ function buildShell() {
                             </a>
                         </li>
                         <li>
-                            <button id="btn-logout" data-label="Déconnexion" class="nav-item-link flex w-full items-center justify-between px-md py-sm text-[14px] cursor-pointer">
+                            <button id="btn-logout" data-label="Déconnexion" class="nav-item-link logout-item flex items-center justify-between px-md py-sm text-[14px] cursor-pointer">
                                 <div class="flex items-center gap-md">
                                     ${icon('logout', 20)}
                                     <span>Déconnexion</span>
@@ -238,7 +238,7 @@ function renderTopbarSlot(pageName) {
                         <input class="bg-transparent border-none focus:ring-0 text-body-md font-body-md w-full ml-sm text-[#303030] dark:text-slate-100 placeholder-slate-400 outline-none text-[13px]" id="top-search" placeholder="Rechercher un employé par nom, matricule..." type="text" autocomplete="off">
                     </div>
                     <!-- Live Search Results Dropdown Menu -->
-                    <div id="dropdown-search-results" class="hidden absolute top-full left-0 mt-2 w-full bg-white dark:bg-stone-900 rounded-xl shadow-2xl border border-slate-200 dark:border-stone-800 menu-dropdown-panel z-50 p-2 max-h-80 overflow-y-auto">
+                    <div id="dropdown-search-results" class="hidden absolute top-full left-0 mt-2 w-full bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-stone-800 menu-dropdown-panel z-50 p-1.5 max-h-80 overflow-y-auto">
                     </div>
                 </div>` : `
                 <div class="flex items-center gap-sm text-[#303030] dark:text-slate-200 font-semibold text-[15px]">
@@ -264,55 +264,26 @@ function renderTopbarSlot(pageName) {
 
                     <!-- Notification Dropdown Panel -->
                     <div id="dropdown-notifs" class="hidden absolute right-0 top-full mt-2 w-80 md:w-96 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 overflow-hidden">
-                        <div class="p-md border-b border-slate-100 dark:border-stone-800 flex items-center justify-between bg-[#FFF1E8]/50 dark:bg-stone-800/40">
+                        <div class="relative px-md py-sm border-b border-slate-100 dark:border-stone-800 flex items-center justify-between bg-gradient-to-r from-[#FFF1E8] via-white to-white dark:from-stone-800 dark:via-stone-900 dark:to-stone-900">
                             <div class="flex items-center gap-xs font-semibold text-[14px]">
-                                ${icon('notifications', 18)}
+                                <div class="w-8 h-8 rounded-xl bg-white dark:bg-stone-900 text-[#F46A21] dark:text-[#F9AE3F] flex items-center justify-center shadow-sm">
+                                    ${icon('notifications', 18)}
+                                </div>
                                 <span>Notifications</span>
-                                <span id="notif-count-pill" class="bg-[#FFF1E8] text-[#F46A21] dark:bg-orange-950/60 dark:text-[#F9AE3F] text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">3</span>
+                                <span id="notif-count-pill" class="bg-[#F46A21] text-white dark:bg-orange-950/60 dark:text-[#F9AE3F] text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">3</span>
                             </div>
-                            <button id="btn-clear-notifs" class="text-[11px] text-[#F46A21] hover:underline cursor-pointer">Tout marquer lu</button>
+                            <button id="btn-clear-notifs" class="text-[11px] text-[#F46A21] hover:text-[#EA580C] font-semibold hover:underline cursor-pointer transition-colors">Tout marquer lu</button>
                         </div>
                         <div id="notif-list-body" class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800/60">
                             <!-- Populated dynamically -->
                         </div>
-                        <div class="p-2 border-t border-slate-100 dark:border-stone-800 text-center bg-slate-50/30 dark:bg-stone-800/20">
-                            <a href="pointage.html" class="text-[12px] font-semibold text-[#F46A21] hover:underline">Voir l'historique complet</a>
+                        <div class="p-2 border-t border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-800/30">
+                            <a href="pointage.html" class="block w-full text-center py-2 rounded-xl text-[12px] font-semibold text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 transition-colors">Voir l'historique complet</a>
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. QUICK SETTINGS MENU -->
-                <div class="relative" id="menu-settings-container">
-                    <button class="text-slate-600 dark:text-slate-300 hover:text-[#F46A21] hover:bg-slate-100 dark:hover:bg-stone-800 transition-colors cursor-pointer p-2 rounded-xl" id="btn-toggle-settings" title="Paramètres">
-                        ${icon('settings', 22)}
-                    </button>
-                    
-                    <div id="dropdown-settings" class="hidden absolute right-0 top-full mt-2 w-72 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 p-md">
-                        <h4 class="font-semibold text-[13px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-sm">Réglages Rapides</h4>
-                        <div class="flex flex-col gap-sm text-[13px]">
-                            <label class="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors">
-                                <span class="flex items-center gap-sm">
-                                    ${icon('volume_up', 18)}
-                                    <span>Bip d'empreinte audio</span>
-                                </span>
-                                <input type="checkbox" id="setting-sound" checked class="rounded border-slate-300 text-[#F46A21] focus:ring-[#F46A21]">
-                            </label>
-                            <label class="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors">
-                                <span class="flex items-center gap-sm">
-                                    ${icon('speed', 18)}
-                                    <span>Scan Ultra-Rapide</span>
-                                </span>
-                                <input type="checkbox" id="setting-speed" checked class="rounded border-slate-300 text-[#F46A21] focus:ring-[#F46A21]">
-                            </label>
-                            <div class="pt-sm border-t border-slate-100 dark:border-stone-800 flex items-center justify-between">
-                                <span class="text-slate-500 text-[12px]">Mode Lecteur</span>
-                                <span class="text-xs bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] font-semibold px-2 py-0.5 rounded">Simulateur SDK</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 3. USER PROFILE DROPDOWN MENU -->
+                <!-- 2. USER PROFILE DROPDOWN MENU -->
                 <div class="relative ml-xs border-l border-slate-200 dark:border-stone-800 pl-md" id="menu-user-container">
                     <button class="flex items-center gap-2 group cursor-pointer focus:outline-none" id="btn-toggle-user-menu">
                         <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[13px] border-2 border-white dark:border-stone-800 shadow-md group-hover:scale-105 transition-transform" id="top-avatar">
@@ -322,25 +293,29 @@ function renderTopbarSlot(pageName) {
                     </button>
 
                     <!-- User Menu Dropdown Panel -->
-                    <div id="dropdown-user-menu" class="hidden absolute right-0 top-full mt-2 w-64 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 p-sm divide-y divide-slate-100 dark:divide-stone-800">
-                        <div class="p-md">
-                            <div class="font-bold text-[14px] text-[#303030] dark:text-white">${user.prenom} ${user.nom}</div>
-                            <div class="text-[12px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">${user.email || user.matricule}</div>
-                            <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF1E8] text-[#F46A21] dark:bg-orange-950/40 dark:text-[#F9AE3F]">
+                    <div id="dropdown-user-menu" class="hidden absolute right-0 top-full mt-2 w-64 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 p-sm">
+                        <div class="p-md mb-1 rounded-xl bg-gradient-to-r from-[#FFF1E8] to-white dark:from-stone-800 dark:to-stone-900 border border-slate-100 dark:border-stone-800">
+                            <div class="flex items-center gap-sm">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[14px] border-2 border-white dark:border-stone-800 shadow-md">
+                                    ${initialsOf(user)}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-bold text-[14px] text-[#303030] dark:text-white truncate">${user.prenom} ${user.nom}</div>
+                                    <div class="text-[12px] text-slate-500 dark:text-slate-400 font-mono truncate">${user.email || user.matricule}</div>
+                                </div>
+                            </div>
+                            <div class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#F46A21]/10 text-[#F46A21] dark:bg-orange-950/40 dark:text-[#F9AE3F]">
                                 <span class="w-1.5 h-1.5 rounded-full bg-[#F46A21]"></span>
                                 ${user.role === 'super_admin' ? 'Super Administrateur' : 'Administrateur RH'}
                             </div>
                         </div>
                         <div class="py-1 text-[13px]">
-                            <a href="pointage.html" class="flex items-center gap-md px-md py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-colors">
-                                ${icon('fingerprint', 18)} Mon Pointage
-                            </a>
                             ${user.role === 'admin' || user.role === 'super_admin' ? `
                             <a href="employes.html" class="flex items-center gap-md px-md py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-colors">
                                 ${icon('badge', 18)} Liste des Employés
                             </a>` : ''}
                         </div>
-                        <div class="pt-1">
+                        <div class="pt-1 mt-1 border-t border-slate-100 dark:border-stone-800">
                             <button id="btn-menu-logout" class="w-full flex items-center gap-md px-md py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors text-[13px] font-medium cursor-pointer">
                                 ${icon('logout', 18)} Se déconnecter
                             </button>
@@ -387,13 +362,10 @@ function setupDropdownMenus() {
     const notifBtn = document.getElementById('btn-toggle-notifs');
     const notifDropdown = document.getElementById('dropdown-notifs');
 
-    const settingsBtn = document.getElementById('btn-toggle-settings');
-    const settingsDropdown = document.getElementById('dropdown-settings');
-
     const userMenuBtn = document.getElementById('btn-toggle-user-menu');
     const userMenuDropdown = document.getElementById('dropdown-user-menu');
 
-    const allDropdowns = [notifDropdown, settingsDropdown, userMenuDropdown];
+    const allDropdowns = [notifDropdown, userMenuDropdown];
 
     function hideAllDropdownsExcept(except) {
         allDropdowns.forEach(d => {
@@ -415,15 +387,6 @@ function setupDropdownMenus() {
             notificationsList.forEach(n => n.read = true);
             renderNotificationItems();
             flash('Toutes les notifications ont été marquées comme lues.', 'info');
-        });
-    }
-
-    if (settingsBtn && settingsDropdown) {
-        settingsBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isHidden = settingsDropdown.classList.contains('hidden');
-            hideAllDropdownsExcept(settingsDropdown);
-            settingsDropdown.classList.toggle('hidden', !isHidden);
         });
     }
 
@@ -457,14 +420,15 @@ function renderNotificationItems() {
     if (countPill) countPill.textContent = unreadCount;
 
     body.innerHTML = notificationsList.map(n => `
-        <div class="p-md hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors flex items-start gap-md ${n.read ? 'opacity-60' : 'bg-blue-50/20 dark:bg-blue-950/20'}">
-            <div class="${n.color} mt-0.5 flex-shrink-0">
+        <div class="relative flex items-start gap-sm p-md transition-colors hover:bg-slate-50 dark:hover:bg-stone-800/50 ${n.read ? 'opacity-55' : 'bg-blue-50/30 dark:bg-blue-950/20'}">
+            ${!n.read ? '<span class="absolute left-0 top-3 bottom-3 w-1 rounded-r bg-[#F46A21]"></span>' : ''}
+            <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-stone-800 flex items-center justify-center flex-shrink-0 ${n.color}">
                 ${icon(n.icon, 20)}
             </div>
             <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                    <span class="font-semibold text-[13px] text-slate-800 dark:text-slate-100">${n.title}</span>
-                    <span class="text-[10px] text-slate-400 font-mono">${n.time}</span>
+                <div class="flex items-center justify-between gap-sm">
+                    <span class="font-semibold text-[13px] text-slate-800 dark:text-slate-100 truncate">${n.title}</span>
+                    <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">${n.time}</span>
                 </div>
                 <p class="text-[12px] text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">${n.text}</p>
             </div>
@@ -496,22 +460,25 @@ async function setupLiveSearch() {
 
         if (matches.length === 0) {
             dropdown.innerHTML = `
-                <div class="p-md text-center text-slate-400 text-[13px]">
-                    Aucun résultat pour "<span class="font-semibold">${query}</span>"
+                <div class="p-lg text-center">
+                    <div class="w-11 h-11 mx-auto rounded-full bg-slate-100 dark:bg-stone-800 flex items-center justify-center text-slate-400">
+                        ${icon('search_off', 22)}
+                    </div>
+                    <p class="mt-2 text-[13px] text-slate-500 dark:text-slate-400">
+                        Aucun résultat pour "<span class="font-semibold">${query}</span>"
+                    </p>
                 </div>`;
         } else {
             dropdown.innerHTML = matches.map(u => `
-                <a href="employes.html" class="flex items-center justify-between p-sm hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-colors">
-                    <div class="flex items-center gap-sm">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[12px]">
-                            ${initialsOf(u)}
-                        </div>
-                        <div>
-                            <div class="font-semibold text-[13px] text-[#303030] dark:text-slate-100">${u.prenom} ${u.nom}</div>
-                            <div class="text-[11px] text-slate-400 font-mono">${u.matricule} · ${u.departement || 'Général'}</div>
-                        </div>
+                <a href="employes.html" class="group flex items-center gap-sm p-sm hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-all hover:translate-x-0.5">
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[12px] shadow-sm flex-shrink-0">
+                        ${initialsOf(u)}
                     </div>
-                    <span class="text-[11px] px-2 py-0.5 rounded font-semibold ${u.empreinte ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}">
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-[13px] text-[#303030] dark:text-slate-100 truncate">${u.prenom} ${u.nom}</div>
+                        <div class="text-[11px] text-slate-400 font-mono truncate">${u.matricule} · ${u.departement || 'Général'}</div>
+                    </div>
+                    <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${u.empreinte ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}">
                         ${u.empreinte ? 'Empreinte OK' : 'Non enrôlé'}
                     </span>
                 </a>

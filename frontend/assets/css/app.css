@@ -279,6 +279,21 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
     border: 0;
     background: transparent;
 }
+/* Déconnexion : rouge respectueux du thème */
+.nav-item-link.logout-item {
+    color: #DC2626;
+}
+.dark .nav-item-link.logout-item {
+    color: #F87171;
+}
+.nav-item-link.logout-item:hover:not(.active-menu) {
+    color: #B91C1C !important;
+    background: rgba(239, 68, 68, 0.10);
+}
+.dark .nav-item-link.logout-item:hover:not(.active-menu) {
+    color: #FCA5A5 !important;
+    background: rgba(127, 29, 29, 0.35);
+}
 .nav-item-link::before {
     content: '';
     position: absolute;
@@ -322,16 +337,32 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
 
 /* Menu Dropdown Card Panels */
 .menu-dropdown-panel {
-    animation: menuFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: menuFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     transform-origin: top right;
-    box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.10), 0 0 1px rgba(0,0,0,0.06);
+    border-radius: 1rem;
     border: 1px solid #E5E7EB;
+    background-color: #FFFFFF;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.04),
+        0 8px 20px -6px rgba(0, 0, 0, 0.10),
+        0 20px 44px -12px rgba(0, 0, 0, 0.14);
 }
 .dark .menu-dropdown-panel {
     border-color: #374151;
     background-color: #1F2937;
-    box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.70);
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.30),
+        0 8px 20px -6px rgba(0, 0, 0, 0.45),
+        0 20px 44px -12px rgba(0, 0, 0, 0.65);
 }
+
+/* Scrollbars fines et discrètes pour les panneaux déroulants */
+.menu-dropdown-panel ::-webkit-scrollbar { width: 6px; height: 6px; }
+.menu-dropdown-panel ::-webkit-scrollbar-track { background: transparent; }
+.menu-dropdown-panel ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
+.menu-dropdown-panel ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+.dark .menu-dropdown-panel ::-webkit-scrollbar-thumb { background: #475569; }
+.dark .menu-dropdown-panel ::-webkit-scrollbar-thumb:hover { background: #64748B; }
 /* Anti-flash minimal pour l'icône Light/Dark */
 html:not(.dark) .dark\:inline { display: none !important; }
 html.dark .dark\:hidden { display: none !important; }
@@ -486,6 +517,14 @@ body.auth-view #spa-main {
         padding-left: 0;
         padding-right: 0;
     }
+
+    /* Onglets du bas : pleine largeur (moins marges) — hover/indicateur identiques aux liens, sans débordement */
+.nav-footer-border .nav-item-link {
+    width: calc(100% - 1rem);
+}
+body.sidebar-collapsed .nav-footer-border .nav-item-link {
+    width: calc(100% - 1rem);
+}
 
     /* Bouton de repli : icône seule, rotation pour indiquer l'expansion */
     body.sidebar-collapsed #btn-toggle-sidebar .material-symbols-outlined {
