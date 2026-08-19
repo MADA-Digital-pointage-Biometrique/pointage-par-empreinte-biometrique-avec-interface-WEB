@@ -16,7 +16,7 @@ const NAV_SECTIONS = [
         title: 'VUE GÉNÉRALE',
         items: [
             { page: 'dashboard', link: 'dashboard.html', icon: 'dashboard', label: 'Tableau de bord' },
-            { page: 'pointage', link: 'pointage.html', icon: 'fingerprint', label: 'Borne de Pointage', badge: 'En service' },
+            { page: 'pointage', link: 'pointage.html', icon: 'fingerprint', label: 'Pointage', badge: 'En service' },
         ]
     },
     {
@@ -24,12 +24,6 @@ const NAV_SECTIONS = [
         items: [
             { page: 'employes', link: 'employes.html', icon: 'badge', label: 'Employés & Empreintes', adminOnly: true, badgeId: 'badge-count-emp' },
             { page: 'historique', link: 'historique.html', icon: 'history', label: 'Historique des Pointages' },
-        ]
-    },
-    {
-        title: 'SYSTÈME',
-        items: [
-            { page: 'parametres', link: 'parametres.html', icon: 'settings', label: 'Paramètres', collapseToggle: true },
         ]
     }
 ];
@@ -48,7 +42,7 @@ function setSidebarCollapsed(collapsed) {
     document.body.classList.toggle('sidebar-collapsed', !!collapsed);
     storage.set('mada-sidebar', collapsed ? '1' : '0');
     const btn = document.getElementById('btn-toggle-sidebar');
-    if (btn) btn.title = collapsed ? 'Développer le menu' : 'Réduire le menu';
+    if (btn) btn.dataset.label = collapsed ? 'Développer le menu' : 'Réduire le menu';
 }
 
 function toggleSidebar() {
@@ -59,7 +53,7 @@ function initSidebar() {
     const collapsed = storage.get('mada-sidebar') === '1';
     document.body.classList.toggle('sidebar-collapsed', collapsed);
     const btn = document.getElementById('btn-toggle-sidebar');
-    if (btn) btn.title = collapsed ? 'Développer le menu' : 'Réduire le menu';
+    if (btn) btn.dataset.label = collapsed ? 'Développer le menu' : 'Réduire le menu';
 }
 
 // Tooltip (indice d'onglet) au survol des liens de navigation
@@ -118,13 +112,13 @@ function buildShell() {
                 <div class="w-full h-px nav-divider mb-md"></div>
 
                 <!-- Navigation Sections -->
-                <div class="flex flex-col gap-md flex-grow overflow-y-auto px-xs">
+                <div class="flex flex-col gap-md flex-grow overflow-y-auto overflow-x-hidden px-xs">
                     ${NAV_SECTIONS.map((sec, idx) => {
                         const validItems = sec.items.filter(i => !i.adminOnly || user.role === 'admin' || user.role === 'super_admin');
                         if (validItems.length === 0) return '';
                         return `
                             <div>
-                                ${idx > 0 ? `<div class="w-full h-px nav-divider mx-sm"></div>` : ''}
+                                ${idx > 0 ? `<div class="h-px nav-divider mx-sm mb-sm"></div>` : ''}
                                 <ul class="flex flex-col gap-xs">
                                     ${validItems.map(i => {
                                         const isActive = i.page === current;
@@ -139,15 +133,7 @@ function buildShell() {
                                                 ${i.badgeId ? `<span id="${i.badgeId}" class="nav-badge-count text-[10px] font-mono px-2 py-0.5 rounded-full"></span>` : ''}
                                             </a>
                                         </li>
-                                        ${i.collapseToggle ? `
-                                        <li>
-                                            <button id="btn-toggle-sidebar" title="Réduire le menu" class="hidden md:flex w-full items-center justify-between px-md py-sm rounded-xl text-[14px] font-semibold text-slate-500 dark:text-stone-400 hover:text-[#F46A21] hover:bg-orange-50 dark:hover:bg-stone-800/60 transition-colors cursor-pointer">
-                                                <div class="flex items-center gap-md">
-                                                    <span class="material-symbols-outlined transition-transform duration-300" style="font-size:20px;">menu_open</span>
-                                                    <span class="sidebar-toggle-label">Réduire le menu</span>
-                                                </div>
-                                            </button>
-                                        </li>` : ''}`;
+                                        `;
                                     }).join('')}
                                 </ul>
                             </div>
@@ -155,28 +141,43 @@ function buildShell() {
                     }).join('')}
                 </div>
 
-                <!-- Sidebar Footer : User Mini Profile Menu Card -->
-                <div class="mt-auto px-md pt-md nav-footer-border">
-                    <div class="nav-user-zone rounded-xl p-sm flex items-center justify-between gap-sm">
-                        <div class="flex items-center gap-sm min-w-0">
-                            <div class="relative">
-                                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[13px] shadow-sm">
-                                    ${initialsOf(user)}
+                <!-- Sidebar Footer : Réduire le menu / Mode sombre / Paramètres / Déconnexion -->
+                <div class="mt-auto px-xs pt-md nav-footer-border">
+                    <ul class="flex flex-col gap-xs">
+                        <li>
+                            <button id="btn-toggle-sidebar" data-label="Réduire le menu" class="nav-item-link hidden md:flex w-full items-center justify-between px-md py-sm text-[14px] cursor-pointer">
+                                <div class="flex items-center gap-md">
+                                    <span class="material-symbols-outlined transition-transform duration-300" style="font-size:20px;">menu_open</span>
+                                    <span>Réduire le menu</span>
                                 </div>
-                                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 nav-user-status-border rounded-full"></span>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="font-semibold text-[13px] truncate nav-user-name">${user.prenom} ${user.nom}</div>
-                                <div class="text-[11px] truncate flex items-center gap-1 nav-user-info">
-                                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-[#F97316]"></span>
-                                    ${user.role === 'super_admin' ? 'Super Admin' : 'Admin RH'} · <span class="font-mono text-[10px] nav-user-matricule">${user.matricule}</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button id="btn-toggle-darkmode" data-label="Mode sombre" class="nav-item-link flex w-full items-center justify-between px-md py-sm text-[14px] cursor-pointer">
+                                <div class="flex items-center gap-md">
+                                    <span class="material-symbols-outlined dark:hidden" style="font-size:20px;">light_mode</span>
+                                    <span class="material-symbols-outlined hidden dark:inline" style="font-size:20px;">dark_mode</span>
+                                    <span>Mode sombre</span>
                                 </div>
-                            </div>
-                        </div>
-                        <button id="btn-logout" title="Déconnexion" class="nav-logout-btn p-1.5 rounded-lg transition-colors cursor-pointer">
-                            ${icon('logout', 20)}
-                        </button>
-                    </div>
+                            </button>
+                        </li>
+                        <li>
+                            <a class="nav-item-link flex items-center justify-between px-md py-sm text-[14px] ${current === 'parametres' ? 'active-menu' : ''}" href="parametres.html" data-label="Paramètres">
+                                <div class="flex items-center gap-md">
+                                    ${icon('settings', 20, current === 'parametres')}
+                                    <span>Paramètres</span>
+                                </div>
+                            </a>
+                        </li>
+                        <li>
+                            <button id="btn-logout" data-label="Déconnexion" class="nav-item-link flex w-full items-center justify-between px-md py-sm text-[14px] cursor-pointer">
+                                <div class="flex items-center gap-md">
+                                    ${icon('logout', 20)}
+                                    <span>Déconnexion</span>
+                                </div>
+                            </button>
+                        </li>
+                    </ul>
                 </div>
             </nav>
         `;
@@ -188,6 +189,11 @@ function buildShell() {
     // Attach sidebar collapse toggle + restore l'état mémorisé
     document.getElementById('btn-toggle-sidebar')?.addEventListener('click', toggleSidebar);
     initSidebar();
+
+    // Attach dark mode toggle (sidebar bottom)
+    document.getElementById('btn-toggle-darkmode')?.addEventListener('click', () => {
+        toggleDarkMode();
+    });
 
     // Tooltips de survol sur les onglets
     setupNavTooltips();
@@ -206,7 +212,7 @@ function renderTopbarSlot(pageName) {
     if (!user) return;
 
     const item = NAV_SECTIONS.flatMap(s => s.items).find(i => i.page === pageName);
-    const pageTitle = item ? item.label : 'Dashboard';
+    const pageTitle = item ? item.label : (pageName === 'parametres' ? 'Paramètres' : 'Dashboard');
     const showSearch = pageName === 'employes' || pageName === 'historique';
 
     if (showSearch) {
@@ -248,12 +254,6 @@ function renderTopbarSlot(pageName) {
                     ${icon('schedule', 16)}
                     <span id="topbar-clock">--:--:--</span>
                 </div>
-
-                <!-- 0. DARK MODE TOGGLE -->
-                <button id="btn-toggle-darkmode" title="Changer le thème" class="text-slate-600 dark:text-slate-300 hover:text-[#F46A21] hover:bg-slate-100 dark:hover:bg-stone-800 transition-colors cursor-pointer p-2 rounded-xl">
-                    <span class="material-symbols-outlined dark:hidden" style="font-size:22px;">light_mode</span>
-                    <span class="material-symbols-outlined hidden dark:inline" style="font-size:22px;">dark_mode</span>
-                </button>
 
                 <!-- 1. NOTIFICATIONS DROPDOWN MENU -->
                 <div class="relative" id="menu-notifications-container">
@@ -361,11 +361,6 @@ function renderTopbarSlot(pageName) {
     // Mobile drawer menu toggle
     document.getElementById('btn-menu')?.addEventListener('click', () => {
         document.body.classList.toggle('nav-open');
-    });
-
-    // Dark Mode Toggle
-    document.getElementById('btn-toggle-darkmode')?.addEventListener('click', () => {
-        toggleDarkMode();
     });
 
     // Setup Dropdown Toggle Handlers (Notification, Settings, User Profile)

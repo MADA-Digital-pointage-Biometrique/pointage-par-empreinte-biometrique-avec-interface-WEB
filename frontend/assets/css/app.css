@@ -265,22 +265,6 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
 .nav-footer-border      { border-top: 1px solid #E2E8F0; }
 .dark .nav-footer-border{ border-top: 1px solid #374151; }
 
-/* Zone utilisateur (card bas de sidebar) */
-.nav-user-zone {
-    background-color: #3F3F46;
-    border:           1px solid rgba(255,255,255,0.08);
-}
-
-/* Textes de la zone utilisateur */
-.nav-user-name      { color: #FFFFFF; }
-.nav-user-info      { color: #D4D4D8; }
-.nav-user-matricule { color: #D4D4D8; }
-.nav-user-status-border { border-color: #3F3F46; }
-
-/* Bouton déconnexion */
-.nav-logout-btn         { color: #D4D4D8; }
-.nav-logout-btn:hover   { color: #F87171; background-color: rgba(239,68,68,0.12); }
-
 
 /* Sidebar Menu Nav Items */
 .nav-item-link {
@@ -289,6 +273,11 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
     border-radius: 0.5rem;
     margin: 0 0.5rem;
     color: var(--text-secondary);
+}
+/* Boutons d'action en bas de sidebar : visuellement identiques aux liens */
+.sidenav button.nav-item-link {
+    border: 0;
+    background: transparent;
 }
 .nav-item-link::before {
     content: '';
@@ -481,17 +470,13 @@ body.auth-view #spa-main {
         width: calc(100% - 76px) !important;
     }
 
-    /* Masquer les textes : icônes seules */
+/* Masquer les textes : icônes seules */
     body.sidebar-collapsed .nav-brand-title,
     body.sidebar-collapsed .nav-brand-sub,
     body.sidebar-collapsed .nav-section-title,
     body.sidebar-collapsed .nav-item-link span:not(.material-symbols-outlined),
     body.sidebar-collapsed .nav-badge-service,
-    body.sidebar-collapsed .nav-badge-count,
-    body.sidebar-collapsed .nav-user-name,
-    body.sidebar-collapsed .nav-user-info,
-    body.sidebar-collapsed .sidebar-toggle-label,
-    body.sidebar-collapsed #btn-logout {
+    body.sidebar-collapsed .nav-badge-count {
         display: none;
     }
 
@@ -502,20 +487,7 @@ body.auth-view #spa-main {
         padding-right: 0;
     }
 
-    /* Zone utilisateur : avatar seul, centré */
-    body.sidebar-collapsed .nav-user-zone {
-        justify-content: center;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    /* Bouton de repli : icône seule, centrée, rotation pour indiquer l'expansion */
-    body.sidebar-collapsed #btn-toggle-sidebar {
-        justify-content: center;
-        padding-left: 0;
-        padding-right: 0;
-    }
-
+    /* Bouton de repli : icône seule, rotation pour indiquer l'expansion */
     body.sidebar-collapsed #btn-toggle-sidebar .material-symbols-outlined {
         transform: rotate(180deg);
     }
