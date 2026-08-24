@@ -42,86 +42,131 @@
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-lg">
                 <div>
                     <h2 class="font-bold text-2xl tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined text-blue-600">fingerprint</span>
-                        Borne de Pointage Biométrique
+                        <span class="material-symbols-outlined text-[#F46A21]">fingerprint</span>
+                        Pointages
                     </h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-[13px] mt-0.5">Terminal interactif et historique des horodatages</p>
+                    <p class="text-slate-500 dark:text-slate-400 text-[13px] mt-0.5">Consultation et correction des horodatages</p>
                 </div>
             </div>
 
-            <!-- Main Layout Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
-                <!-- Biometric Terminal Card -->
-                <div class="col-span-1 lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-lg shadow-sm flex flex-col items-center text-center relative overflow-hidden">
-                    <div class="w-full flex items-center justify-between mb-md border-b border-slate-100 dark:border-slate-800 pb-sm">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Capteur Optique SDK</span>
-                        <span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Actif
-                        </span>
+            <!-- Registre des pointages -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col mb-lg">
+                <!-- Toolbar de filtrage -->
+                <div class="p-md border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex flex-wrap items-center justify-between gap-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#F46A21]">history</span>
+                        <h3 class="font-bold text-sm text-slate-900 dark:text-white">Liste des Pointages</h3>
+                        <button id="capteur-badge" type="button" title="État du lecteur biométrique — cliquer pour basculer"
+                                class="ml-1 inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border cursor-pointer transition-colors">
+                            <span class="material-symbols-outlined text-[14px]" id="capteur-icon">sensors</span>
+                            <span id="capteur-label">—</span>
+                        </button>
+                    </div>
+                    <button class="text-xs font-semibold text-[#F46A21] dark:text-[#F9AE3F] hover:underline flex items-center gap-1 cursor-pointer" id="btn-refresh-history">
+                        <span class="material-symbols-outlined text-[14px]">refresh</span> Actualiser
+                    </button>
+                </div>
+
+                <!-- Filtres -->
+                <div class="p-md border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-md">
+                    <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs font-semibold" id="period-pills">
+                        <button class="period-pill active px-3 py-1.5 rounded-lg cursor-pointer transition-all" data-period="today">Aujourd'hui</button>
+                        <button class="period-pill text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white cursor-pointer transition-all" data-period="date">Date</button>
                     </div>
 
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-md">Sélectionnez l'employé à pointer :</p>
-                    
-                    <div class="w-full mb-md">
-                        <select id="user-select" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-md py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-2 border border-slate-200 dark:border-slate-700 hidden" id="date-filter-wrap">
+                        <span class="material-symbols-outlined text-slate-400 text-[18px]">calendar_month</span>
+                        <input type="date" id="filter-date" class="bg-transparent border-none text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-0">
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-2 border border-slate-200 dark:border-slate-700">
+                        <span class="material-symbols-outlined text-slate-400 text-[18px]">filter_list</span>
+                        <select id="filter-status" class="bg-transparent border-none text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-0">
+                            <option value="">Tous les Statuts</option>
+                            <option value="present">Présents (À l'heure)</option>
+                            <option value="retard">En Retard</option>
+                            <option value="encours">Journée en cours (Sans sortie)</option>
+                            <option value="sortie">Terminés (Sortie enregistrée)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-2 border border-slate-200 dark:border-slate-700">
+                        <span class="material-symbols-outlined text-slate-400 text-[18px]">corporate_fare</span>
+                        <select id="filter-dept" class="bg-transparent border-none text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-0">
+                            <option value="">Tous les Départements</option>
                             <!-- Populated by JS -->
                         </select>
                     </div>
 
-                    <!-- Scanner Animation Button -->
-                    <div class="relative group my-md cursor-pointer" id="btn-scan">
-                        <div class="w-36 h-36 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-800 text-white flex items-center justify-center shadow-xl shadow-blue-500/25 group-hover:scale-105 transition-transform duration-300 biometric-scan relative overflow-hidden" id="bio-icon">
-                            <span class="material-symbols-outlined text-[72px]" id="scanner-icon">fingerprint</span>
-                        </div>
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-2 border border-slate-200 dark:border-slate-700 min-w-[220px]">
+                        <span class="material-symbols-outlined text-slate-400 text-[18px]">search</span>
+                        <input id="top-search" placeholder="Rechercher un employé..." class="bg-transparent border-none text-xs font-medium text-slate-700 dark:text-slate-200 outline-none w-full placeholder-slate-400">
                     </div>
-                    <p class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-lg" id="scan-hint">Cliquez sur l'empreinte pour valider le scan</p>
 
-                    <!-- Scan Feedback Result Panel -->
-                    <div class="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 rounded-xl p-md hidden text-left" id="user-card">
-                        <div class="flex items-center gap-md">
-                            <div class="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-sm" id="card-avatar">--</div>
-                            <div>
-                                <div class="font-bold text-sm text-slate-900 dark:text-white" id="card-name">--</div>
-                                <div class="text-xs font-mono text-slate-400" id="card-mat">--</div>
-                            </div>
-                        </div>
-                        <div class="mt-sm text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1" id="card-status">
-                            <span class="material-symbols-outlined text-sm">check_circle</span> Accès autorisé
-                        </div>
-                    </div>
+                    <span class="ml-auto text-xs font-medium text-slate-500 dark:text-slate-400" id="pointage-count-summary"></span>
                 </div>
 
-                <!-- Pointage History Log & Filter Menu -->
-                <div class="col-span-1 lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-                    <!-- History Filter Menu Toolbar -->
-                    <div class="p-md border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex flex-wrap items-center justify-between gap-sm">
-                        <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-blue-600">history</span>
-                            <h3 class="font-bold text-sm text-slate-900 dark:text-white">Registre des Horodatages</h3>
-                        </div>
-
-                        <button class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer" id="btn-refresh-history">
-                            <span class="material-symbols-outlined text-[14px]">refresh</span> Actualiser
-                        </button>
-                    </div>
-
-                    <!-- History Table -->
-                    <div class="overflow-x-auto flex-1">
-                        <table class="w-full text-left border-collapse text-[13px]">
-                            <thead>
-                                <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/30 dark:bg-slate-900">
-                                    <th class="py-md px-md">Employé</th>
-                                    <th class="py-md px-md">Entrée</th>
-                                    <th class="py-md px-md">Sortie</th>
-                                    <th class="py-md px-md text-right">Statut</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60" id="history-body"></tbody>
-                        </table>
-                    </div>
+                <!-- Table -->
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-left border-collapse text-[13px]">
+                        <thead>
+                            <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/30 dark:bg-slate-900">
+                                <th class="py-md px-md">Employé</th>
+                                <th class="py-md px-md">Date</th>
+                                <th class="py-md px-md">Entrée</th>
+                                <th class="py-md px-md">Sortie</th>
+                                <th class="py-md px-md text-right">Statut</th>
+                                <th class="py-md px-md text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60" id="history-body"></tbody>
+                    </table>
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Modal : Modifier les heures de pointage -->
+    <div class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 items-center justify-center p-sm" id="modal-edit-pointage">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-[420px] p-lg menu-dropdown-panel">
+            <div class="flex justify-between items-center mb-lg border-b border-slate-100 dark:border-slate-800 pb-md">
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-xl bg-[#FFF1E8] dark:bg-orange-950 text-[#F46A21] flex items-center justify-center">
+                        <span class="material-symbols-outlined">edit_calendar</span>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-900 dark:text-white">Modifier les heures</h3>
+                        <p class="text-[11px] text-slate-400 font-mono" id="f-p-user">—</p>
+                    </div>
+                </div>
+                <button class="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer" data-close="modal-edit-pointage">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="form-edit-pointage">
+                <div class="space-y-md text-xs">
+                    <div>
+                        <label class="font-semibold text-slate-600 dark:text-slate-300 mb-1 block" for="f-p-date">Date *</label>
+                        <input class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl px-md py-2 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-[#F46A21]" id="f-p-date" type="date" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-md">
+                        <div>
+                            <label class="font-semibold text-slate-600 dark:text-slate-300 mb-1 block" for="f-p-entree">Heure d'entrée *</label>
+                            <input class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl px-md py-2 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-[#F46A21] font-mono" id="f-p-entree" type="time" required>
+                        </div>
+                        <div>
+                            <label class="font-semibold text-slate-600 dark:text-slate-300 mb-1 block" for="f-p-sortie">Heure de sortie</label>
+                            <input class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl px-md py-2 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-[#F46A21] font-mono" id="f-p-sortie" type="time">
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Laissez la sortie vide si la journée est toujours en cours.</p>
+                </div>
+                <div class="flex justify-end gap-sm mt-lg pt-md border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" class="px-md py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" data-close="modal-edit-pointage">Annuler</button>
+                    <button type="submit" class="px-md py-2 rounded-xl text-xs font-semibold bg-[#F46A21] text-white hover:bg-[#EA580C] shadow-md shadow-orange-500/20 cursor-pointer">Enregistrer</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script src="assets/js/data.js"></script>

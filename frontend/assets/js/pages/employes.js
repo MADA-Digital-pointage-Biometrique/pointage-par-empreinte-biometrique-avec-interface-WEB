@@ -9,7 +9,7 @@ function initials(u) {
 
 function avatar(u) {
     return `
-        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-[12px] shadow-sm">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[12px] shadow-sm">
             ${initials(u)}
         </div>`;
 }
@@ -20,7 +20,7 @@ function userRow(u) {
         : '<span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800"><span class="material-symbols-outlined text-[13px]">block</span> Aucune</span>';
     
     const roleBadge = u.role === 'admin'
-        ? '<span class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800"><span class="material-symbols-outlined text-[13px]">shield</span> Admin</span>'
+        ? '<span class="inline-flex items-center gap-1 bg-[#FFF1E8] text-[#F46A21] dark:bg-orange-950/40 dark:text-[#F9AE3F] font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-[#F46A21]/25 dark:border-orange-900"><span class="material-symbols-outlined text-[13px]">shield</span> Admin</span>'
         : '<span class="inline-flex items-center gap-1 bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700"><span class="material-symbols-outlined text-[13px]">person</span> Employé</span>';
 
     return `
@@ -41,7 +41,10 @@ function userRow(u) {
             <td class="py-sm px-md">${empBadge}</td>
             <td class="py-sm px-md text-right">
                 <div class="inline-flex items-center gap-1">
-                    <button class="bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 hover:bg-blue-100 font-semibold text-[11px] px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors inline-flex items-center gap-1 cursor-pointer" data-enroll="${u.id}">
+                    <button class="text-slate-500 hover:text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Modifier" data-edit="${u.id}">
+                        <span class="material-symbols-outlined text-[16px]">edit</span>
+                    </button>
+                    <button class="bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] hover:bg-orange-100 font-semibold text-[11px] px-2.5 py-1 rounded-lg border border-[#F46A21]/25 dark:border-orange-900 transition-colors inline-flex items-center gap-1 cursor-pointer" data-enroll="${u.id}">
                         <span class="material-symbols-outlined text-[14px]">fingerprint</span>
                         Enrôler
                     </button>
@@ -99,6 +102,8 @@ function initPage() {
         return;
     }
 
+    let editingId = null;
+
     renderUsers();
 
     // Attach menu filter listeners
@@ -138,14 +143,56 @@ function initPage() {
         }
     });
 
+    document.getElementById('form-edit')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (editingId === null) return;
+        const res = await api.updateUser(editingId, {
+            matricule: document.getElementById('f-edit-matricule').value.trim(),
+            nom: document.getElementById('f-edit-nom').value.trim(),
+            prenom: document.getElementById('f-edit-prenom').value.trim(),
+            email: document.getElementById('f-edit-email').value.trim(),
+            departement: document.getElementById('f-edit-departement').value.trim(),
+            role: document.getElementById('f-edit-role').value
+        });
+        if (res.ok) {
+            flash(`Employé ${res.user.prenom} ${res.user.nom} (${res.user.matricule}) mis à jour avec succès.`, 'success');
+            closeModal('modal-edit');
+            editingId = null;
+            e.target.reset();
+            await renderUsers();
+        } else {
+            flash(res.message, 'danger');
+        }
+    });
+
     document.getElementById('users-body')?.addEventListener('click', async (e) => {
         const enrollBtn = e.target.closest('[data-enroll]');
         const deleteBtn = e.target.closest('[data-delete]');
-        if (!enrollBtn && !deleteBtn) return;
+        const editBtn = e.target.closest('[data-edit]');
+        if (!enrollBtn && !deleteBtn && !editBtn) return;
 
-        const id = parseInt(enrollBtn?.dataset.enroll || deleteBtn.dataset.delete, 10);
+        const id = parseInt(enrollBtn?.dataset.enroll || deleteBtn?.dataset.delete || editBtn?.dataset.edit, 10);
         const target = allUsers.find(u => u.id === id);
         if (!target) return;
+
+        if (editBtn) {
+            editingId = id;
+            document.getElementById('f-edit-matricule').value = target.matricule || '';
+            document.getElementById('f-edit-nom').value = target.nom || '';
+            document.getElementById('f-edit-prenom').value = target.prenom || '';
+            document.getElementById('f-edit-email').value = target.email || '';
+            document.getElementById('f-edit-departement').value = target.departement || '';
+            const roleSel = document.getElementById('f-edit-role');
+            if (![...roleSel.options].some(o => o.value === target.role)) {
+                const opt = document.createElement('option');
+                opt.value = target.role;
+                opt.textContent = target.role === 'super_admin' ? 'Super Administrateur' : target.role;
+                roleSel.appendChild(opt);
+            }
+            roleSel.value = target.role;
+            openModal('modal-edit');
+            return;
+        }
 
         if (deleteBtn) {
             showConfirmModal({
@@ -170,13 +217,13 @@ function initPage() {
             const btn = document.getElementById('btn-enroll');
 
             document.getElementById('enroll-person').textContent = `${target.prenom} ${target.nom} (${target.matricule})`;
-            icon.className = 'w-24 h-24 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-lg transition-colors duration-300 shadow-inner';
+            icon.className = 'w-24 h-24 rounded-full bg-[#FFF1E8] text-[#F46A21] flex items-center justify-center mb-lg transition-colors duration-300 shadow-inner';
             icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>';
             step.textContent = 'Placez le doigt de l\'employé sur le lecteur.';
             btn.disabled = false;
 
             btn.onclick = async () => {
-                icon.className = 'w-24 h-24 rounded-full bg-blue-600 text-white pulse-ring flex items-center justify-center mb-lg transition-colors duration-300';
+                icon.className = 'w-24 h-24 rounded-full bg-[#F46A21] text-white pulse-ring flex items-center justify-center mb-lg transition-colors duration-300';
                 icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>';
                 step.textContent = 'Numérisation biométrique en cours...';
                 btn.disabled = true;

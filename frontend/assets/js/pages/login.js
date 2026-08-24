@@ -2,23 +2,12 @@
 // Contrôleur de la vue Connexion (mode mono-fichier index.html)
 // ============================================================
 
-function fillDemo(matricule, password) {
-    const m = document.getElementById('matricule');
-    const p = document.getElementById('password');
-    if (m) m.value = matricule;
-    if (p) {
-        p.value = password;
-        p.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    const btn = document.getElementById('btn-submit');
-    if (btn) btn.style.transform = 'scale(0.98)';
-    setTimeout(() => { if (btn) btn.style.transform = ''; }, 150);
-}
-
 function initPage() {
     const form = document.getElementById('login-form');
     if (!form || form.dataset.bound) return;
     form.dataset.bound = '1';
+
+    document.getElementById('btn-login-theme')?.addEventListener('click', () => toggleDarkMode());
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -55,4 +44,3 @@ function initPage() {
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};
 window.PAGE_MODULES['login'] = initPage;
-window.fillDemo = fillDemo;

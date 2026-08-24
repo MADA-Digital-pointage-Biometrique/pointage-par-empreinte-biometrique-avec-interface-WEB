@@ -131,10 +131,10 @@ function renderTrendChart(view = '7d') {
     let absentsData = [];
 
     if (view === '7d') {
-        labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-        presentsData = [5, 6, 5, 6, 5, 2, 1];
-        retardsData = [1, 0, 2, 1, 0, 0, 0];
-        absentsData = [1, 0, 1, 0, 1, 4, 5];
+        labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        presentsData = [5, 6, 5, 6, 5, 2];
+        retardsData = [1, 0, 2, 1, 0, 0];
+        absentsData = [1, 0, 1, 0, 1, 4];
     } else {
         labels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
         presentsData = [28, 30, 29, 31];
@@ -342,10 +342,10 @@ async function initPage() {
     document.querySelectorAll('#chart-trend-selector .trend-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('#chart-trend-selector .trend-btn').forEach(b => {
-                b.classList.remove('active', 'bg-blue-600', 'text-white');
+                b.classList.remove('active', 'bg-[#F46A21]', 'text-white');
                 b.classList.add('text-slate-600', 'dark:text-stone-400');
             });
-            btn.classList.add('active', 'bg-blue-600', 'text-white');
+            btn.classList.add('active', 'bg-[#F46A21]', 'text-white');
             btn.classList.remove('text-slate-600', 'dark:text-stone-400');
             renderTrendChart(btn.dataset.view);
         });

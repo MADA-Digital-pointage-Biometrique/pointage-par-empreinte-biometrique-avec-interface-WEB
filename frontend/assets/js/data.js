@@ -23,8 +23,15 @@ const storage = {
     }
 };
 
-const HEURE_DEBUT = '09:00:00';
+// Horaires : 08h30 – 17h00, 6 jours sur 7 (repos le dimanche)
+const HEURE_DEBUT = '08:30:00';
 const HEURE_FIN = '17:00:00';
+
+// Jour de travail ? (pas de travail le dimanche)
+function isWorkday(dateISO) {
+    const d = new Date(dateISO + 'T00:00:00');
+    return !isNaN(d.getTime()) && d.getDay() !== 0;
+}
 
 function todayISO() {
     return new Date().toISOString().slice(0, 10);

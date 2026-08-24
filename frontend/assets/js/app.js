@@ -30,8 +30,8 @@ const NAV_SECTIONS = [
 
 // Sample System Notifications
 let notificationsList = [
-    { id: 1, title: 'Pointage à l\'heure', time: 'Il y a 5 min', text: 'EMP001 (Marc Dubois) a pointé à 08:02', read: false, icon: 'check_circle', color: 'text-emerald-500' },
-    { id: 2, title: 'Nouvel enrôlement', time: 'Il y a 25 min', text: 'Empreinte enregistrée pour ADM001', read: false, icon: 'fingerprint', color: 'text-blue-500' },
+    { id: 1, title: 'Pointage à l\'heure', time: 'Il y a 5 min', text: 'EMP001 (Marc Dubois) a pointé à 08:02', read: false, icon: 'check_circle', color: 'text-[#F46A21]' },
+    { id: 2, title: 'Nouvel enrôlement', time: 'Il y a 25 min', text: 'Empreinte enregistrée pour ADM001', read: false, icon: 'fingerprint', color: 'text-[#F46A21]' },
     { id: 3, title: 'Retard détecté', time: 'Hier à 08:45', text: 'EMP002 (Sophie Martin) a pointé en retard', read: true, icon: 'warning', color: 'text-amber-500' }
 ];
 
@@ -61,6 +61,9 @@ function setupNavTooltips() {
     const tip = document.createElement('div');
     tip.className = 'nav-tooltip hidden';
     document.body.appendChild(tip);
+
+    // Tooltips réservés au bureau (souris) : inutiles/parasites sur mobile
+    if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) return;
 
     document.querySelectorAll('.nav-item-link').forEach(a => {
         a.addEventListener('mouseenter', () => {
@@ -92,13 +95,13 @@ function buildShell() {
     const appShell = document.getElementById('app-shell');
     if (appShell) {
         appShell.innerHTML = `
-            <nav class="sidenav glass-sidebar hidden md:flex flex-col font-body-md fixed left-0 top-0 h-full w-[280px] py-lg z-20 transition-all">
+            <nav class="sidenav glass-sidebar flex flex-col font-body-md fixed left-0 top-0 h-full w-[280px] py-lg z-20 transition-all">
                 <!-- Brand Header -->
                 <div class="px-lg mb-lg flex items-center justify-between">
                     <div class="flex items-center gap-md">
                         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center shadow-lg shadow-orange-950/40 relative">
                             ${icon('fingerprint', 24)}
-                            <span class="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#1C1917] animate-pulse"></span>
+                            <span class="absolute -top-1 -right-1 w-3 h-3 bg-[#F46A21] rounded-full border-2 border-[#1C1917] animate-pulse"></span>
                         </div>
                         <div>
                             <h1 class="font-headline-sm text-[18px] font-bold tracking-tight flex items-center gap-xs nav-brand-title">
@@ -107,6 +110,9 @@ function buildShell() {
                             <p class="font-label-md text-[11px] font-medium uppercase tracking-wider nav-brand-sub">Pointage Biométrique</p>
                         </div>
                     </div>
+                    <button id="btn-close-nav" class="md:hidden text-stone-500 dark:text-stone-400 hover:text-[#F46A21] hover:bg-stone-100 dark:hover:bg-stone-800 p-2 rounded-lg transition-colors cursor-pointer" aria-label="Fermer le menu">
+                        ${icon('close', 20)}
+                    </button>
                 </div>
 
                 <div class="w-full h-px nav-divider mb-md"></div>
@@ -197,6 +203,18 @@ function buildShell() {
 
     // Tooltips de survol sur les onglets
     setupNavTooltips();
+
+    // Mobile drawer : fermeture au clic sur un lien, hors sidebar (fond), touche Échap ou bouton X
+    const closeMobileNav = () => document.body.classList.remove('nav-open');
+    document.querySelectorAll('.nav-item-link').forEach(a => a.addEventListener('click', closeMobileNav));
+    document.getElementById('btn-close-nav')?.addEventListener('click', closeMobileNav);
+    document.querySelectorAll('.nav-item-link').forEach(a => a.addEventListener('click', closeMobileNav));
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.sidenav') && !e.target.closest('#btn-menu')) closeMobileNav();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeMobileNav();
+    });
 
     // ----------------------------------------------------
     // 2. TOPBAR HEADER & INTERACTIVE DROPDOWN MENUS
@@ -333,7 +351,7 @@ function renderTopbarSlot(pageName) {
     }
     startLiveClock();
 
-    // Mobile drawer menu toggle
+    // Mobile drawer menu toggle : ouvre/ferme la sidebar (repliable)
     document.getElementById('btn-menu')?.addEventListener('click', () => {
         document.body.classList.toggle('nav-open');
     });
@@ -420,7 +438,7 @@ function renderNotificationItems() {
     if (countPill) countPill.textContent = unreadCount;
 
     body.innerHTML = notificationsList.map(n => `
-        <div class="relative flex items-start gap-sm p-md transition-colors hover:bg-slate-50 dark:hover:bg-stone-800/50 ${n.read ? 'opacity-55' : 'bg-blue-50/30 dark:bg-blue-950/20'}">
+        <div class="relative flex items-start gap-sm p-md transition-colors hover:bg-slate-50 dark:hover:bg-stone-800/50 ${n.read ? 'opacity-55' : 'bg-[#FFF1E8]/60 dark:bg-orange-950/20'}">
             ${!n.read ? '<span class="absolute left-0 top-3 bottom-3 w-1 rounded-r bg-[#F46A21]"></span>' : ''}
             <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-stone-800 flex items-center justify-center flex-shrink-0 ${n.color}">
                 ${icon(n.icon, 20)}
@@ -511,9 +529,9 @@ function flash(message, type = 'success', title = null) {
 
     const styles = {
         success: {
-            bg: 'bg-stone-900/95 dark:bg-stone-900/95 border-emerald-500/40 text-white',
-            accent: 'bg-emerald-500',
-            icBg: 'bg-emerald-500/20 text-emerald-400',
+            bg: 'bg-stone-900/95 dark:bg-stone-900/95 border-[#F46A21]/40 text-white',
+            accent: 'bg-[#F46A21]',
+            icBg: 'bg-[#F46A21]/20 text-[#F9AE3F]',
             ic: 'check_circle',
             defaultTitle: 'Succès'
         },
@@ -664,6 +682,19 @@ function closeModal(id) {
         el.classList.remove('flex');
     }
 }
+
+// Fermeture globale des modales : boutons [data-close], clic sur le fond, touche Échap
+document.addEventListener('click', (e) => {
+    const closeBtn = e.target.closest('[data-close]');
+    if (closeBtn) closeModal(closeBtn.dataset.close);
+    const backdrop = e.target.closest('[id^="modal-"]');
+    if (backdrop && e.target === backdrop) closeModal(backdrop.id);
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('[id^="modal-"]:not(.hidden)').forEach(m => closeModal(m.id));
+});
 
 // ----------------------------------------------------
 // DARK MODE ENGINE

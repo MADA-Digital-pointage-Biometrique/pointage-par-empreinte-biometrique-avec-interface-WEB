@@ -64,22 +64,22 @@
     --text-muted:           #9CA3AF;
     --text-on-accent:       #FFFFFF;
 
-    --accent-default:       #3B82F6;
-    --accent-hover:         #2563EB;
-    --accent-weak:          #1E40AF;
+    --accent-default:       #F97316;
+    --accent-hover:         #EA580C;
+    --accent-weak:          #7C2D12;
 
-    --primary:              #3B82F6;
-    --primary-hover:        #2563EB;
-    --accent-orange:        #3B82F6;
+    --primary:              #F97316;
+    --primary-hover:        #EA580C;
+    --accent-orange:        #F9AE3F;
     --accent-blue:          #3B82F6;
     --accent-green:         #15803D;
     --icon-neutral:         #9CA3AF;
     --hover-light:          #1F2937;
 
-    --orange-primary:       #3B82F6;
-    --orange-accent-light:  #1E40AF;
-    --menu-primary-glow:    rgba(59, 130, 246, 0.20);
-    --menu-secondary-glow:  rgba(37, 99, 235, 0.10);
+    --orange-primary:       #F9AE3F;
+    --orange-accent-light:  #431407;
+    --menu-primary-glow:    rgba(249, 115, 22, 0.20);
+    --menu-secondary-glow:  rgba(249, 174, 63, 0.12);
 
     /* ── Statuts (Design System Dark Tokens) ── */
     --status-success-bg:    #15803D;
@@ -116,6 +116,105 @@
 .dark main {
     background-color: var(--bg-main) !important;
 }
+
+/* ── Page Connexion (thème clair par défaut, sombre via tokens) ── */
+.login-bg {
+    background:
+        radial-gradient(1200px 600px at 50% 0%, rgba(255, 122, 0, 0.10), transparent),
+        linear-gradient(180deg, #faf8f5 0%, #f0ebe6 100%);
+}
+
+.login-glow {
+    background: rgba(255, 122, 0, 0.08);
+}
+
+.login-card {
+    background-color: rgba(255, 255, 255, 0.92);
+    border: 1px solid var(--card-border);
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.18);
+}
+
+.login-title { color: var(--text-primary); }
+.login-subtitle { color: var(--text-secondary); }
+.login-label { color: var(--text-secondary); }
+
+.login-field {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+}
+
+.login-field:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.20);
+}
+
+.login-field input { color: var(--text-primary); }
+.login-field input::placeholder { color: var(--text-muted); }
+.login-field-icon { color: var(--text-muted); }
+
+.login-note { border-top: 1px solid var(--border); }
+.login-note-text { color: var(--text-secondary); }
+
+#btn-login-theme {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 50;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background-color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+#btn-login-theme:hover { background-color: #FFFFFF; }
+
+#btn-login-theme .ticon-light { color: var(--text-secondary); }
+
+#btn-login-theme .ticon-dark {
+    display: none;
+    color: var(--primary-hover);
+}
+
+#btn-login-theme .dark .ticon-light,
+.dark #btn-login-theme .ticon-light { display: none; }
+.dark #btn-login-theme .ticon-dark { display: inline-block; color: var(--accent-orange); }
+
+/* ── Page Connexion — MODE SOMBRE (Design System officiel) ── */
+.dark .login-bg {
+    background:
+        radial-gradient(1200px 600px at 50% 0%, var(--menu-primary-glow), transparent),
+        linear-gradient(180deg, var(--bg-main) 0%, #0d1424 100%);
+}
+
+.dark .login-glow {
+    background: var(--menu-secondary-glow);
+}
+
+.dark .login-card {
+    background-color: rgba(31, 41, 55, 0.92);
+    border-color: var(--card-border);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+}
+
+.dark .login-field {
+    background-color: var(--bg-main);
+    border-color: var(--border);
+}
+
+.dark .login-field:focus-within { box-shadow: 0 0 0 2px var(--menu-primary-glow); }
+
+.dark #btn-login-theme {
+    background-color: var(--bg-surface);
+    border-color: var(--border);
+}
+
+.dark #btn-login-theme:hover { background-color: var(--hover-light); }
 
 /* Harmonisation des cartes et panneaux */
 .dark .dark\:bg-stone-900,
@@ -305,20 +404,18 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); 
     background: var(--primary);
     border-radius: 0 4px 4px 0;
     transition: transform 0.2s ease, background 0.2s ease;
-    box-shadow: 0 0 10px rgba(59, 130, 246, 0.65);
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.55);
 }
 /* Actif — light mode */
 .nav-item-link.active-menu {
     background: linear-gradient(90deg, rgba(255, 122, 0, 0.10) 0%, rgba(255, 122, 0, 0.04) 100%);
     color: var(--primary) !important;
     font-weight: 600;
-    border: 1px solid rgba(255, 122, 0, 0.22);
 }
-/* Actif — dark mode */
+/* Actif — dark mode : orange translucide, peu lumineux */
 .dark .nav-item-link.active-menu {
-    background: #1E40AF;
-    color: #FFFFFF !important;
-    border-color: #3B82F6;
+    background: rgba(249, 115, 22, 0.16);
+    color: #FDBA74 !important;
 }
 .nav-item-link.active-menu::before {
     transform: translateY(-50%) scaleY(1);
@@ -399,7 +496,7 @@ html.dark .dark\:hidden { display: none !important; }
 
 /* Mobile Sidenav Overlay */
 @media (max-width: 767px) {
-    .sidenav { transform: translateX(-100%); transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1); }
+    body .sidenav { transform: translateX(-100%); transition: width .3s cubic-bezier(0.4, 0, 0.2, 1), transform .3s cubic-bezier(0.16, 1, 0.3, 1); }
     body.nav-open .sidenav { transform: translateX(0); box-shadow: 0 0 50px rgba(0,0,0,.6); }
     body.nav-open::after {
         content: '';

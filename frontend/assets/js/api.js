@@ -72,8 +72,10 @@ const api = {
         const total = db.users.length;
         const entrees = todayPoints.length;
         const sorties = todayPoints.filter(p => p.sortie !== null).length;
-        const retards = todayPoints.filter(p => isRetard(p.entree)).length;
-        const absents = Math.max(0, total - entrees);
+        // Jour de repos (dimanche) : ni retard ni absence comptabilisés
+        const workday = isWorkday(today);
+        const retards = workday ? todayPoints.filter(p => isRetard(p.entree)).length : 0;
+        const absents = workday ? Math.max(0, total - entrees) : 0;
 
         return { total, entrees, sorties, retards, absents, evenements: entrees + sorties };
     },
@@ -115,6 +117,10 @@ const api = {
         await this._delay(1500);
         const user = this.getCurrentUser();
         const db = loadDB();
+
+        if (!isWorkday(todayISO())) {
+            return { ok: false, message: 'Aujourd\'hui est un jour de repos (dimanche). Aucun pointage autorisé.' };
+        }
 
         if (!user.empreinte) {
             return { ok: false, message: "Empreinte non reconnue. Aucune empreinte enregistrée pour ce compte." };
@@ -159,6 +165,55 @@ const api = {
         db.users.push({ id, ...data, empreinte: false });
         saveDB(db);
         return { ok: true, user: db.users.find(u => u.id === id) };
+    },
+
+    async updateUser(id, data) {
+        await this._delay(400);
+        const db = loadDB();
+        const user = db.users.find(u => u.id === id);
+        if (!user) return { ok: false, message: 'Employé introuvable.' };
+        if (data.matricule && db.users.some(u => u.id !== id && u.matricule === data.matricule)) {
+            return { ok: false, message: 'Ce matricule est déjà utilisé par un autre employé.' };
+        }
+        if (data.password !== undefined && data.password !== null && data.password !== '') {
+            if (typeof data.password !== 'string' || data.password.length < 6) {
+                return { ok: false, message: 'Le mot de passe doit contenir au moins 6 caractères.' };
+            }
+            user.password = data.password;
+        }
+        if (data.matricule !== undefined) user.matricule = data.matricule;
+        if (data.nom !== undefined) user.nom = data.nom;
+        if (data.prenom !== undefined) user.prenom = data.prenom;
+        if (data.email !== undefined) user.email = data.email;
+        if (data.departement !== undefined) user.departement = data.departement;
+        if (data.role !== undefined) user.role = data.role;
+        saveDB(db);
+        return { ok: true, user };
+    },
+
+    async updatePointage(id, data) {
+        await this._delay(300);
+        const db = loadDB();
+        const p = db.pointages.find(x => x.id === id);
+        if (!p) return { ok: false, message: 'Pointage introuvable.' };
+        const norm = (t) => {
+            if (!t) return null;
+            const m = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(String(t).trim());
+            return m ? `${m[1]}:${m[2]}:${m[3] || '00'}` : null;
+        };
+        const date = String(data.date || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return { ok: false, message: 'La date doit être au format AAAA-MM-JJ.' };
+        }
+        const entree = norm(data.entree);
+        if (!entree) {
+            return { ok: false, message: "L'heure d'entrée est invalide (format HH:MM)." };
+        }
+        p.date = date;
+        p.entree = entree;
+        p.sortie = norm(data.sortie);
+        saveDB(db);
+        return { ok: true, pointage: p };
     },
 
     async deleteUser(id) {

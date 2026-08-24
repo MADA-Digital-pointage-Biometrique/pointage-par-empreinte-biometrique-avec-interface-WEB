@@ -67,7 +67,7 @@
             <div class="bg-white dark:bg-stone-900 border border-slate-200/80 dark:border-stone-800 rounded-2xl p-md shadow-sm card-hover flex flex-col justify-between relative overflow-hidden">
                 <div class="flex items-center justify-between mb-sm">
                     <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-stone-400">Taux de Présence</span>
-                    <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                    <div class="w-8 h-8 rounded-xl bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] flex items-center justify-center">
                         <span class="material-symbols-outlined text-[20px]">donut_large</span>
                     </div>
                 </div>
@@ -177,13 +177,13 @@
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-sm mb-md pb-xs border-b border-slate-100 dark:border-stone-800">
                     <div>
                         <h3 class="font-bold text-[15px] text-[#303030] dark:text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined text-blue-600">show_chart</span>
+                            <span class="material-symbols-outlined text-[#F46A21]">show_chart</span>
                             Évolution de l'Assiduité
                         </h3>
                         <p class="text-[11px] text-slate-400 mt-0.5">Suivi historique des Présences, Retards et Absences</p>
                     </div>
                     <div class="flex items-center gap-1 bg-slate-100 dark:bg-stone-800 p-1 rounded-xl text-[11px] font-medium" id="chart-trend-selector">
-                        <button class="trend-btn active bg-blue-600 text-white px-2.5 py-1 rounded-lg transition-colors cursor-pointer" data-view="7d">Semaine</button>
+                        <button class="trend-btn active bg-[#F46A21] text-white px-2.5 py-1 rounded-lg transition-colors cursor-pointer" data-view="7d">Semaine</button>
                         <button class="trend-btn text-slate-600 dark:text-stone-400 px-2.5 py-1 rounded-lg hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer" data-view="30d">Mois</button>
                     </div>
                 </div>
@@ -201,12 +201,12 @@
                 <div class="flex items-center justify-between mb-md pb-xs border-b border-slate-100 dark:border-stone-800">
                     <div>
                         <h3 class="font-bold text-[15px] text-[#303030] dark:text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined text-indigo-500">schedule</span>
+                            <span class="material-symbols-outlined text-[#F46A21]">schedule</span>
                             Heures Travaillées & Volume
                         </h3>
                         <p class="text-[11px] text-slate-400 mt-0.5">Volume moyen d'heures effectuées par département</p>
                     </div>
-                    <span class="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-800 font-mono" id="avg-hours-badge">
+                    <span class="bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] text-[11px] font-bold px-2.5 py-1 rounded-full border border-[#F46A21]/25 dark:border-orange-900 font-mono" id="avg-hours-badge">
                         Moyenne: 7.8h / jour
                     </span>
                 </div>
@@ -276,14 +276,14 @@
                 <div class="bg-white dark:bg-stone-900 border border-slate-200/80 dark:border-stone-800 rounded-2xl p-md shadow-sm">
                     <div class="flex items-center justify-between mb-md">
                         <h3 class="font-bold text-[15px] text-slate-900 dark:text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined text-blue-600">equalizer</span>
+                            <span class="material-symbols-outlined text-[#F46A21]">equalizer</span>
                             Flux de Pointe (Horaires)
                         </h3>
                     </div>
                     <div class="relative h-36 w-full bg-slate-50 dark:bg-slate-800/50 rounded-xl p-md flex items-end justify-between gap-1 border border-slate-100 dark:border-slate-800" id="activity-bars"></div>
                     <div class="flex justify-between mt-sm text-[11px] text-slate-400 font-mono">
                         <span>Horaires: 07h — 18h</span>
-                        <span class="text-blue-600 font-semibold" id="activity-peak">Pic à 08h</span>
+                        <span class="text-[#F46A21] font-semibold" id="activity-peak">Pic à 08h</span>
                     </div>
                 </div>
 
@@ -314,7 +314,7 @@
     <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md p-lg menu-dropdown-panel">
         <div class="flex justify-between items-center mb-md border-b border-slate-100 dark:border-slate-800 pb-sm">
             <h3 class="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-blue-600">add_circle</span> Forcer un pointage
+                <span class="material-symbols-outlined text-[#F46A21]">add_circle</span> Forcer un pointage
             </h3>
             <button class="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer" onclick="closeModal('modal-force-pointage')">
                 <span class="material-symbols-outlined">close</span>
@@ -323,7 +323,7 @@
         <form id="form-force-pointage">
             <div class="mb-md">
                 <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Sélectionner l'employé</label>
-                <select id="force-select-user" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-md py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="force-select-user" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-md py-2 text-sm outline-none focus:ring-2 focus:ring-[#F46A21]">
                     <!-- Populated dynamically -->
                 </select>
             </div>
@@ -331,18 +331,18 @@
                 <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Type de pointage</label>
                 <div class="grid grid-cols-2 gap-sm">
                     <label class="flex items-center gap-2 p-2 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
-                        <input type="radio" name="force-type" value="entree" checked class="text-blue-600 focus:ring-blue-500">
+                        <input type="radio" name="force-type" value="entree" checked class="text-[#F46A21] focus:ring-[#F46A21]">
                         <span class="text-xs font-semibold">Entrée</span>
                     </label>
                     <label class="flex items-center gap-2 p-2 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
-                        <input type="radio" name="force-type" value="sortie" class="text-blue-600 focus:ring-blue-500">
+                        <input type="radio" name="force-type" value="sortie" class="text-[#F46A21] focus:ring-[#F46A21]">
                         <span class="text-xs font-semibold">Sortie</span>
                     </label>
                 </div>
             </div>
             <div class="flex justify-end gap-sm">
                 <button type="button" class="px-md py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" onclick="closeModal('modal-force-pointage')">Annuler</button>
-                <button type="submit" class="px-md py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20">Enregistrer</button>
+                <button type="submit" class="px-md py-2 rounded-xl text-xs font-semibold bg-[#F46A21] text-white hover:bg-[#EA580C] shadow-md shadow-orange-500/20">Enregistrer</button>
             </div>
         </form>
     </div>
