@@ -10,21 +10,13 @@
     <?php elseif ($today === null): ?>
         <form method="POST" action="/pointage/scan">
             <input type="hidden" name="csrf_token" value="<?= App\Core\Session::csrfToken() ?>">
-            <?php if ($driver === 'simulator'): ?>
-                <label for="matricule_scan">Saisissez votre matricule (simulation de la pose du doigt)</label>
-                <input type="text" id="matricule_scan" name="matricule_scan" placeholder="ex : EMP001" required>
-            <?php endif; ?>
-            <button type="submit" class="btn btn-primary btn-lg">&#128400; Scanner mon empreinte</button>
+            <button type="submit" class="btn btn-primary btn-lg">&#128400; Poser votre doigt sur le lecteur</button>
         </form>
     <?php elseif ($today['heure_sortie'] === null): ?>
         <p>Entrée pointée à <strong><?= $today['heure_entree'] ?></strong></p>
         <form method="POST" action="/pointage/scan">
             <input type="hidden" name="csrf_token" value="<?= App\Core\Session::csrfToken() ?>">
-            <?php if ($driver === 'simulator'): ?>
-                <label for="matricule_scan">Saisissez votre matricule (simulation de la pose du doigt)</label>
-                <input type="text" id="matricule_scan" name="matricule_scan" placeholder="ex : EMP001" required>
-            <?php endif; ?>
-            <button type="submit" class="btn btn-danger btn-lg">&#128400; Scanner l'empreinte (sortie)</button>
+            <button type="submit" class="btn btn-danger btn-lg">&#128400; Poser votre doigt sur le lecteur (sortie)</button>
         </form>
     <?php else: ?>
         <p>Journée complète : entrée <strong><?= $today['heure_entree'] ?></strong>, sortie <strong><?= $today['heure_sortie'] ?></strong></p>

@@ -3,27 +3,22 @@
 namespace App\Core\Biometric;
 
 /**
- * Contrat d'un lecteur d'empreintes digitales.
- *
- * Implémenter cette interface pour brancher un lecteur réel
- * (DigitalPersona, SecuGen, ZKTeco...) avec son SDK.
+ * Interface pour les lecteurs biométriques.
  */
 interface FingerprintReader
 {
     /**
-     * Attend la pose du doigt et retourne l'identifiant de l'employé
-     * reconnu par l'empreinte, ou null si aucune correspondance.
+     * Effectue un scan et retourne l'ID utilisateur si reconnu, null sinon.
      */
     public function scan(): ?int;
 
     /**
-     * Enregistre le template de l'empreinte d'un employé.
-     * Retourne le template brut (binaire) à stocker en base.
+     * Enrôle un utilisateur et retourne le template de l'empreinte.
      */
     public function enroll(int $userId): string;
 
     /**
-     * Nom lisible du lecteur (affiché dans l'interface).
+     * Nom du lecteur pour l'affichage.
      */
     public function name(): string;
 }

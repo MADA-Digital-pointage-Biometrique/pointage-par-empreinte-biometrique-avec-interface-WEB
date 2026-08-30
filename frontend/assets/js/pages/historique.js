@@ -1,12 +1,13 @@
+(function () {
 // ============================================================
-// Page : Historique Général des Pointages (MADA Digital)
+// Page : Historique Général des Pointages - Connecté MySQL
 // ============================================================
 
 let currentPeriod = 'today';
 let editingPointageId = null;
 
 function statusBadge(p) {
-    if (p.sortie === null) {
+    if (!p.sortie) {
         return `
             <span class="inline-flex items-center gap-1 bg-[#FFF1E8] text-[#F46A21] dark:bg-orange-950/40 dark:text-[#F9AE3F] font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-[#F46A21]/25 dark:border-orange-900">
                 <span class="material-symbols-outlined text-[13px]">pending</span> En cours
@@ -47,25 +48,21 @@ function filterRecords(db) {
 
     const todayStr = todayISO();
 
-    return db.pointages.filter(p => {
-        const u = db.users.find(usr => usr.id === p.user_id) || { nom: 'Inconnu', prenom: '', matricule: '', departement: '' };
+    return (db.pointages || []).filter(p => {
+        const u = (db.users || []).find(usr => usr.id === p.user_id) || p.user || { nom: 'Inconnu', prenom: '', matricule: '', departement: '' };
 
-        // Search match
         const matchesSearch = !search ||
-            u.nom.toLowerCase().includes(search) ||
-            u.prenom.toLowerCase().includes(search) ||
-            u.matricule.toLowerCase().includes(search);
+            (u.nom || '').toLowerCase().includes(search) ||
+            (u.prenom || '').toLowerCase().includes(search) ||
+            (u.matricule || '').toLowerCase().includes(search);
 
-        // Department match
         const matchesDept = !filterDept || (u.departement || '') === filterDept;
 
-        // Status match
         let matchesStatus = true;
         if (filterStatus === 'present') matchesStatus = !isRetard(p.entree) && p.sortie !== null;
         else if (filterStatus === 'retard') matchesStatus = isRetard(p.entree);
-        else if (filterStatus === 'encours') matchesStatus = p.sortie === null;
+        else if (filterStatus === 'encours') matchesStatus = !p.sortie;
 
-        // Period match
         let matchesPeriod = true;
         if (currentPeriod === 'today') {
             matchesPeriod = p.date === todayStr;
@@ -97,8 +94,17 @@ function updateKPIs(records) {
     if (completesEl) completesEl.textContent = completes;
 }
 
-function renderHistory() {
-    const db = loadDB();
+let cachedHistoriqueDb = null;
+
+async function renderHistory(forceFetch = false) {
+    if (forceFetch || !cachedHistoriqueDb) {
+        const [users, pointages] = await Promise.all([
+            api.getUsers(),
+            api.getTodayPointages()
+        ]);
+        cachedHistoriqueDb = { users, pointages };
+    }
+    const db = cachedHistoriqueDb;
     const records = filterRecords(db);
     updateKPIs(records);
 
@@ -117,7 +123,7 @@ function renderHistory() {
     }
 
     body.innerHTML = records.map(p => {
-        const u = db.users.find(usr => usr.id === p.user_id) || { nom: 'Inconnu', prenom: '', matricule: '', departement: 'Général' };
+        const u = (db.users || []).find(usr => usr.id === p.user_id) || p.user || { nom: 'Inconnu', prenom: '', matricule: '', departement: 'Général' };
         return `
         <tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors h-14">
             <td class="py-sm px-md">
@@ -150,22 +156,30 @@ function renderHistory() {
                 ${statusBadge(p)}
             </td>
             <td class="py-sm px-md text-right">
-                <button class="text-slate-500 hover:text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Modifier les heures" data-edit-pointage="${p.id}">
+                ${(() => {
+                    const isSuper = (() => { try { const cu = api.getCurrentUser(); return cu && (cu.role === 'super_admin' || cu.role === 'admin_systeme'); } catch(e){ return false; } })();
+                    if (!isSuper) return '';
+                    return `<button class="text-slate-500 hover:text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Modifier les heures" data-edit-pointage="${p.id}">
                     <span class="material-symbols-outlined text-[16px]">edit</span>
-                </button>
+                </button>`;
+                })()}
             </td>
         </tr>`;
     }).join('');
 }
 
-function exportCSV() {
-    const db = loadDB();
+async function exportCSV() {
+    const [users, pointages] = await Promise.all([
+        api.getUsers(),
+        api.getTodayPointages()
+    ]);
+    const db = { users, pointages };
     const records = filterRecords(db);
 
     let csvContent = 'data:text/csv;charset=utf-8,Matricule,Nom,Prenom,Departement,Date,Entree,Sortie,Statut\n';
     records.forEach(p => {
-        const u = db.users.find(usr => usr.id === p.user_id) || { nom: '', prenom: '', matricule: '', departement: '' };
-        const status = p.sortie === null ? 'En cours' : (isRetard(p.entree) ? 'Retard' : 'Present');
+        const u = (db.users || []).find(usr => usr.id === p.user_id) || p.user || { nom: '', prenom: '', matricule: '', departement: '' };
+        const status = !p.sortie ? 'En cours' : (isRetard(p.entree) ? 'Retard' : 'Present');
         csvContent += `"${u.matricule}","${u.nom}","${u.prenom}","${u.departement || ''}","${p.date}","${p.entree || ''}","${p.sortie || ''}","${status}"\n`;
     });
 
@@ -181,14 +195,13 @@ function exportCSV() {
 }
 
 function initPage() {
-    renderHistory();
+    window._lastInitializedModule = 'historique';
+    renderHistory(true);
 
-    // Listeners for filters
-    document.getElementById('top-search')?.addEventListener('input', renderHistory);
-    document.getElementById('filter-status')?.addEventListener('change', renderHistory);
-    document.getElementById('filter-dept')?.addEventListener('change', renderHistory);
+    document.getElementById('top-search')?.addEventListener('input', () => renderHistory(false));
+    document.getElementById('filter-status')?.addEventListener('change', () => renderHistory(false));
+    document.getElementById('filter-dept')?.addEventListener('change', () => renderHistory(false));
 
-    // Period Filter Pills listener
     document.querySelectorAll('.period-pill').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.period-pill').forEach(b => {
@@ -207,7 +220,7 @@ function initPage() {
                     if (dateInput && !dateInput.value) dateInput.value = todayISO();
                 }
             }
-            renderHistory();
+            renderHistory(false);
         });
     });
 
@@ -222,26 +235,10 @@ function initPage() {
             datePill.classList.remove('text-slate-600', 'dark:text-slate-400');
             currentPeriod = 'date';
         }
-        renderHistory();
+        renderHistory(false);
     });
 
     document.getElementById('btn-export-history')?.addEventListener('click', exportCSV);
-
-    document.getElementById('history-table-body')?.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-edit-pointage]');
-        if (!btn) return;
-        const id = parseInt(btn.dataset.editPointage, 10);
-        const db = loadDB();
-        const p = db.pointages.find(x => x.id === id);
-        if (!p) return;
-        const u = db.users.find(x => x.id === p.user_id) || { nom: 'Inconnu', prenom: '', matricule: '' };
-        editingPointageId = id;
-        document.getElementById('f-p-user').textContent = `${u.prenom} ${u.nom} (${u.matricule})`;
-        document.getElementById('f-p-date').value = p.date;
-        document.getElementById('f-p-entree').value = p.entree ? p.entree.slice(0, 5) : '';
-        document.getElementById('f-p-sortie').value = p.sortie ? p.sortie.slice(0, 5) : '';
-        openModal('modal-edit-pointage');
-    });
 
     document.getElementById('form-edit-pointage')?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -252,10 +249,10 @@ function initPage() {
             sortie: document.getElementById('f-p-sortie').value
         });
         if (res.ok) {
-            flash(`Pointage de ${res.pointage.date} corrigé (entrée ${res.pointage.entree.slice(0, 5)}${res.pointage.sortie ? ' / sortie ' + res.pointage.sortie.slice(0, 5) : ''}).`, 'success');
+            flash(`Pointage de ${res.pointage.date} corrigé.`, 'success');
             closeModal('modal-edit-pointage');
             editingPointageId = null;
-            renderHistory();
+            renderHistory(true);
         } else {
             flash(res.message, 'danger');
         }
@@ -265,3 +262,4 @@ function initPage() {
 window.PAGE_MODULES = window.PAGE_MODULES || {};
 window.PAGE_MODULES['historique'] = initPage;
 window.initPage = initPage;
+})();

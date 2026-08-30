@@ -1,0 +1,39 @@
+# Sécurité : masquer l'architecture, interdire l'exploration
+Options -Indexes
+ServerSignature Off
+
+# Redirection Front Controller : /login, /dashboard, /employes, /empreintes, etc. → frontend/
+RewriteEngine On
+RewriteBase /projet_Stage_MADA-Digital/
+
+# Ne pas réécrire les fichiers existants (assets, api, uploads)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Routes amicales
+RewriteRule ^$ frontend/login.php [L]
+RewriteRule ^login/?$ frontend/login.php [L]
+RewriteRule ^dashboard/?$ frontend/dashboard.php [L]
+RewriteRule ^employes/?$ frontend/employes.php [L]
+RewriteRule ^empreintes/?$ frontend/empreintes.php [L]
+RewriteRule ^administrateurs/?$ frontend/administrateurs.php [L]
+RewriteRule ^historique/?$ frontend/historique.php [L]
+RewriteRule ^pointage/?$ frontend/pointage.php [L]
+RewriteRule ^parametres/?$ frontend/parametres.php [L]
+
+# Bloquer l'accès direct aux fichiers sensibles
+<FilesMatch "^(config|\.env|composer|\.git|database\.sql)">
+    Require all denied
+</FilesMatch>
+<FilesMatch "\.(env|log|sql|ini)$">
+    Require all denied
+</FilesMatch>
+
+# Headers de sécurité
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>

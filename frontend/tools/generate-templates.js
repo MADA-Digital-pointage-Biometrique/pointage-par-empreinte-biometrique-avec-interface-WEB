@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const pages = ['dashboard', 'employes', 'historique', 'pointage', 'parametres'];
+const pages = ['dashboard', 'employes', 'empreintes', 'administrateurs', 'historique', 'pointage', 'parametres'];
 const out = {};
 
 function read(name) {
@@ -44,13 +44,13 @@ function extractBlock(html, predicate, fromIndex = 0) {
 }
 
 // --- Vue login : carte d'authentification --------------------
-out.login = extractBlock(read('login.html'), t => t.includes('max-w-[420px]'));
+out.login = extractBlock(read('login.php'), t => t.includes('max-w-[420px]'));
 
 // --- Vues applicatives : contenu du <main> + toutes les modales ---
 for (const p of pages) {
-    const html = read(p + '.html');
+    const html = read(p + '.php');
     const main = html.match(/<main[^>]*>([\s\S]*?)<\/main>/);
-    if (!main) throw new Error('Balise <main> introuvable dans ' + p + '.html');
+    if (!main) throw new Error('Balise <main> introuvable dans ' + p + '.php');
     let t = main[1];
 
     // Modales (déclarées hors <main>, ex. modal-add, modal-enroll, modal-force-pointage)
@@ -71,7 +71,7 @@ const banner = [
     '// ============================================================',
     '// PAGE_TEMPLATES - vues SPA intégrées (compatibles file://)',
     '// Auto-généré par tools/generate-templates.js - NE PAS ÉDITER À LA MAIN',
-    '// Re-générer après modification d\'un fichier .html : node tools/generate-templates.js',
+    '// Re-générer après modification d\'un fichier .php : node tools/generate-templates.js',
     '// ============================================================',
     ''
 ].join('\n');

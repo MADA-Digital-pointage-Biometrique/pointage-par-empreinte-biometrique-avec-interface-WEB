@@ -83,7 +83,7 @@ g:/projet/projet_Stage_MADA-Digital/
 │           └── pages/
 │               ├── dashboard.js  # Calculs statistiques & graphiques du tableau de bord
 │               ├── employes.js   # Filtrage, modal d'ajout et enrôlement d'empreintes
-│               ├── pointage.js   # Simulation du lecteur optique biométrique
+│           ├── pointage.js   # Pointage biométrique (lecteur optique)
 │               └── historique.js # Calculs des durées, filtres 30J et export CSV
     `);
 

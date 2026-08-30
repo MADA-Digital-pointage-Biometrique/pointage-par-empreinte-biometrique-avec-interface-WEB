@@ -1,11 +1,15 @@
 // ============================================================
-// Shell partagé & Système de Menus Interactifs (MADA Digital)
+// Shell partagé & Système de Menus Interactifs (P.Biometrique)
 // ============================================================
 
 function icon(name, size = 18, filled = false) {
     return `<span class="material-symbols-outlined ${filled ? 'filled' : ''}" style="font-size:${size}px;">${name}</span>`;
 }
 
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
 function initialsOf(u) {
     if (!u || !u.prenom || !u.nom) return 'U';
     return (u.prenom[0] + u.nom[0]).toUpperCase();
@@ -15,15 +19,17 @@ const NAV_SECTIONS = [
     {
         title: 'VUE GÉNÉRALE',
         items: [
-            { page: 'dashboard', link: 'dashboard.html', icon: 'dashboard', label: 'Tableau de bord' },
-            { page: 'pointage', link: 'pointage.html', icon: 'fingerprint', label: 'Pointage', badge: 'En service' },
+            { page: 'dashboard', link: 'dashboard.php', icon: 'dashboard', label: 'Tableau de bord' },
+            { page: 'pointage', link: 'pointage.php', icon: 'fingerprint', label: 'Pointage', badge: 'En service' },
         ]
     },
     {
         title: 'GESTION DE L\'EFFECTIF',
         items: [
-            { page: 'employes', link: 'employes.html', icon: 'badge', label: 'Employés & Empreintes', adminOnly: true, badgeId: 'badge-count-emp' },
-            { page: 'historique', link: 'historique.html', icon: 'history', label: 'Historique des Pointages' },
+            { page: 'employes', link: 'employes.php', icon: 'badge', label: 'Employés', adminOnly: true, badgeId: 'badge-count-emp' },
+            { page: 'empreintes', link: 'empreintes.php', icon: 'fingerprint', label: 'Empreintes', adminOnly: true },
+            { page: 'administrateurs', link: 'administrateurs.php', icon: 'admin_panel_settings', label: 'Administrateurs', superAdminOnly: true },
+            { page: 'historique', link: 'historique.php', icon: 'history', label: 'Historique des Pointages' },
         ]
     }
 ];
@@ -83,7 +89,7 @@ function setupNavTooltips() {
 function buildShell() {
     const user = api.getCurrentUser();
     if (!user) {
-        window.location.href = 'login.html';
+        window.location.href = 'login.php';
         return;
     }
 
@@ -105,7 +111,7 @@ function buildShell() {
                         </div>
                         <div>
                             <h1 class="font-headline-sm text-[18px] font-bold tracking-tight flex items-center gap-xs nav-brand-title">
-                                MADA Digital
+                                P.Biometrique
                             </h1>
                             <p class="font-label-md text-[11px] font-medium uppercase tracking-wider nav-brand-sub">Pointage Biométrique</p>
                         </div>
@@ -120,7 +126,11 @@ function buildShell() {
                 <!-- Navigation Sections -->
                 <div class="flex flex-col gap-md flex-grow overflow-y-auto overflow-x-hidden px-xs">
                     ${NAV_SECTIONS.map((sec, idx) => {
-                        const validItems = sec.items.filter(i => !i.adminOnly || user.role === 'admin' || user.role === 'super_admin');
+                        const validItems = sec.items.filter(i => {
+                            if (i.superAdminOnly) return user.role === 'super_admin';
+                            if (i.adminOnly) return user.role === 'admin' || user.role === 'super_admin';
+                            return true;
+                        });
                         if (validItems.length === 0) return '';
                         return `
                             <div>
@@ -168,7 +178,7 @@ function buildShell() {
                             </button>
                         </li>
                         <li>
-                            <a class="nav-item-link flex items-center justify-between px-md py-sm text-[14px] ${current === 'parametres' ? 'active-menu' : ''}" href="parametres.html" data-label="Paramètres">
+                            <a class="nav-item-link flex items-center justify-between px-md py-sm text-[14px] ${current === 'parametres' ? 'active-menu' : ''}" href="parametres.php" data-label="Paramètres">
                                 <div class="flex items-center gap-md">
                                     ${icon('settings', 20, current === 'parametres')}
                                     <span>Paramètres</span>
@@ -239,7 +249,7 @@ function renderTopbarSlot(pageName) {
         delete document.body.dataset.search;
     }
 
-    document.title = `${pageTitle} - MADA Digital`;
+    document.title = `${pageTitle} - P.Biometrique`;
 
     topbarSlot.innerHTML = `
         <header class="glass-topbar text-on-background font-label-md text-label-md fixed top-0 right-0 w-full md:w-[calc(100%-280px)] h-16 border-b border-slate-200/80 dark:border-stone-800 shadow-sm flex justify-between items-center px-gutter z-10 transition-colors">
@@ -296,7 +306,7 @@ function renderTopbarSlot(pageName) {
                             <!-- Populated dynamically -->
                         </div>
                         <div class="p-2 border-t border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-800/30">
-                            <a href="pointage.html" class="block w-full text-center py-2 rounded-xl text-[12px] font-semibold text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 transition-colors">Voir l'historique complet</a>
+                            <a href="pointage.php" class="block w-full text-center py-2 rounded-xl text-[12px] font-semibold text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 transition-colors">Voir l'historique complet</a>
                         </div>
                     </div>
                 </div>
@@ -329,7 +339,7 @@ function renderTopbarSlot(pageName) {
                         </div>
                         <div class="py-1 text-[13px]">
                             ${user.role === 'admin' || user.role === 'super_admin' ? `
-                            <a href="employes.html" class="flex items-center gap-md px-md py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-colors">
+                            <a href="employes.php" class="flex items-center gap-md px-md py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-colors">
                                 ${icon('badge', 18)} Liste des Employés
                             </a>` : ''}
                         </div>
@@ -488,7 +498,7 @@ async function setupLiveSearch() {
                 </div>`;
         } else {
             dropdown.innerHTML = matches.map(u => `
-                <a href="employes.html" class="group flex items-center gap-sm p-sm hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-all hover:translate-x-0.5">
+                <a href="employes.php" class="group flex items-center gap-sm p-sm hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition-all hover:translate-x-0.5">
                     <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[12px] shadow-sm flex-shrink-0">
                         ${initialsOf(u)}
                     </div>
@@ -684,7 +694,13 @@ function closeModal(id) {
 }
 
 // Fermeture globale des modales : boutons [data-close], clic sur le fond, touche Échap
+// + Ouverture globale via [data-open] (nécessaire pour SPA où les modales sont injectées dynamiquement)
 document.addEventListener('click', (e) => {
+    const openBtn = e.target.closest('[data-open]');
+    if (openBtn) {
+        openModal(openBtn.dataset.open);
+        return;
+    }
     const closeBtn = e.target.closest('[data-close]');
     if (closeBtn) closeModal(closeBtn.dataset.close);
     const backdrop = e.target.closest('[id^="modal-"]');
@@ -743,23 +759,24 @@ function getPageHTML(url) {
 function setupSPARouting() {
     async function loadPageSPA(href) {
         const cleanHref = href.replace('./', '');
-        const pageName = cleanHref.replace('.html', '');
-        const pages = ['dashboard', 'employes', 'historique', 'pointage', 'parametres'];
+        const pageName = cleanHref.replace(/\.(html|php)$/, '');
+        const pages = ['dashboard', 'employes', 'empreintes', 'administrateurs', 'historique', 'pointage', 'parametres'];
         if (!pages.includes(pageName)) return;
 
         const currentMain = document.querySelector('main');
         if (!currentMain) return;
 
         let htmlText = '';
+        let isTemplateFallback = false;
         try {
             htmlText = await getPageHTML(cleanHref);
         } catch (err) {
             // Fallback ultime : utilisation du dictionnaire local de templates (compatible file://)
             if (typeof PAGE_TEMPLATES !== 'undefined' && PAGE_TEMPLATES[pageName]) {
                 htmlText = PAGE_TEMPLATES[pageName];
+                isTemplateFallback = true;
             } else {
-                // Aucun template intégré disponible (templates.js absent) :
-                // bascule sur une navigation classique (rechargement complet de la page).
+                // Aucun template intégré disponible : bascule sur une navigation classique
                 window.location.href = href;
                 return;
             }
@@ -767,13 +784,36 @@ function setupSPARouting() {
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
-        const newMain = doc.querySelector('main');
+        let newMain = doc.querySelector('main');
 
-        if (!newMain) return;
+        // Cas fallback PAGE_TEMPLATES : htmlText est un fragment sans <main>
+        let incomingModals = [];
+        if (isTemplateFallback && !newMain) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = htmlText;
+            incomingModals = Array.from(tmp.querySelectorAll('[id^="modal-"]'));
+            // Retirer les modales du fragment pour ne pas les dupliquer dans <main>
+            incomingModals.forEach(m => m.remove());
+            // Remplacer le contenu du <main> actuel par le fragment nettoyé
+            currentMain.innerHTML = tmp.innerHTML;
+        } else {
+            if (!newMain) return;
+            // 1. Remplacement exclusif du panneau de droite (<main>)
+            const freshMain = newMain.cloneNode(true);
+            currentMain.replaceWith(freshMain);
+            // Modales présentes dans le document complet fetché
+            incomingModals = Array.from(doc.querySelectorAll('[id^="modal-"]'));
+        }
 
-        // 1. Remplacement exclusif du panneau de droite (<main>)
-        const freshMain = newMain.cloneNode(true);
-        currentMain.replaceWith(freshMain);
+        // 1b. Synchroniser les modales : supprimer anciennes modales de page puis injecter les nouvelles
+        document.querySelectorAll('[id^="modal-"]').forEach(m => {
+            // Ne pas supprimer une modale système en cours d'animation (custom-confirm)
+            if (m.id === 'custom-confirm-modal') return;
+            m.remove();
+        });
+        incomingModals.forEach(modal => {
+            document.body.appendChild(modal.cloneNode(true));
+        });
 
         // 2. Mise à jour de l'état de la page et du topbar (titre, recherche, titre document)
         document.body.dataset.page = pageName;
@@ -787,7 +827,7 @@ function setupSPARouting() {
         // 4. Mise à jour de la classe active du menu latéral gauche
         document.querySelectorAll('.nav-item-link').forEach(a => {
             const aHref = (a.getAttribute('href') || '').replace('./', '');
-            if (aHref === cleanHref || aHref === pageName + '.html') {
+            if (aHref === cleanHref || aHref.replace(/\.(html|php)$/, '') === pageName) {
                 a.classList.add('active-menu');
             } else {
                 a.classList.remove('active-menu');
@@ -801,9 +841,11 @@ function setupSPARouting() {
         const script = document.createElement('script');
         script.id = 'active-page-script';
         const isFileProtocol = window.location.protocol === 'file:';
+        window._lastInitializedModule = null;
         script.src = `assets/js/pages/${pageName}.js` + (isFileProtocol ? '' : `?v=${Date.now()}`);
         script.onload = () => {
-            if (window.PAGE_MODULES && typeof window.PAGE_MODULES[pageName] === 'function') {
+            if (window._lastInitializedModule !== pageName && window.PAGE_MODULES && typeof window.PAGE_MODULES[pageName] === 'function') {
+                window._lastInitializedModule = pageName;
                 window.PAGE_MODULES[pageName]();
             }
         };
@@ -821,12 +863,15 @@ function setupSPARouting() {
         if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript:')) return;
 
         const cleanHref = href.replace('./', '');
-        const pages = ['dashboard.html', 'employes.html', 'historique.html', 'pointage.html', 'parametres.html'];
+        const pages = [
+            'dashboard.html', 'employes.html', 'empreintes.html', 'administrateurs.html', 'historique.html', 'pointage.html', 'parametres.html',
+            'dashboard.php', 'employes.php', 'empreintes.php', 'administrateurs.php', 'historique.php', 'pointage.php', 'parametres.php'
+        ];
         if (!pages.includes(cleanHref)) return;
 
         e.preventDefault();
 
-        const currentHref = window.location.pathname.split('/').pop() || 'dashboard.html';
+        const currentHref = window.location.pathname.split('/').pop() || 'dashboard.php';
         if (currentHref === cleanHref) return;
 
         loadPageSPA(cleanHref);
@@ -834,8 +879,8 @@ function setupSPARouting() {
 
     // Gestion de la navigation Précédent / Suivant du navigateur
     window.addEventListener('popstate', () => {
-        const currentHref = window.location.pathname.split('/').pop() || 'dashboard.html';
-        if (currentHref && currentHref.endsWith('.html')) {
+        const currentHref = window.location.pathname.split('/').pop() || 'dashboard.php';
+        if (currentHref && (currentHref.endsWith('.html') || currentHref.endsWith('.php'))) {
             loadPageSPA(currentHref);
         }
     });
@@ -847,14 +892,14 @@ function setupSPARouting() {
 // reste dans la page, sans fetch ni rechargement.
 // ============================================================
 const SINGLE_FILE_MODE = (window.location.pathname.split('/').pop() || 'index.html') === 'index.html';
-const SPA_PAGES = ['login', 'dashboard', 'employes', 'historique', 'pointage', 'parametres'];
+const SPA_PAGES = ['login', 'dashboard', 'employes', 'empreintes', 'administrateurs', 'historique', 'pointage', 'parametres'];
 
 function performLogout() {
     api.logout();
     if (SINGLE_FILE_MODE) {
         switchPage('login');
     } else {
-        window.location.href = 'login.html';
+        window.location.href = 'login.php';
     }
 }
 
@@ -862,13 +907,28 @@ function switchPage(pageName) {
     if (typeof PAGE_TEMPLATES === 'undefined' || !PAGE_TEMPLATES[pageName]) return;
 
     const main = document.getElementById('spa-main');
-    if (main) main.innerHTML = PAGE_TEMPLATES[pageName];
+    if (main) {
+        // Extraire les modales du template pour les injecter au niveau body (évite de les imbriquer dans <main>)
+        const tmp = document.createElement('div');
+        tmp.innerHTML = PAGE_TEMPLATES[pageName];
+        const incomingModals = Array.from(tmp.querySelectorAll('[id^="modal-"]'));
+        incomingModals.forEach(m => m.remove());
+        main.innerHTML = tmp.innerHTML;
+        // Synchroniser les modales au niveau body
+        document.querySelectorAll('[id^="modal-"]').forEach(m => {
+            if (m.id === 'custom-confirm-modal') return;
+            m.remove();
+        });
+        incomingModals.forEach(modal => {
+            document.body.appendChild(modal.cloneNode(true));
+        });
+    }
 
     document.body.dataset.page = pageName;
     document.body.classList.toggle('auth-view', pageName === 'login');
 
     if (pageName === 'login') {
-        document.title = 'MADA Digital – Connexion';
+        document.title = 'P.Biometrique – Connexion';
         document.getElementById('topbar-slot')?.replaceChildren();
         delete document.body.dataset.search;
     } else {
@@ -877,7 +937,7 @@ function switchPage(pageName) {
 
     // Classe active sur le menu latéral
     document.querySelectorAll('.nav-item-link').forEach(a => {
-        const target = (a.getAttribute('href') || '').replace('./', '').replace('.html', '');
+        const target = (a.getAttribute('href') || '').replace('./', '').replace(/\.(html|php)$/, '');
         a.classList.toggle('active-menu', target === pageName);
     });
 
@@ -885,8 +945,9 @@ function switchPage(pageName) {
     const mod = window.PAGE_MODULES && window.PAGE_MODULES[pageName];
     if (mod) mod();
 
-    // Barre d'adresse (ne change rien sous file://, gère l'historique en http)
-    const cleanHref = pageName + '.html';
+    // Barre d'adresse
+    const ext = window.location.pathname.endsWith('.php') ? '.php' : '.html';
+    const cleanHref = pageName + ext;
     if (window.location.pathname.split('/').pop() !== cleanHref) {
         try {
             history.pushState({ page: pageName, href: cleanHref }, '', cleanHref);
@@ -916,13 +977,13 @@ function initSingleFileApp() {
         if (!link) return;
         const href = (link.getAttribute('href') || '').trim();
         if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript:')) return;
-        const pageName = href.replace('./', '').replace('.html', '');
+        const pageName = href.replace('./', '').replace(/\.(html|php)$/, '');
         if (!SPA_PAGES.includes(pageName)) return;
         e.preventDefault();
         switchPage(pageName);
     });
     window.addEventListener('popstate', () => {
-        const current = (window.location.pathname.split('/').pop() || 'index.html').replace('.html', '');
+        const current = (window.location.pathname.split('/').pop() || 'index.html').replace(/\.(html|php)$/, '');
         if (SPA_PAGES.includes(current)) switchPage(current);
     });
 })();
@@ -934,5 +995,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (document.body.dataset.page && !document.body.dataset.noShell) buildShell();
     setupSPARouting();
-    if (typeof initPage === 'function') initPage();
+    const currentPage = document.body.dataset.page;
+    if (currentPage && typeof initPage === 'function' && window._lastInitializedModule !== currentPage) {
+        window._lastInitializedModule = currentPage;
+        initPage();
+    }
 });

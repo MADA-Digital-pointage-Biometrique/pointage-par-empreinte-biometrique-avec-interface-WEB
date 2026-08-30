@@ -1,12 +1,13 @@
+(function () {
 // ============================================================
-// Page : Pointages — listes et filtrage (sans simulation)
+// Page : Pointages — listes et filtrage connectés MySQL
 // ============================================================
 
 let pointageEditingId = null;
 let pointagePeriod = 'today';
 
 function statusBadge(p) {
-    if (p.sortie !== null) {
+    if (p.sortie !== null && p.sortie !== undefined) {
         return `
             <span class="inline-flex items-center gap-1 bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-800">
                 <span class="material-symbols-outlined text-[13px]">logout</span> Sortie
@@ -43,13 +44,13 @@ function filterPointages(db) {
         matchesPeriod = p => !sel || p.date === sel;
     }
 
-    return db.pointages.filter(p => {
+    return (db.pointages || []).filter(p => {
         if (!matchesPeriod(p)) return false;
 
-        if (status === 'sortie' && p.sortie === null) return false;
-        if (status === 'encours' && p.sortie !== null) return false;
-        if (status === 'retard' && !(p.sortie === null && isRetard(p.entree))) return false;
-        if (status === 'present' && !(p.sortie === null && !isRetard(p.entree))) return false;
+        if (status === 'sortie' && (!p.sortie)) return false;
+        if (status === 'encours' && p.sortie) return false;
+        if (status === 'retard' && !(!p.sortie && isRetard(p.entree))) return false;
+        if (status === 'present' && !(!p.sortie && !isRetard(p.entree))) return false;
 
         if (search) {
             const u = p.user || {};
@@ -67,14 +68,13 @@ function populateDeptFilter(db) {
     const select = document.getElementById('filter-dept');
     if (!select) return;
     const current = select.value;
-    const depts = [...new Set(db.users.map(u => u.departement).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const depts = [...new Set((db.users || []).map(u => u.departement).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     select.innerHTML = '<option value="">Tous les Départements</option>' +
         depts.map(d => `<option value="${d}" ${d === current ? 'selected' : ''}>${d}</option>`).join('');
 }
 
 function renderCapteurStatus() {
-    const db = loadDB();
-    const hs = db.capteur === 'hs';
+    const hs = storage.get('mada_capteur_hs') === '1';
     const badge = document.getElementById('capteur-badge');
     if (!badge) return;
 
@@ -91,10 +91,21 @@ function renderCapteurStatus() {
     }
 }
 
-async function renderHistoryTable() {
+let cachedPointagesDb = null;
+
+async function renderHistoryTable(forceFetch = false) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
-    const db = loadDB();
+
+    if (forceFetch || !cachedPointagesDb) {
+        const [users, pointages] = await Promise.all([
+            api.getUsers(),
+            api.getTodayPointages()
+        ]);
+        cachedPointagesDb = { users, pointages };
+    }
+
+    const db = cachedPointagesDb;
     populateDeptFilter(db);
     renderCapteurStatus();
     const list = filterPointages(db);
@@ -127,35 +138,36 @@ async function renderHistoryTable() {
             <td class="py-sm px-md font-mono text-[13px] text-rose-600 dark:text-rose-400 font-semibold">${p.sortie ? p.sortie.slice(0, 5) : '—'}</td>
             <td class="py-sm px-md text-right">${statusBadge(p)}</td>
             <td class="py-sm px-md text-right">
-                <button class="text-slate-500 hover:text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Modifier les heures" data-edit-pointage="${p.id}">
+                ${(() => {
+                    const isSuper = (() => { try { const cu = api.getCurrentUser(); return cu && (cu.role === 'super_admin' || cu.role === 'admin_systeme'); } catch(e){ return false; } })();
+                    if (!isSuper) return '';
+                    return `<button class="text-slate-500 hover:text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Modifier les heures" data-edit-pointage="${p.id}">
                     <span class="material-symbols-outlined text-[16px]">edit</span>
-                </button>
+                </button>`;
+                })()}
             </td>
         </tr>`;
     }).join('');
 }
 
 function initPage() {
-    renderHistoryTable();
+    window._lastInitializedModule = 'pointage';
+    renderHistoryTable(true);
 
-    document.getElementById('btn-refresh-history')?.addEventListener('click', renderHistoryTable);
-    document.getElementById('top-search')?.addEventListener('input', renderHistoryTable);
-    document.getElementById('filter-status')?.addEventListener('change', renderHistoryTable);
-    document.getElementById('filter-dept')?.addEventListener('change', renderHistoryTable);
+    document.getElementById('btn-refresh-history')?.addEventListener('click', () => renderHistoryTable(true));
+    document.getElementById('top-search')?.addEventListener('input', () => renderHistoryTable(false));
+    document.getElementById('filter-status')?.addEventListener('change', () => renderHistoryTable(false));
+    document.getElementById('filter-dept')?.addEventListener('change', () => renderHistoryTable(false));
 
-    // Statut du capteur : En service <-> HS
     document.getElementById('capteur-badge')?.addEventListener('click', () => {
-        const db = loadDB();
-        const hs = db.capteur !== 'hs';
-        db.capteur = hs ? 'hs' : 'en_service';
-        saveDB(db);
+        const hs = storage.get('mada_capteur_hs') !== '1';
+        storage.set('mada_capteur_hs', hs ? '1' : '0');
         renderCapteurStatus();
         flash(hs
             ? 'Le lecteur biométrique est désormais hors service (HS).'
             : 'Le lecteur biométrique est de nouveau en service.', hs ? 'warning' : 'success');
     });
 
-    // Period Filter Pills listener
     document.querySelectorAll('.period-pill').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.period-pill').forEach(b => {
@@ -174,7 +186,7 @@ function initPage() {
                     if (dateInput && !dateInput.value) dateInput.value = todayISO();
                 }
             }
-            renderHistoryTable();
+            renderHistoryTable(false);
         });
     });
 
@@ -189,24 +201,7 @@ function initPage() {
             datePill.classList.remove('text-slate-600', 'dark:text-slate-400');
             pointagePeriod = 'date';
         }
-        renderHistoryTable();
-    });
-
-    // Édition des heures
-    document.getElementById('history-body')?.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-edit-pointage]');
-        if (!btn) return;
-        const id = parseInt(btn.dataset.editPointage, 10);
-        const db = loadDB();
-        const p = db.pointages.find(x => x.id === id);
-        if (!p) return;
-        const u = db.users.find(x => x.id === p.user_id) || { nom: 'Inconnu', prenom: '', matricule: '' };
-        pointageEditingId = id;
-        document.getElementById('f-p-user').textContent = `${u.prenom} ${u.nom} (${u.matricule})`;
-        document.getElementById('f-p-date').value = p.date;
-        document.getElementById('f-p-entree').value = p.entree ? p.entree.slice(0, 5) : '';
-        document.getElementById('f-p-sortie').value = p.sortie ? p.sortie.slice(0, 5) : '';
-        openModal('modal-edit-pointage');
+        renderHistoryTable(false);
     });
 
     document.getElementById('form-edit-pointage')?.addEventListener('submit', async (e) => {
@@ -218,10 +213,10 @@ function initPage() {
             sortie: document.getElementById('f-p-sortie').value
         });
         if (res.ok) {
-            flash(`Heures de pointage corrigées (entrée ${res.pointage.entree.slice(0, 5)}${res.pointage.sortie ? ' / sortie ' + res.pointage.sortie.slice(0, 5) : ''}).`, 'success');
+            flash(`Heures de pointage corrigées.`, 'success');
             closeModal('modal-edit-pointage');
             pointageEditingId = null;
-            renderHistoryTable();
+            renderHistoryTable(true);
         } else {
             flash(res.message, 'danger');
         }
@@ -231,3 +226,4 @@ function initPage() {
 window.PAGE_MODULES = window.PAGE_MODULES || {};
 window.PAGE_MODULES['pointage'] = initPage;
 window.initPage = initPage;
+})();

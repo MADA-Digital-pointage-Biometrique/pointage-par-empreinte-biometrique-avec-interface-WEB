@@ -1,246 +1,270 @@
 // ============================================================
-// API simulée — mêmes signatures que l'API réelle (PHP) attendue.
-// Remplacer chaque méthode par un fetch() vers les routes du backend.
+// Client API backend XAMPP / MySQL - P.Biometrique
 // ============================================================
 
+function getApiEndpoint(path) {
+    if (window.location.protocol === 'file:') {
+        return '../api/' + path;
+    }
+    const pathParts = window.location.pathname.split('/');
+    const frontendIndex = pathParts.indexOf('frontend');
+    if (frontendIndex !== -1) {
+        const root = pathParts.slice(0, frontendIndex).join('/');
+        return (root ? root : '') + '/api/' + path;
+    }
+    return '../api/' + path;
+}
+
+// Cache du jeton CSRF (valable toute la session)
+let _csrfToken = null;
+
 const api = {
-    _delay(ms = 350) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    // --- Jeton CSRF (récupéré une fois, mis en cache) ---
+    async getCsrfToken() {
+        if (_csrfToken) return _csrfToken;
+        try {
+            const res = await fetch(getApiEndpoint('csrf.php'), { credentials: 'include' });
+            const data = await res.json();
+            if (data.ok && data.csrf_token) {
+                _csrfToken = data.csrf_token;
+                return _csrfToken;
+            }
+        } catch (e) {
+            console.warn('Impossible de récupérer le jeton CSRF:', e);
+        }
+        return null;
     },
 
-    // --- Authentification ---
+    // --- Authentification via MySQL XAMPP ---
     async login(matricule, password) {
-        await this._delay();
-        const db = loadDB();
-        const user = db.users.find(u => u.matricule === matricule && u.password === password);
-        if (!user) return { ok: false, message: 'Matricule ou mot de passe incorrect.' };
+        try {
+            const res = await fetch(getApiEndpoint('login.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ matricule, password })
+            });
 
-        if (user.role !== 'admin' && user.role !== 'super_admin') {
-            return { ok: false, message: 'Accès réservé. Les employés n\'ont pas de compte d\'accès au tableau de bord.' };
+            const data = await res.json();
+            if (data.ok && data.user) {
+                const userJson = JSON.stringify(data.user);
+                sessionStorage.setItem('mada_user_session', userJson);
+                storage.set(SESSION_KEY, userJson);
+            }
+            return data;
+        } catch (e) {
+            console.error('Erreur connexion backend:', e);
+            return { ok: false, message: 'Impossible de contacter le serveur MySQL sur XAMPP.' };
         }
-
-        storage.set(SESSION_KEY, JSON.stringify({ id: user.id, matricule: user.matricule }));
-        return { ok: true, user };
     },
 
-    async changePassword(currentPassword, newPassword) {
-        await this._delay(400);
-        const db = loadDB();
-        const user = this.getCurrentUser();
-        if (!user) return { ok: false, message: 'Session invalide. Reconnectez-vous.' };
-        const target = db.users.find(u => u.id === user.id);
-        if (!target) return { ok: false, message: 'Utilisateur introuvable.' };
-        if (target.password !== currentPassword) {
-            return { ok: false, message: 'Le mot de passe actuel est incorrect.' };
-        }
-        if (typeof newPassword !== 'string' || newPassword.length < 6) {
-            return { ok: false, message: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' };
-        }
-        target.password = newPassword;
-        saveDB(db);
-        return { ok: true, message: 'Mot de passe modifié avec succès.' };
-    },
-
-    logout() {
+    async logout() {
+        try {
+            await fetch(getApiEndpoint('logout.php'), { method: 'POST' });
+        } catch (e) {}
+        sessionStorage.removeItem('mada_user_session');
         storage.remove(SESSION_KEY);
+        window.location.href = 'login.php';
     },
 
     getCurrentUser() {
-        const raw = storage.get(SESSION_KEY);
-        const db = loadDB();
-        if (raw) {
-            try {
-                const parsed = JSON.parse(raw);
-                const user = db.users.find(u => u.id === parsed.id);
-                if (user) return user;
-            } catch (e) {}
-        }
-        const defaultAdmin = db.users.find(u => u.role === 'super_admin' || u.role === 'admin') || db.users[0];
-        if (defaultAdmin) {
-            storage.set(SESSION_KEY, JSON.stringify({ id: defaultAdmin.id, matricule: defaultAdmin.matricule }));
-        }
-        return defaultAdmin || null;
+        try {
+            const raw = sessionStorage.getItem('mada_user_session') || storage.get(SESSION_KEY);
+            if (raw) {
+                return JSON.parse(raw);
+            }
+        } catch (e) {}
+        return { id: 1, nom: 'Administrateur', prenom: 'Système', role: 'admin' };
     },
 
-    // --- Dashboard ---
+    async changePassword(currentPassword, newPassword) {
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('change_password.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+            return await res.json();
+        } catch (e) {
+            return { ok: false, message: 'Erreur lors du changement de mot de passe.' };
+        }
+    },
+
+    // --- Tableau de bord connecté à MySQL ---
     async getDashboardStats() {
-        await this._delay(250);
-        const db = loadDB();
-        const today = todayISO();
-        const todayPoints = db.pointages.filter(p => p.date === today);
-
-        const total = db.users.length;
-        const entrees = todayPoints.length;
-        const sorties = todayPoints.filter(p => p.sortie !== null).length;
-        // Jour de repos (dimanche) : ni retard ni absence comptabilisés
-        const workday = isWorkday(today);
-        const retards = workday ? todayPoints.filter(p => isRetard(p.entree)).length : 0;
-        const absents = workday ? Math.max(0, total - entrees) : 0;
-
-        return { total, entrees, sorties, retards, absents, evenements: entrees + sorties };
+        try {
+            const res = await fetch(getApiEndpoint('dashboard.php'));
+            const data = await res.json();
+            if (data.ok && data.stats) {
+                return data.stats;
+            }
+        } catch (e) {}
+        return { total: 0, entrees: 0, sorties: 0, retards: 0, absents: 0, evenements: 0 };
     },
 
     async getActivity() {
-        await this._delay(200);
-        const db = loadDB();
-        const max = Math.max(...db.activite.map(a => a.count), 1);
-        return db.activite.map(a => ({ ...a, height: Math.round((a.count / max) * 100) }));
+        try {
+            const res = await fetch(getApiEndpoint('dashboard.php'));
+            const data = await res.json();
+            if (data.ok && data.activite) {
+                return data.activite;
+            }
+        } catch (e) {}
+        return [
+            { heure: '06h', count: 0, height: 0 },
+            { heure: '07h', count: 0, height: 0 },
+            { heure: '08h', count: 0, height: 0 },
+            { heure: '09h', count: 0, height: 0 },
+            { heure: '10h', count: 0, height: 0 }
+        ];
     },
 
     async getTodayPointages() {
-        await this._delay(250);
-        const db = loadDB();
-        return db.pointages
-            .filter(p => p.date === todayISO())
-            .map(p => {
-                const user = db.users.find(u => u.id === p.user_id);
-                return { ...p, user };
-            })
-            .sort((a, b) => (a.entree || '').localeCompare(b.entree || ''));
-    },
-
-    // --- Pointage ---
-    getTodayPointage(userId) {
-        const db = loadDB();
-        return db.pointages.find(p => p.user_id === userId && p.date === todayISO()) || null;
-    },
-
-    getHistory(userId) {
-        const db = loadDB();
-        return db.pointages
-            .filter(p => p.user_id === userId)
-            .sort((a, b) => b.date.localeCompare(a.date) || (b.entree || '').localeCompare(a.entree || ''))
-            .slice(0, 30);
-    },
-
-    async scanFingerprint() {
-        await this._delay(1500);
-        const user = this.getCurrentUser();
-        const db = loadDB();
-
-        if (!isWorkday(todayISO())) {
-            return { ok: false, message: 'Aujourd\'hui est un jour de repos (dimanche). Aucun pointage autorisé.' };
-        }
-
-        if (!user.empreinte) {
-            return { ok: false, message: "Empreinte non reconnue. Aucune empreinte enregistrée pour ce compte." };
-        }
-
-        const today = this.getTodayPointage(user.id);
-
-        if (!today) {
-            db.pointages.push({ id: Date.now(), user_id: user.id, date: todayISO(), entree: timeNow(), sortie: null });
-            saveDB(db);
-            return { ok: true, type: 'entree', message: `Entrée pointée à ${timeNow().slice(0, 5)}. Bon travail !` };
-        }
-
-        if (today.sortie === null) {
-            today.sortie = timeNow();
-            saveDB(db);
-            return { ok: true, type: 'sortie', message: `Sortie pointée à ${timeNow().slice(0, 5)}. À demain !` };
-        }
-
-        return { ok: false, type: 'deja', message: 'Vous avez déjà pointé entrée et sortie aujourd\'hui.' };
-    },
-
-    async manualPoint() {
-        await this._delay(400);
-        return this.scanFingerprint();
-    },
-
-    // --- Employés (admin) ---
-    async getUsers() {
-        await this._delay(250);
-        const db = loadDB();
-        return [...db.users].sort((a, b) => a.id - b.id);
-    },
-
-    async addUser(data) {
-        await this._delay(400);
-        const db = loadDB();
-        if (db.users.some(u => u.matricule === data.matricule)) {
-            return { ok: false, message: 'Ce matricule existe déjà.' };
-        }
-        const id = Math.max(...db.users.map(u => u.id)) + 1;
-        db.users.push({ id, ...data, empreinte: false });
-        saveDB(db);
-        return { ok: true, user: db.users.find(u => u.id === id) };
-    },
-
-    async updateUser(id, data) {
-        await this._delay(400);
-        const db = loadDB();
-        const user = db.users.find(u => u.id === id);
-        if (!user) return { ok: false, message: 'Employé introuvable.' };
-        if (data.matricule && db.users.some(u => u.id !== id && u.matricule === data.matricule)) {
-            return { ok: false, message: 'Ce matricule est déjà utilisé par un autre employé.' };
-        }
-        if (data.password !== undefined && data.password !== null && data.password !== '') {
-            if (typeof data.password !== 'string' || data.password.length < 6) {
-                return { ok: false, message: 'Le mot de passe doit contenir au moins 6 caractères.' };
+        try {
+            const res = await fetch(getApiEndpoint('pointages.php'));
+            const data = await res.json();
+            if (data.ok && data.pointages) {
+                return data.pointages;
             }
-            user.password = data.password;
-        }
-        if (data.matricule !== undefined) user.matricule = data.matricule;
-        if (data.nom !== undefined) user.nom = data.nom;
-        if (data.prenom !== undefined) user.prenom = data.prenom;
-        if (data.email !== undefined) user.email = data.email;
-        if (data.departement !== undefined) user.departement = data.departement;
-        if (data.role !== undefined) user.role = data.role;
-        saveDB(db);
-        return { ok: true, user };
+        } catch (e) {}
+        return [];
     },
 
     async updatePointage(id, data) {
-        await this._delay(300);
-        const db = loadDB();
-        const p = db.pointages.find(x => x.id === id);
-        if (!p) return { ok: false, message: 'Pointage introuvable.' };
-        const norm = (t) => {
-            if (!t) return null;
-            const m = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(String(t).trim());
-            return m ? `${m[1]}:${m[2]}:${m[3] || '00'}` : null;
-        };
-        const date = String(data.date || '').trim();
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-            return { ok: false, message: 'La date doit être au format AAAA-MM-JJ.' };
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('pointages.php'), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ id, ...data })
+            });
+            return await res.json();
+        } catch (e) {
+            return { ok: false, message: 'Erreur lors de la mise à jour du pointage.' };
         }
-        const entree = norm(data.entree);
-        if (!entree) {
-            return { ok: false, message: "L'heure d'entrée est invalide (format HH:MM)." };
+    },
+
+    // --- Gestion des Employés connectée à MySQL ---
+    async getUsers() {
+        try {
+            const res = await fetch(getApiEndpoint('users.php'));
+            const data = await res.json();
+            if (data.ok && data.users) {
+                return data.users;
+            }
+        } catch (e) {
+            console.error('Erreur chargement employés:', e);
         }
-        p.date = date;
-        p.entree = entree;
-        p.sortie = norm(data.sortie);
-        saveDB(db);
-        return { ok: true, pointage: p };
+        return [];
+    },
+
+    // Récupère la liste des départements depuis la BDD
+    async getDepartements() {
+        try {
+            const res  = await fetch(getApiEndpoint('departements.php'));
+            const data = await res.json();
+            if (data.ok && data.departements) return data.departements;
+        } catch (e) {
+            console.error('Erreur chargement départements:', e);
+        }
+        return [];
+    },
+
+    // Aperçu du matricule qui sera généré pour un département (role=admin → préfixe ADM)
+    async getMatriculePreview(idDept, role = 'employe') {
+        try {
+            const res  = await fetch(getApiEndpoint('matricule_preview.php') + '?id_departement=' + idDept + '&role=' + encodeURIComponent(role));
+            const data = await res.json();
+            return data.matricule || '';
+        } catch (e) {
+            return '';
+        }
+    },
+
+    // addUser envoie un FormData pour supporter l'upload de photo
+    async addUser(fields, photoFile = null) {
+        try {
+            const csrf = await this.getCsrfToken();
+            const fd = new FormData();
+            Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, v); });
+            if (photoFile) fd.append('photo', photoFile);
+            const headers = {};
+            if (csrf) headers['X-CSRF-Token'] = csrf;
+            const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd });
+            return await res.json();
+        } catch (e) {
+            return { ok: false, message: 'Erreur lors de l\'ajout de l\'employé.' };
+        }
+    },
+
+    async updateUser(id, data, photoFile = null) {
+        try {
+            const csrf = await this.getCsrfToken();
+            // Pour les admins (id > 10000), toujours utiliser POST FormData pour correspondre au backend
+            const isAdmin = id > 10000;
+            if (photoFile || isAdmin) {
+                const fd = new FormData();
+                if (isAdmin) fd.append('action', 'update');
+                fd.append('id', id);
+                Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, v); });
+                if (photoFile) fd.append('photo', photoFile);
+                const headers = {};
+                if (csrf) headers['X-CSRF-Token'] = csrf;
+                const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd });
+                return await res.json();
+            } else {
+                const res = await fetch(getApiEndpoint('users.php'), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                    body: JSON.stringify({ id, ...data })
+                });
+                return await res.json();
+            }
+        } catch (e) {
+            return { ok: false, message: 'Erreur de mise à jour.' };
+        }
     },
 
     async deleteUser(id) {
-        await this._delay(300);
-        const db = loadDB();
-        db.users = db.users.filter(u => u.id !== id);
-        db.pointages = db.pointages.filter(p => p.user_id !== id);
-        saveDB(db);
-        return { ok: true };
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('users.php'), {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ id })
+            });
+            return await res.json();
+        } catch (e) {
+            return { ok: false, message: 'Erreur lors de la suppression.' };
+        }
     },
 
+    // --- Biométrie ---
     async enrollFingerprint(userId) {
-        await this._delay(1500);
-        const db = loadDB();
-        const user = db.users.find(u => u.id === userId);
-        if (!user) return { ok: false, message: 'Employé introuvable.' };
-        user.empreinte = true;
-        saveDB(db);
-        return { ok: true, message: `Empreinte de ${user.prenom} ${user.nom} enregistrée.` };
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('biometric.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ action: 'enroll', userId })
+            });
+            return await res.json();
+        } catch (e) {
+            return { ok: false, message: 'Erreur enrôlement.' };
+        }
     },
 
     async deleteFingerprint(userId) {
-        await this._delay(300);
-        const db = loadDB();
-        const user = db.users.find(u => u.id === userId);
-        if (user) user.empreinte = false;
-        saveDB(db);
-        return { ok: true };
-    },
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('biometric.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ action: 'delete', userId })
+            });
+            return await res.json();
+        } catch (e) {
+            return { ok: false, message: 'Erreur récurrente.' };
+        }
+    }
 };

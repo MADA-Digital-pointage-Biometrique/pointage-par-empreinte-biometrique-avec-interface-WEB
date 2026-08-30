@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Contrôleur de la vue Connexion (mode mono-fichier index.html)
 // ============================================================
 
@@ -24,7 +24,8 @@ function initPage() {
         try {
             res = await api.login(matricule, password);
         } catch (err) {
-            res = { ok: false, message: 'Erreur inattendue lors de la connexion.' };
+            console.error('Login error:', err);
+            res = { ok: false, message: 'Erreur réseau : ' + err.message };
         }
 
         if (btn) {

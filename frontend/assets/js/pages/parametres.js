@@ -1,3 +1,4 @@
+(function () {
 // ============================================================
 // Page : Paramètres (compte, apparence, préférences, données)
 // Réutilise exclusivement le système de thème existant
@@ -40,6 +41,7 @@ function applySettingsTheme(mode) {
 }
 
 function initPage() {
+    window._lastInitializedModule = 'parametres';
     if (document.getElementById('settings-name')?.dataset.bound) return;
 
     const user = api.getCurrentUser();
@@ -120,3 +122,4 @@ function initPage() {
 window.PAGE_MODULES = window.PAGE_MODULES || {};
 window.PAGE_MODULES['parametres'] = initPage;
 window.initPage = initPage;
+})();

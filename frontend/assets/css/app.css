@@ -1,5 +1,5 @@
-/* ============================================================
-   Styles partagés & Charte Graphique (MADA Digital)
+﻿/* ============================================================
+   Styles partagés & Charte Graphique (P.Biometrique)
    ============================================================ */
 
 :root {
@@ -21,7 +21,7 @@
     --border:               #E5E7EB;
     --card-border:          rgba(229, 231, 235, 0.85);
 
-    /* ── Couleur principale (Orange MADA Digital) ── */
+    /* ── Couleur principale (Orange P.Biometrique) ── */
     --primary:              #FF7A00;
     --primary-hover:        #F97316;
     --orange-primary:       #FF7A00;
@@ -152,6 +152,24 @@
 .login-field input::placeholder { color: var(--text-muted); }
 .login-field-icon { color: var(--text-muted); }
 
+/* Suppression de la bordure bleue interne (ring bleu du plugin Tailwind Forms) */
+input:focus, select:focus, textarea:focus {
+    outline: none !important;
+}
+input:focus:not([class*="focus:ring"]), select:focus:not([class*="focus:ring"]), textarea:focus:not([class*="focus:ring"]) {
+    box-shadow: none !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    --tw-ring-color: transparent !important;
+    border-color: transparent !important;
+}
+.login-field input:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+}
+
 .login-note { border-top: 1px solid var(--border); }
 .login-note-text { color: var(--text-secondary); }
 
@@ -269,6 +287,58 @@
     color: var(--accent-orange) !important;
 }
 
+/* ── CORRECTIF LISTES DÉROULANTES (filtres) EN MODE SOMBRE ── */
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+
+select {
+    color-scheme: light;
+}
+html.dark select,
+.dark select {
+    color-scheme: dark !important;
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+    /* Flèche claire pour fond sombre (#9CA3AF) - override plugin forms */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239CA3AF' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+}
+
+/* Filtres avec bg-transparent : garder trigger transparent mais forcer color-scheme sombre */
+select.bg-transparent {
+    background-color: transparent !important;
+}
+html.dark select.bg-transparent,
+.dark select.bg-transparent {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+    color-scheme: dark !important;
+}
+
+/* Popup native : Chrome ignore background-color sur option, il faut color-scheme:dark pour avoir fond sombre.
+   Firefox respecte background-color, on le force aussi. */
+html.dark select option,
+html.dark select optgroup,
+.dark select option,
+.dark select optgroup {
+    background-color: #1F2937 !important;
+    color: #F9FAFB !important;
+    color-scheme: dark !important;
+}
+
+select option,
+select optgroup {
+    background-color: #FFFFFF;
+    color: #1F2937;
+    color-scheme: light;
+}
+
+/* Date picker */
+.dark input[type="date"],
+html.dark input[type="date"] {
+    color-scheme: dark;
+}
+
 /* Smooth transitions for theme switching */
 *, *::before, *::after {
     transition-property: background-color, border-color, color;
@@ -288,7 +358,10 @@ html.page-loading *::after {
 }
 
 
+html, body { max-width: 100vw; overflow-x: hidden; }
 body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); color: var(--text-primary); }
+/* Empêche le scroll horizontal global : seules les listes scrollent */
+main { min-width: 0; }
 
 /* Custom Scrollbar for Dropdowns and Sidebar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

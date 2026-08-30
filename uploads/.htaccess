@@ -1,0 +1,14 @@
+# Autoriser uniquement les images (pas d'exécution de scripts)
+Options -ExecCGI
+AddHandler cgi-script .php .pl .py .jsp .asp .shtml .sh .cgi
+
+# Autoriser l'accès aux images uniquement
+<FilesMatch "\.(jpg|jpeg|png|webp|gif)$">
+    Allow from all
+</FilesMatch>
+
+# Refuser tout le reste
+<FilesMatch "^(?!.*\.(jpg|jpeg|png|webp|gif)$)">
+    Order deny,allow
+    Deny from all
+</FilesMatch>

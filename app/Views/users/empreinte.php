@@ -17,13 +17,6 @@
 
     <p>Lecteur connecté : <strong><?= htmlspecialchars($lecteur) ?></strong></p>
 
-    <?php if ($driver === 'simulator'): ?>
-        <div class="alert alert-warn">
-            Mode simulateur : cliquez sur le bouton ci-dessous pour générer
-            un template d'empreinte factice (équivalent à la pose du doigt sur le lecteur).
-        </div>
-    <?php endif; ?>
-
     <form method="POST" action="/users/<?= $user['id'] ?>/empreinte">
         <input type="hidden" name="csrf_token" value="<?= App\Core\Session::csrfToken() ?>">
         <button type="submit" class="btn btn-primary btn-lg">

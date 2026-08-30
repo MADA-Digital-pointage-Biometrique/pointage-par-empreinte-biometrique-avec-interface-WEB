@@ -1,5 +1,5 @@
-// ============================================================
-// Config Tailwind (MADA Digital - Palette Orange)
+﻿// ============================================================
+// Config Tailwind (P.Biometrique - Palette Orange)
 // À charger immédiatement après le script CDN Tailwind.
 // ============================================================
 
@@ -8,7 +8,7 @@ tailwind.config = {
     theme: {
         extend: {
             "colors": {
-                // Charte Graphique Officielle MADA Digital
+                // Charte Graphique Officielle P.Biometrique
                 "orange-main": "#F46A21",      // Orange principal / Orange vif
                 "orange-gold": "#F9AE3F",      // Jaune/orange / Orange doré
                 "text-dark": "#303030",        // Texte principal / Gris très foncé

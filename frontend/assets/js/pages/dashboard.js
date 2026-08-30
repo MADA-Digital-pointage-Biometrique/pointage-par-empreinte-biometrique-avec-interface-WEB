@@ -1,3 +1,4 @@
+(function () {
 // ============================================================
 // Page : Tableau de Bord & Analytics Avancés (KPIs & Graphiques)
 // ============================================================
@@ -245,62 +246,15 @@ function renderHoursWorkedChart() {
     });
 }
 
-function renderHeatmap() {
-    const container = document.getElementById('heatmap-container');
-    if (!container) return;
 
-    const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
-    const depts = [
-        { name: 'Web & mobile', scores: [100, 100, 85, 100, 90] },
-        { name: 'Infogérance', scores: [90, 80, 100, 90, 80] },
-        { name: 'ERP sur mesure', scores: [100, 90, 90, 100, 100] },
-        { name: 'IA & data', scores: [80, 100, 100, 85, 90] },
-        { name: 'Sécurité', scores: [100, 100, 90, 100, 95] },
-    ];
-
-    let html = `
-        <table class="w-full text-center border-collapse text-xs">
-            <thead>
-                <tr>
-                    <th class="py-2 px-2 text-left font-bold text-slate-400">Département</th>
-                    ${days.map(d => `<th class="py-2 px-2 font-bold text-slate-400">${d}</th>`).join('')}
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">`;
-
-    depts.forEach(dept => {
-        html += `<tr><td class="py-2.5 px-2 text-left font-semibold text-slate-700 dark:text-slate-300 text-[11px] truncate max-w-[120px]">${dept.name}</td>`;
-        dept.scores.forEach(score => {
-            let bgClass = 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
-            if (score < 85) {
-                bgClass = 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30';
-            } else if (score < 95) {
-                bgClass = 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30';
-            }
-
-            html += `
-                <td class="py-2.5 px-2">
-                    <div class="w-full py-1.5 rounded-lg border font-mono font-bold text-[11px] ${bgClass} transition-all hover:scale-105 cursor-default" title="${dept.name} - Assiduité: ${score}%">
-                        ${score}%
-                    </div>
-                </td>`;
-        });
-        html += `</tr>`;
-    });
-
-    html += `</tbody></table>`;
-    container.innerHTML = html;
-}
 
 // ----------------------------------------------------
 // PAGE INITIALIZATION
 // ----------------------------------------------------
 async function initPage() {
+    window._lastInitializedModule = 'dashboard';
     const user = api.getCurrentUser();
     if (!user) return;
-
-    // Load Chart.js dynamically
-    await loadChartJS();
 
     // Date du jour
     const d = new Date();
@@ -310,8 +264,14 @@ async function initPage() {
         todayEl.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1) + ' — Analytics de présence en direct';
     }
 
-    // Load Stats & KPIs
-    const stats = await api.getDashboardStats();
+    // Load Stats, Pointages, Activity & Chart.js in PARALLEL
+    const [stats, todayList, bars] = await Promise.all([
+        api.getDashboardStats(),
+        api.getTodayPointages(),
+        api.getActivity(),
+        loadChartJS()
+    ]);
+
     const totalEl = document.getElementById('kpi-total');
     const presentsEl = document.getElementById('kpi-presents');
     const absentsEl = document.getElementById('kpi-absents');
@@ -319,24 +279,23 @@ async function initPage() {
     const pctEl = document.getElementById('kpi-pct');
     const donutCenterPct = document.getElementById('donut-center-pct');
 
-    const pct = stats.total > 0 ? Math.round((stats.entrees / stats.total) * 100) : 0;
+    const pct = stats && stats.total > 0 ? Math.round((stats.entrees / stats.total) * 100) : 0;
 
-    if (totalEl) totalEl.textContent = stats.total;
-    if (presentsEl) presentsEl.textContent = stats.entrees;
-    if (absentsEl) absentsEl.textContent = stats.absents;
-    if (retardsEl) retardsEl.textContent = stats.retards;
+    if (totalEl) totalEl.textContent = stats ? stats.total : 0;
+    if (presentsEl) presentsEl.textContent = stats ? stats.entrees : 0;
+    if (absentsEl) absentsEl.textContent = stats ? stats.absents : 0;
+    if (retardsEl) retardsEl.textContent = stats ? stats.retards : 0;
     if (pctEl) pctEl.textContent = pct + '%';
     if (donutCenterPct) donutCenterPct.textContent = pct + '%';
 
     // Sidebar counter badge
     const badgeEmp = document.getElementById('badge-count-emp');
-    if (badgeEmp) badgeEmp.textContent = stats.total;
+    if (badgeEmp && stats) badgeEmp.textContent = stats.total;
 
     // Render Charts
-    renderDonutChart(stats.entrees, stats.retards, stats.absents);
+    if (stats) renderDonutChart(stats.entrees, stats.retards, stats.absents);
     renderTrendChart('7d');
     renderHoursWorkedChart();
-    renderHeatmap();
 
     // Trend Chart Filter buttons
     document.querySelectorAll('#chart-trend-selector .trend-btn').forEach(btn => {
@@ -352,14 +311,11 @@ async function initPage() {
     });
 
     // Render Recent Pointages Table
-    const todayList = await api.getTodayPointages();
     const tbody = document.getElementById('today-table-body');
-    const render = (rows) => {
-        if (!tbody) return;
-        tbody.innerHTML = rows.map(rowHTML).join('')
+    if (tbody) {
+        tbody.innerHTML = (todayList || []).map(rowHTML).join('')
             || '<tr><td colspan="5" class="py-lg px-md text-center text-slate-400">Aucun pointage pour le moment aujourd\'hui.</td></tr>';
-    };
-    render(todayList);
+    }
 
     // Period Menu Buttons Interaction
     document.querySelectorAll('#dashboard-period-menu .filter-pill').forEach(btn => {
@@ -371,70 +327,29 @@ async function initPage() {
     });
 
     // Render Activity Chart Bars (Hourly Peak)
-    const bars = await api.getActivity();
-    const maxCount = Math.max(...bars.map(b => b.count), 1);
-    const peak = bars.reduce((best, b) => b.count > best.count ? b : best, bars[0]);
-    const activityBarsEl = document.getElementById('activity-bars');
-    if (activityBarsEl) {
-        activityBarsEl.innerHTML = bars.map(b => `
-            <div class="w-full bg-[#F46A21]/20 hover:bg-[#F46A21] transition-colors relative group rounded-t-md cursor-pointer"
-                 style="height:${Math.max(12, Math.round((b.count / maxCount) * 100))}%">
-                <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg border border-slate-700">
-                    ${b.heure} : ${b.count} scan(s)
-                </div>
-            </div>`).join('');
+    try {
+        if (Array.isArray(bars) && bars.length > 0) {
+            const maxCount = Math.max(...bars.map(b => (b && b.count) ? b.count : 0), 1);
+            const peak = bars.reduce((best, b) => ((b && b.count) || 0) > ((best && best.count) || 0) ? b : best, bars[0]);
+            const activityBarsEl = document.getElementById('activity-bars');
+            if (activityBarsEl) {
+                activityBarsEl.innerHTML = bars.map(b => `
+                    <div class="w-full bg-[#F46A21]/20 hover:bg-[#F46A21] transition-colors relative group rounded-t-md cursor-pointer"
+                         style="height:${Math.max(12, Math.round((((b && b.count) || 0) / maxCount) * 100))}%">
+                        <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg border border-slate-700">
+                            ${b.heure || ''} : ${b.count || 0} scan(s)
+                        </div>
+                    </div>`).join('');
+            }
+            const peakEl = document.getElementById('activity-peak');
+            if (peakEl && peak) peakEl.textContent = `Pic à ${peak.heure || ''} (${peak.count || 0} pointages)`;
+        }
+    } catch (errAct) {
+        console.warn('Activity chart error:', errAct);
     }
-    const peakEl = document.getElementById('activity-peak');
-    if (peakEl) peakEl.textContent = `Pic à ${peak.heure} (${peak.count} pointages)`;
-
-    // Quick Actions Menu Handlers
-    document.getElementById('btn-force')?.addEventListener('click', async () => {
-        const allUsers = await api.getUsers();
-        const select = document.getElementById('force-select-user');
-        if (select) {
-            select.innerHTML = allUsers.map(u => `<option value="${u.id}">${u.prenom} ${u.nom} (${u.matricule}) - ${u.departement || 'Sans Dép'}</option>`).join('');
-        }
-        openModal('modal-force-pointage');
-    });
-
-    document.getElementById('form-force-pointage')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const userId = parseInt(document.getElementById('force-select-user').value, 10);
-        const type = document.querySelector('input[name="force-type"]:checked').value;
-        const allUsers = await api.getUsers();
-        const u = allUsers.find(x => x.id === userId);
-
-        if (u) {
-            flash(`Pointage manuel (${type.toUpperCase()}) forcé avec succès pour ${u.prenom} ${u.nom}.`, 'success');
-            closeModal('modal-force-pointage');
-            // Refresh table & stats
-            const refreshedList = await api.getTodayPointages();
-            render(refreshedList);
-            const newStats = await api.getDashboardStats();
-            renderDonutChart(newStats.entrees, newStats.retards, newStats.absents);
-        }
-    });
-
-    document.getElementById('btn-report')?.addEventListener('click', async () => {
-        const pointages = await api.getTodayPointages();
-        let csvContent = "data:text/csv;charset=utf-8,Matricule,Employe,Departement,Heure,Statut\n";
-        pointages.forEach(p => {
-            const time = p.sortie !== null ? p.sortie : p.entree;
-            const status = p.sortie !== null ? 'Sortie' : 'Entree';
-            csvContent += `${p.user.matricule},"${p.user.prenom} ${p.user.nom}",${p.user.departement || ''},${time},${status}\n`;
-        });
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `Rapport_Pointage_${new Date().toISOString().slice(0,10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        flash('Le rapport CSV des pointages a été généré et téléchargé.', 'success');
-    });
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};
 window.PAGE_MODULES['dashboard'] = initPage;
 window.initPage = initPage;
+})();
