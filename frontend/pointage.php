@@ -182,7 +182,7 @@ if (!isset($_SESSION['user_id'])) {
         </div>
     </div>
 
-    <script src="assets/js/data.js?v=<?= time() ?>"></script>
+<script src="assets/js/data.js?v=<?= time() ?>"></script>
     <script src="assets/js/api.js?v=<?= time() ?>"></script>
     <script src="assets/js/templates.js?v=<?= time() ?>"></script>
     <script src="assets/js/app.js?v=<?= time() ?>"></script>

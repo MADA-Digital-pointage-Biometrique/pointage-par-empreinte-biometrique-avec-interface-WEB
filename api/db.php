@@ -116,7 +116,7 @@ function getJsonInput(): array {
     return $_POST;
 }
 
-// CSRF central : vérifie automatiquement POST/PUT/DELETE sauf login/logout/csrf/me (après helpers)
+// CSRF central : vérifie automatiquement POST/PUT/DELETE sauf login/logout/csrf/me
 $__method = $_SERVER['REQUEST_METHOD'] ?? '';
 $__csrfExempt = ['/api/login.php', '/api/logout.php', '/api/csrf.php', '/api/me.php'];
 $__requestUri = $_SERVER['REQUEST_URI'] ?? '';

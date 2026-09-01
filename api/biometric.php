@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
+require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
+use App\Core\Biometric\SdkReader;
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -44,8 +47,19 @@ if ($method === 'POST') {
                 exit;
             }
 
-            // Generate dummy hash/template for enrollment demo
-            $gabarit = bin2hex(random_bytes(32));
+            // WA28 : tentative de capture réelle, fallback simulé si SDK non configuré
+            $gabarit = null;
+            $waMsg = '';
+            try {
+                $reader = SdkReader::fromConfig();
+                $gabarit = $reader->enroll($userId);
+                $waMsg = ' (' . $reader->name() . ')';
+            } catch (Throwable $eWa) {
+                // SDK WA28 non prêt : génération simulée (pré-prod)
+                $gabarit = bin2hex(random_bytes(32));
+                $waMsg = ' [SIMULÉ - WA28 non configuré: ' . $eWa->getMessage() . ']';
+                error_log('WA28 enroll fallback: ' . $eWa->getMessage());
+            }
 
             // Insert or update biometric data
             $check = $pdo->prepare('SELECT id_biometrie FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = "empreinte" LIMIT 1');
@@ -67,9 +81,24 @@ if ($method === 'POST') {
                 $insert->execute([$userId, $gabarit]);
             }
 
-            echo json_encode(['ok' => true, 'message' => 'Empreinte biométrique enrôlée avec succès pour ' . $emp['prenom'] . ' ' . $emp['nom'] . '.']);
+            echo json_encode(['ok' => true, 'message' => 'Empreinte biométrique enrôlée avec succès pour ' . $emp['prenom'] . ' ' . $emp['nom'] . '.' . $waMsg]);
             exit;
 
+        } else if ($action === 'scan') {
+            // WA28 scan pour pointage direct (à brancher quand SDK prêt)
+            try {
+                $reader = SdkReader::fromConfig();
+                $foundId = $reader->scan();
+                if ($foundId) {
+                    echo json_encode(['ok' => true, 'user_id' => $foundId, 'message' => 'Empreinte reconnue (WA28)']);
+                } else {
+                    echo json_encode(['ok' => false, 'message' => 'Aucune empreinte reconnue']);
+                }
+            } catch (Throwable $eWa) {
+                http_response_code(501);
+                echo json_encode(['ok' => false, 'message' => 'WA28 non prêt: ' . $eWa->getMessage()]);
+            }
+            exit;
         } else if ($action === 'delete') {
             $delete = $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = "empreinte"');
             $delete->execute([$userId]);

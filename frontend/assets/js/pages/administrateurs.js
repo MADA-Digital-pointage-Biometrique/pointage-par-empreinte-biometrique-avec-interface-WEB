@@ -57,10 +57,6 @@ function adminRow(u) {
                         <button class="text-slate-500 hover:text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center" title="Modifier l'admin" data-admin-edit="${u.id}">
                             <span class="material-symbols-outlined text-[16px]">edit</span>
                         </button>
-                        <button class="bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] hover:bg-orange-100 font-semibold text-[11px] px-2.5 py-1 rounded-lg border border-[#F46A21]/25 dark:border-orange-900 transition-colors inline-flex items-center gap-1 cursor-pointer" data-admin-enroll="${u.id}">
-                            <span class="material-symbols-outlined text-[14px]">fingerprint</span>
-                            Enrôler
-                        </button>
                         <button class="text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center" title="Supprimer" data-admin-delete="${u.id}">
                             <span class="material-symbols-outlined text-[16px]">delete</span>
                         </button>`;
@@ -242,7 +238,7 @@ async function initAdminPage() {
             }
 
             const res = await api.addUser({
-                matricule: document.getElementById('f-admin-matricule').value.trim(),
+                matricule: '', // auto-généré côté serveur (ADMxxx)
                 nom: document.getElementById('f-admin-nom').value.trim(),
                 prenom: document.getElementById('f-admin-prenom').value.trim(),
                 email: document.getElementById('f-admin-email').value.trim(),
@@ -256,7 +252,7 @@ async function initAdminPage() {
                 flash(`Administrateur ${res.user ? res.user.prenom : ''} créé avec succès !`, 'success');
                 closeModal('modal-add-admin');
                 formAdd.reset();
-                await renderAdmins();
+                await renderAdmins(true);
             } else {
                 flash(res.message || 'Erreur lors de la création de l\'administrateur.', 'danger');
             }
@@ -290,12 +286,13 @@ async function initAdminPage() {
             if (res.ok) {
                 flash('Administrateur mis à jour avec succès !', 'success');
                 closeModal('modal-edit-admin');
-                await renderAdmins();
+                await renderAdmins(true);
             } else {
                 flash(res.message || 'Erreur lors de la mise à jour.', 'danger');
             }
         };
     }
+}
 
 // Délégation d'événements Clic globale sur la page des admins
 if (!window._adminsGlobalClickAttached) {
@@ -319,32 +316,6 @@ if (!window._adminsGlobalClickAttached) {
             return;
         }
 
-        const enrollBtn = e.target.closest('[data-admin-enroll]');
-        if (enrollBtn) {
-            const id = parseInt(enrollBtn.dataset.adminEnroll);
-            const u = allAdmins.find(x => x.id === id);
-            if (u) {
-                const userNameEl = document.getElementById('enroll-user-name');
-                if (userNameEl) userNameEl.textContent = `Enrôlement : ${u.prenom} ${u.nom}`;
-                openModal('modal-enroll');
-
-                const btnSim = document.getElementById('btn-sim-finger');
-                if (btnSim) {
-                    btnSim.onclick = async () => {
-                        const res = await api.enrollFingerprint(u.id);
-                        if (res.ok) {
-                            flash(`Empreinte de ${u.prenom} enrôlée avec succès !`, 'success');
-                            closeModal('modal-enroll');
-                            await renderAdmins();
-                        } else {
-                            flash(res.message || 'Échec de l\'enrôlement.', 'danger');
-                        }
-                    };
-                }
-            }
-            return;
-        }
-
         const deleteBtn = e.target.closest('[data-admin-delete]');
         if (deleteBtn) {
             const id = parseInt(deleteBtn.dataset.adminDelete);
@@ -360,7 +331,7 @@ if (!window._adminsGlobalClickAttached) {
                         const res = await api.deleteUser(id);
                         if (res.ok) {
                             flash('Administrateur supprimé.', 'success');
-                            await renderAdmins();
+                            await renderAdmins(true);
                         } else {
                             flash(res.message || 'Erreur lors de la suppression.', 'danger');
                         }
@@ -370,7 +341,6 @@ if (!window._adminsGlobalClickAttached) {
             return;
         }
     });
-}
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};

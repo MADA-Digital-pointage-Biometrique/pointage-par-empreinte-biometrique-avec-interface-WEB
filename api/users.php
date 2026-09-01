@@ -479,12 +479,29 @@ if ($method === 'DELETE') {
             $row = $pdo->prepare('SELECT photo_profil FROM employes WHERE id_employe = ?');
             $row->execute([$id]);
             $emp = $row->fetch();
-            if ($emp && $emp['photo_profil']) {
+            if (!$emp) {
+                echo json_encode(['ok' => false, 'message' => 'Employé introuvable.']);
+                exit;
+            }
+            if ($emp['photo_profil']) {
                 $photoPath = __DIR__ . '/../uploads/photos/' . $emp['photo_profil'];
                 if (file_exists($photoPath)) unlink($photoPath);
             }
-            $stmt = $pdo->prepare('DELETE FROM employes WHERE id_employe = ?');
-            $stmt->execute([$id]);
+            // CASCADE manuel : pointages est en RESTRICT, on doit purger les dépendances
+            $pdo->beginTransaction();
+            try {
+                $pdo->prepare('DELETE FROM pointages WHERE id_employe = ?')->execute([$id]);
+                // les autres tables sont en CASCADE mais on purge explicitement par sécurité
+                $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe = ?')->execute([$id]);
+                $pdo->prepare('DELETE FROM affectations_horaire WHERE id_employe = ?')->execute([$id]);
+                $pdo->prepare('DELETE FROM absences_conges WHERE id_employe = ?')->execute([$id]);
+                $stmt = $pdo->prepare('DELETE FROM employes WHERE id_employe = ?');
+                $stmt->execute([$id]);
+                $pdo->commit();
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                throw $e;
+            }
             echo json_encode(['ok' => true, 'message' => 'Employé supprimé avec succès.']);
         }
     } catch (Exception $e) {

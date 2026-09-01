@@ -71,7 +71,7 @@ if (isset($_SESSION['user_id'])) {
         </div>
     </div>
 
-    <script src="assets/js/data.js"></script>
+<script src="assets/js/data.js"></script>
     <script src="assets/js/api.js"></script>
     <script src="assets/js/app.js"></script>
     <script>

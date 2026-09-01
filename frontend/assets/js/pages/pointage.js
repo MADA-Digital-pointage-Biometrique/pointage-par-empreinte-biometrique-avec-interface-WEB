@@ -93,6 +93,31 @@ function renderCapteurStatus() {
 
 let cachedPointagesDb = null;
 
+if (!window._pointageEditHandler) {
+    window._pointageEditHandler = true;
+    document.addEventListener('click', (e) => {
+        if (document.body.dataset.page !== 'pointage') return;
+        const btn = e.target.closest('[data-edit-pointage]');
+        if (!btn) return;
+        const id = parseInt(btn.dataset.editPointage, 10);
+        const db = cachedPointagesDb;
+        if (!db) return;
+        const p = (db.pointages || []).find(x => x.id === id);
+        if (!p) return;
+        pointageEditingId = id;
+        const dateEl = document.getElementById('f-p-date');
+        const entreeEl = document.getElementById('f-p-entree');
+        const sortieEl = document.getElementById('f-p-sortie');
+        const userEl = document.getElementById('f-p-user');
+        if (dateEl) dateEl.value = p.date || todayISO();
+        if (entreeEl) entreeEl.value = p.entree ? p.entree.slice(0,5) : '';
+        if (sortieEl) sortieEl.value = p.sortie ? p.sortie.slice(0,5) : '';
+        const u = p.user || (db.users || []).find(u => u.id === p.user_id) || {prenom:'',nom:'',matricule:''};
+        if (userEl) userEl.textContent = `${u.prenom} ${u.nom} (${u.matricule||''})`;
+        openModal('modal-edit-pointage');
+    });
+}
+
 async function renderHistoryTable(forceFetch = false) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;

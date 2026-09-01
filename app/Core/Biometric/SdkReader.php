@@ -12,30 +12,35 @@ class SdkReader implements FingerprintReader
 {
     private string $sdkPath;
     private int $deviceId;
+    private string $port;
+    private int $baud;
 
     public function __construct(array $config = [])
     {
         $this->sdkPath = $config['sdk_path'] ?? '';
         $this->deviceId = $config['device_id'] ?? 0;
+        $this->port = $config['port'] ?? 'COM3';
+        $this->baud = $config['baud'] ?? 57600;
     }
 
     public function scan(): ?int
     {
+        // WA28 : vérif SDK/port
         if (empty($this->sdkPath) || !is_dir($this->sdkPath)) {
             throw new \RuntimeException(
-                'SDK biométrique non configuré. Configurez le chemin du SDK dans config/biometric.php.'
+                'SDK WA28 non configuré. Renseignez sdk_path et port dans config/biometric.php (ex: C:/WA28/SDK, COM3).'
             );
         }
-
-        // TODO: Implémenter l'appel au SDK natif selon le matériel utilisé
-        // Exemple pour DigitalPersona / HID Global:
-        // $template = $this->sdk->Capture();
-        // $userId = $this->matchTemplate($template);
-
-        // Pour l'instant, on lance une exception claire
+        // TODO WA28 : brancher le SDK réel
+        // Exemple WA28 UART :
+        // $wa = new \WA28\Device($this->port, $this->baud);
+        // $template = $wa->capture(5000);
+        // return $this->matchTemplate($template);
+        // Exemple WA28 DLL :
+        // $dll = FFI::load($this->sdkPath.'/WA28.dll');
+        // $buf = $dll->WA28_Capture($this->deviceId);
         throw new \RuntimeException(
-            'Lecteur biométrique USB non implémenté. '
-            . 'Implémentez l\'intégration SDK dans SdkReader::scan().'
+            'Lecteur WA28 non implémenté. Ajoutez l\'appel SDK dans SdkReader::scan() dès réception du SDK.'
         );
     }
 
@@ -43,19 +48,32 @@ class SdkReader implements FingerprintReader
     {
         if (empty($this->sdkPath) || !is_dir($this->sdkPath)) {
             throw new \RuntimeException(
-                'SDK biométrique non configuré. Configurez le chemin du SDK dans config/biometric.php.'
+                'SDK WA28 non configuré. Renseignez sdk_path dans config/biometric.php.'
             );
         }
-
-        // TODO: Implémenter l'enrôlement via SDK natif
+        // TODO WA28 : capturer template et le retourner pour stockage
+        // $wa = new \WA28\Device($this->port, $this->baud);
+        // $template = $wa->enroll($userId);
+        // return bin2hex($template);
         throw new \RuntimeException(
-            'Enrôlement USB non implémenté. '
-            . 'Implémentez l\'intégration SDK dans SdkReader::enroll().'
+            'Enrôlement WA28 non implémenté. Ajoutez l\'appel SDK dans SdkReader::enroll() dès réception du SDK.'
         );
     }
 
     public function name(): string
     {
-        return 'Lecteur USB (SDK non configuré)';
+        if (!empty($this->sdkPath) && is_dir($this->sdkPath)) {
+            return 'WA28 (' . $this->port . ')';
+        }
+        return 'WA28 (SDK non configuré)';
+    }
+
+    /** Factory helper : crée le reader depuis config/biometric.php */
+    public static function fromConfig(): self
+    {
+        $cfg = require __DIR__ . '/../../../config/biometric.php';
+        $driver = $cfg['driver'] ?? 'wa28';
+        $conf = $cfg['drivers'][$driver] ?? $cfg['drivers']['wa28'] ?? [];
+        return new self($conf);
     }
 }

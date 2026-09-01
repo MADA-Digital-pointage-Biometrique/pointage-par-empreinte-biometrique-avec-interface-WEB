@@ -64,23 +64,6 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                 </div>
             </div>
 
-            <!-- Panneau Admin : config mode mobile 192.168.2.12 - Pointage par défaut -->
-            <div class="bg-gradient-to-r from-[#FFF1E8] to-white dark:from-orange-950/30 dark:to-stone-900 border border-[#F46A21]/20 dark:border-orange-900 rounded-2xl p-md mb-lg">
-                <div class="flex items-center justify-between">
-                    <h3 class="font-bold text-sm flex items-center gap-2"><span class="material-symbols-outlined text-[#F46A21]">phone_iphone</span> Mode capture mobile <span class="text-[11px] font-mono bg-white dark:bg-stone-800 px-2 py-0.5 rounded-full border">192.168.2.12 → 192.168.2.2:8080</span></h3>
-                    <span id="mobile-indicator" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500 text-white">● Pointage</span>
-                </div>
-                <div class="mt-3 flex flex-wrap gap-2">
-                    <select id="mobile-mode" class="bg-white dark:bg-stone-800 border border-slate-200 dark:border-stone-700 rounded-xl px-3 py-2 text-sm">
-                        <option value="pointage">Pointage (capturer pour pointer) — par défaut</option>
-                        <option value="enrolement">Enrôlement (capturer pour enrôler)</option>
-                    </select>
-                    <select id="mobile-user" class="bg-white dark:bg-stone-800 border border-slate-200 dark:border-stone-700 rounded-xl px-3 py-2 text-sm min-w-[200px]"><option value="">— Choisir employé pour enrôlement —</option></select>
-                    <button id="btn-mobile-apply" class="bg-[#F46A21] text-white px-4 py-2 rounded-xl text-sm font-bold">Appliquer sur mobile</button>
-                </div>
-                <p id="mobile-status" class="text-xs text-slate-500 mt-2">Mode par défaut : Pointage</p>
-            </div>
-
             <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-md rounded-2xl shadow-sm mb-lg flex flex-wrap items-center justify-between gap-md w-full max-w-full overflow-hidden">
                 <div class="flex flex-wrap items-center gap-sm flex-1">
                     <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-1.5 border border-slate-200 dark:border-slate-700">
@@ -148,7 +131,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
         </div>
     </div>
 
-    <script src="assets/js/data.js?v=<?= time() ?>"></script>
+<script src="assets/js/data.js?v=<?= time() ?>"></script>
     <script src="assets/js/api.js?v=<?= time() ?>"></script>
     <script src="assets/js/templates.js?v=<?= time() ?>"></script>
     <script src="assets/js/app.js?v=<?= time() ?>"></script>

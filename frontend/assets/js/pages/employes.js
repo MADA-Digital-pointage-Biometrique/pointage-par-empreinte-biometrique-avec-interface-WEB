@@ -342,9 +342,13 @@ function openDeleteModal(target) {
         confirmText: 'Oui, Supprimer',
         cancelText:  'Annuler',
         onConfirm: async () => {
-            await api.deleteUser(target.id);
-            flash(`L'employé ${target.prenom} ${target.nom} a été supprimé.`, 'success');
-            await renderUsers();
+            const res = await api.deleteUser(target.id);
+            if (res.ok) {
+                flash(`L'employé ${target.prenom} ${target.nom} a été supprimé.`, 'success');
+                await renderUsers(true);
+            } else {
+                flash(res.message || 'Échec de la suppression.', 'danger');
+            }
         }
     });
 }

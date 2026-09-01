@@ -96,6 +96,31 @@ function updateKPIs(records) {
 
 let cachedHistoriqueDb = null;
 
+if (!window._historiqueEditHandler) {
+    window._historiqueEditHandler = true;
+    document.addEventListener('click', (e) => {
+        if (document.body.dataset.page !== 'historique') return;
+        const btn = e.target.closest('[data-edit-pointage]');
+        if (!btn) return;
+        const id = parseInt(btn.dataset.editPointage, 10);
+        const db = cachedHistoriqueDb;
+        if (!db) return;
+        const p = (db.pointages || []).find(x => x.id === id);
+        if (!p) return;
+        editingPointageId = id;
+        const dateEl = document.getElementById('f-p-date');
+        const entreeEl = document.getElementById('f-p-entree');
+        const sortieEl = document.getElementById('f-p-sortie');
+        const userEl = document.getElementById('f-p-user');
+        if (dateEl) dateEl.value = p.date || todayISO();
+        if (entreeEl) entreeEl.value = p.entree ? p.entree.slice(0,5) : '';
+        if (sortieEl) sortieEl.value = p.sortie ? p.sortie.slice(0,5) : '';
+        const u = (db.users || []).find(u => u.id === p.user_id) || p.user || {prenom:'',nom:'',matricule:''};
+        if (userEl) userEl.textContent = `${u.prenom} ${u.nom} (${u.matricule||''})`;
+        openModal('modal-edit-pointage');
+    });
+}
+
 async function renderHistory(forceFetch = false) {
     if (forceFetch || !cachedHistoriqueDb) {
         const [users, pointages] = await Promise.all([
@@ -197,6 +222,14 @@ async function exportCSV() {
 function initPage() {
     window._lastInitializedModule = 'historique';
     renderHistory(true);
+    // Peupler filtre département depuis BDD (cohérent avec pointage)
+    api.getDepartements().then(depts => {
+        const sel = document.getElementById('filter-dept');
+        if (sel && depts && depts.length) {
+            const cur = sel.value;
+            sel.innerHTML = '<option value="">Tous les Départements</option>' + depts.map(d => `<option value="${d.nom}" ${d.nom===cur?'selected':''}>${d.nom}</option>`).join('');
+        }
+    });
 
     document.getElementById('top-search')?.addEventListener('input', () => renderHistory(false));
     document.getElementById('filter-status')?.addEventListener('change', () => renderHistory(false));

@@ -89,7 +89,7 @@ function openEnrollModal(target) {
                     if (step) step.textContent = res.message;
                     flash(res.message, 'success');
                     btn.disabled = false;
-                    setTimeout(() => { closeModal('modal-enroll'); renderEmpreintes(); }, 1200);
+                    setTimeout(() => { closeModal('modal-enroll'); renderEmpreintes(true); }, 1200);
                 } else {
                     if (icon) { icon.className = 'w-24 h-24 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-lg transition-colors duration-300'; icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">error</span>'; }
                     if (step) step.textContent = res.message;
@@ -127,7 +127,7 @@ if (!window._empreintesGlobalClickAttached) {
                     cancelText: 'Annuler',
                     onConfirm: async () => {
                         const res = await api.deleteFingerprint(target.id);
-                        if (res.ok) { flash(`Empreinte de ${target.prenom} ${target.nom} supprimée.`, 'success'); await renderEmpreintes(); }
+                        if (res.ok) { flash(`Empreinte de ${target.prenom} ${target.nom} supprimée.`, 'success'); await renderEmpreintes(true); }
                         else { flash(res.message || 'Échec de la suppression.', 'danger'); }
                     }
                 });
@@ -162,61 +162,6 @@ async function initPage() {
         const cur = sel.value;
         sel.innerHTML = '<option value="">Tous les Départements</option>' + depts.map(d=>`<option value="${d.nom}" ${d.nom===cur?'selected':''}>${d.nom}</option>`).join('');
     }
-    // Panneau mobile : config mode capture (pointage par défaut)
-    const mobileMode = document.getElementById('mobile-mode');
-    const mobileUser = document.getElementById('mobile-user');
-    const mobileStatus = document.getElementById('mobile-status');
-    const mobileIndicator = document.getElementById('mobile-indicator');
-    const btnApply = document.getElementById('btn-mobile-apply');
-    function updateIndicator(mode){
-        if(!mobileIndicator) return;
-        if(mode==='enrolement'){ mobileIndicator.textContent='● Enrôlement'; mobileIndicator.className='px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-white'; }
-        else { mobileIndicator.textContent='● Pointage'; mobileIndicator.className='px-3 py-1 rounded-full text-xs font-bold bg-emerald-500 text-white'; }
-    }
-    if (mobileUser) {
-        const users = await api.getUsers();
-        const emps = users.filter(u=>u.role==='employe');
-        mobileUser.innerHTML = '<option value="">— Choisir employé pour enrôlement —</option>' + emps.map(u=>`<option value="${u.id}">${u.prenom} ${u.nom} (${u.matricule})</option>`).join('');
-    }
-    try { const r=await fetch(getApiEndpoint('mobile_config.php')); const j=await r.json(); if(j.ok && j.config){ if(mobileMode) mobileMode.value=j.config.mode; if(mobileUser && j.config.user_id) mobileUser.value=j.config.user_id; if(mobileStatus) mobileStatus.textContent='Mode actuel: '+j.config.mode + (j.config.user_id ? ' (#'+j.config.user_id+')' : ''); updateIndicator(j.config.mode); } } catch{}
-    if (mobileMode) mobileMode.onchange = () => updateIndicator(mobileMode.value);
-    if (btnApply) btnApply.onclick = async () => {
-        const mode = mobileMode.value;
-        const uid = parseInt(mobileUser.value||0);
-        const res = await fetch(getApiEndpoint('mobile_config.php'), {method:'POST', headers:{'Content-Type':'application/json', 'X-CSRF-Token': await api.getCsrfToken()}, body: JSON.stringify({mode, user_id: uid}), credentials:'include'});
-        const j = await res.json();
-        if(mobileStatus) mobileStatus.textContent = j.ok ? '✓ Mode appliqué: '+mode+(uid?' (#'+uid+')':'') : 'Erreur: '+(j.message||'');
-        updateIndicator(mode);
-        if(j.ok){
-            flash('Mode mobile mis à jour: '+mode,'success');
-            // Temps réel : notifier via WebSocket tous les mobiles connectés
-            try {
-                if (window.WSClient && WSClient.ws && WSClient.ws.readyState===1) {
-                    WSClient.send({type:'mobile_config_update', config:{mode, user_id: uid}});
-                } else {
-                    // Fallback : ouvrir une connexion WS temporaire juste pour diffuser
-                    const ws = new WebSocket('ws://192.168.2.2:8080');
-                    ws.onopen = () => { ws.send(JSON.stringify({type:'mobile_config_update', config:{mode, user_id: uid}})); setTimeout(()=>ws.close(), 500); };
-                }
-            } catch{}
-        } else flash(j.message,'danger');
-    };
-    // Écoute temps réel des changements de mode (si un autre admin change)
-    try {
-        if (window.WSClient) {
-            WSClient.setServerUrl('ws://192.168.2.2:8080');
-            const u = api.getCurrentUser();
-            if (u) WSClient.connect(u.id, 'admin').catch(()=>{});
-            WSClient.on('mobile_config', (d) => {
-                if(d.config){
-                    if(mobileMode) mobileMode.value = d.config.mode;
-                    if(mobileUser && d.config.user_id) mobileUser.value = d.config.user_id;
-                    updateIndicator(d.config.mode);
-                    if(mobileStatus) mobileStatus.textContent = '↻ Temps réel: ' + d.config.mode + (d.config.user_id ? ' (#'+d.config.user_id+')' : '');
-                }
-            });
-        }
-    } catch{}
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};

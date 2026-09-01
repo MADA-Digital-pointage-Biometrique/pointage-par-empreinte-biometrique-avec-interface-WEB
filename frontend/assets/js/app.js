@@ -173,7 +173,7 @@ function buildShell() {
                                 <div class="flex items-center gap-md">
                                     <span class="material-symbols-outlined dark:hidden" style="font-size:20px;">light_mode</span>
                                     <span class="material-symbols-outlined hidden dark:inline" style="font-size:20px;">dark_mode</span>
-                                    <span>Mode sombre</span>
+                                    <span id="darkmode-label">Mode sombre</span>
                                 </div>
                             </button>
                         </li>
@@ -210,6 +210,7 @@ function buildShell() {
     document.getElementById('btn-toggle-darkmode')?.addEventListener('click', () => {
         toggleDarkMode();
     });
+    syncDarkModeLabel();
 
     // Tooltips de survol sur les onglets
     setupNavTooltips();
@@ -722,15 +723,37 @@ function initDarkMode() {
     document.documentElement.classList.toggle('dark', isDark);
 }
 
-function toggleDarkMode() {
-    const isDark = document.documentElement.classList.toggle('dark');
-    storage.set('mada-theme', isDark ? 'dark' : 'light');
+function syncDarkModeLabel() {
+    const isDark = document.documentElement.classList.contains('dark');
+    const label = document.getElementById('darkmode-label');
+    const btn = document.getElementById('btn-toggle-darkmode');
+    const text = isDark ? 'Mode clair' : 'Mode sombre';
+    if (label) label.textContent = text;
+    if (btn) btn.dataset.label = text;
+}
 
-    // Animate icon swap with a tiny flash
+function toggleDarkMode() {
+    // Switch instantané : coupe les transitions globales le temps du toggle
+    const html = document.documentElement;
+    html.classList.add('theme-switching');
+    const isDark = html.classList.toggle('dark');
+    storage.set('mada-theme', isDark ? 'dark' : 'light');
+    syncDarkModeLabel();
+    // force reflow puis retire le flag → pas d'animation lourde sur 300+ éléments
+    void html.offsetHeight;
+    requestAnimationFrame(() => html.classList.remove('theme-switching'));
+
+    // Re-render Charts instantanément avec les bonnes couleurs
+    try {
+        if (typeof donutChartInstance !== 'undefined' && donutChartInstance) { donutChartInstance.options.animation = false; donutChartInstance.update(); }
+        if (typeof trendChartInstance !== 'undefined' && trendChartInstance) { trendChartInstance.options.animation = false; trendChartInstance.update(); }
+        if (typeof hoursChartInstance !== 'undefined' && hoursChartInstance) { hoursChartInstance.options.animation = false; hoursChartInstance.update(); }
+    } catch {}
+
     const btn = document.getElementById('btn-toggle-darkmode');
     if (btn) {
         btn.style.transform = 'scale(0.85)';
-        setTimeout(() => { btn.style.transform = ''; }, 150);
+        setTimeout(() => { btn.style.transform = ''; }, 120);
     }
 }
 

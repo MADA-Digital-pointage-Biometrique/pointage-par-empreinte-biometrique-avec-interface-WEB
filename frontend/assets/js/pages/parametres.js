@@ -6,7 +6,7 @@
 // ============================================================
 
 function settingsRoleLabel(role) {
-    return role === 'super_admin' ? 'Super Administrateur' : 'Administrateur RH';
+    return (role === 'super_admin' || role === 'admin_systeme') ? 'Super Administrateur' : 'Administrateur RH';
 }
 
 function refreshThemeUI() {

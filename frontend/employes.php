@@ -341,7 +341,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
 
 
 
-    <script src="assets/js/data.js?v=<?= time() ?>"></script>
+<script src="assets/js/data.js?v=<?= time() ?>"></script>
     <script src="assets/js/api.js?v=<?= time() ?>"></script>
     <script src="assets/js/templates.js?v=<?= time() ?>"></script>
     <script src="assets/js/app.js?v=<?= time() ?>"></script>
