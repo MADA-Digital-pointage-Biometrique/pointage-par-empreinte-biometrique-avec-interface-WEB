@@ -1,13 +1,13 @@
 (function () {
 // ============================================================
 // Page : Paramètres (compte, apparence, préférences, données)
-// Réutilise exclusivement le système de thème existant
-// (classe .dark + clé storage 'mada-theme' + storage wrapper).
 // ============================================================
 
 function settingsRoleLabel(role) {
     return (role === 'super_admin' || role === 'admin_systeme') ? 'Super Administrateur' : 'Administrateur RH';
 }
+
+// ─── Thème ──────────────────────────────────────────────────
 
 function refreshThemeUI() {
     const isDark = document.documentElement.classList.contains('dark');
@@ -32,7 +32,6 @@ function refreshThemeUI() {
     });
 }
 
-// Applique le thème via le système existant (même clé + classe que toggleDarkMode)
 function applySettingsTheme(mode) {
     const isDark = mode === 'dark';
     document.documentElement.classList.toggle('dark', isDark);
@@ -40,10 +39,14 @@ function applySettingsTheme(mode) {
     refreshThemeUI();
 }
 
+// ============================================================
+// INIT PAGE
+// ============================================================
 function initPage() {
     window._lastInitializedModule = 'parametres';
     if (document.getElementById('settings-name')?.dataset.bound) return;
 
+    // Infos utilisateur connecté
     const user = api.getCurrentUser();
     if (user) {
         const avatar = document.getElementById('settings-avatar');
@@ -58,35 +61,27 @@ function initPage() {
         if (email) email.textContent = user.email || user.matricule;
     }
 
+    // Thème
     refreshThemeUI();
+    document.getElementById('btn-theme-light')?.addEventListener('click', () => applySettingsTheme('light'));
+    document.getElementById('btn-theme-dark')?.addEventListener('click',  () => applySettingsTheme('dark'));
 
-    const btnLight = document.getElementById('btn-theme-light');
-    if (btnLight) btnLight.addEventListener('click', () => applySettingsTheme('light'));
-    const btnDark = document.getElementById('btn-theme-dark');
-    if (btnDark) btnDark.addEventListener('click', () => applySettingsTheme('dark'));
-
-    // Marqueur anti double-attache (mode mono-fichier : re-rendus possibles)
+    // Marqueur anti double-attache
     const nameEl = document.getElementById('settings-name');
     if (nameEl) nameEl.dataset.bound = '1';
 
-    // --- Sécurité : modification du mot de passe ---
+    // Sécurité : mot de passe
     const pwForm = document.getElementById('form-change-password');
     pwForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const current = document.getElementById('pw-current')?.value || '';
-        const next = document.getElementById('pw-new')?.value || '';
+        const next    = document.getElementById('pw-new')?.value    || '';
         const confirm = document.getElementById('pw-confirm')?.value || '';
 
-        if (next !== confirm) {
-            flash('Les deux nouveaux mots de passe ne correspondent pas.', 'warning');
-            return;
-        }
-        if (next.length < 6) {
-            flash('Le nouveau mot de passe doit contenir au moins 6 caractères.', 'warning');
-            return;
-        }
+        if (next !== confirm) { flash('Les deux nouveaux mots de passe ne correspondent pas.', 'warning'); return; }
+        if (next.length < 6)  { flash('Le nouveau mot de passe doit contenir au moins 6 caractères.', 'warning'); return; }
 
-        const btn = document.getElementById('btn-change-password');
+        const btn   = document.getElementById('btn-change-password');
         const label = document.getElementById('pw-btn-label');
         if (btn) btn.disabled = true;
         if (label) label.textContent = 'Mise à jour en cours…';
@@ -94,19 +89,15 @@ function initPage() {
         if (btn) btn.disabled = false;
         if (label) label.textContent = 'Mettre à jour le mot de passe';
 
-        if (res.ok) {
-            flash(res.message, 'success');
-            pwForm.reset();
-        } else {
-            flash(res.message, 'danger');
-        }
+        if (res.ok) { flash(res.message, 'success'); pwForm.reset(); }
+        else        { flash(res.message, 'danger'); }
     });
 
-    const btnReset = document.getElementById('btn-reset-data');
-    btnReset?.addEventListener('click', () => {
+    // Réinitialisation des données
+    document.getElementById('btn-reset-data')?.addEventListener('click', () => {
         showConfirmModal({
             title: 'Réinitialiser la base de démonstration ?',
-            message: 'Tous les employés, pointages et la session seront supprimés. Les données d\'origine seront restaurées au prochain démarrage.',
+            message: "Tous les employés, pointages et la session seront supprimés. Les données d'origine seront restaurées au prochain démarrage.",
             type: 'danger',
             confirmText: 'Oui, Réinitialiser',
             cancelText: 'Annuler',

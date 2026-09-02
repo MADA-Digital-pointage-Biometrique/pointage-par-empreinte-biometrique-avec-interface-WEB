@@ -89,12 +89,22 @@ function getDB(): PDO {
         }
         try {
             $config = require $configFile;
-            $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', $config['host'], $config['dbname'], $config['charset']);
+            $driver = $config['driver'] ?? 'mysql';
+            if ($driver === 'pgsql') {
+                $host = $config['host']; $port = $config['port'] ?? 5432; $db = $config['dbname']; $ssl = $config['sslmode'] ?? 'require';
+                $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s;sslmode=%s', $host, $port, $db, $ssl);
+            } else {
+                $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', $config['host'], $config['dbname'], $config['charset']);
+            }
+            $isPgsql = ($driver === 'pgsql');
             $pdo = new PDO($dsn, $config['username'], $config['password'], [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
+                PDO::ATTR_PERSISTENT         => $isPgsql, // réutilise connexion TLS vers Supabase pooler
+                PDO::ATTR_TIMEOUT            => 5,
             ]);
+            if ($isPgsql) $pdo->exec("SET statement_timeout = 5000");
         } catch (Throwable $e) {
             http_response_code(500);
             error_log('DB connect error: ' . $e->getMessage());

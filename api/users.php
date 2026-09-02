@@ -60,7 +60,7 @@ if ($method === 'GET') {
                 u.email,
                 u.telephone,
                 'Administrateur' AS poste,
-                CURDATE() AS date_embauche,
+                CURRENT_DATE AS date_embauche,
                 u.statut,
                 NULL AS photo_profil,
                 d.nom_departement AS departement,
@@ -318,7 +318,7 @@ if ($method === 'POST') {
             $deptDG = $deptStmtDG->fetch();
             if ($deptDG) { $id_dept = (int)$deptDG['id_departement']; $deptName = $deptDG['nom_departement']; }
             else { $id_dept = 0; $deptName = 'Direction Générale'; }
-            $lastStmt = $pdo->prepare("SELECT matricule FROM utilisateurs_systeme WHERE matricule LIKE ? ORDER BY CAST(SUBSTRING(matricule, 4) AS UNSIGNED) DESC, matricule DESC LIMIT 1");
+            $lastStmt = $pdo->prepare("SELECT matricule FROM utilisateurs_systeme WHERE matricule LIKE ? ORDER BY CAST(SUBSTRING(matricule FROM 4) AS INTEGER) DESC, matricule DESC LIMIT 1");
             $lastStmt->execute([$prefix . '%']);
             $lastRow = $lastStmt->fetch();
             $nextNum = 1;
@@ -339,7 +339,7 @@ if ($method === 'POST') {
             $hash = password_hash($password, PASSWORD_BCRYPT);
             $dbRole = ($role === 'super_admin') ? 'admin_systeme' : 'admin';
             $userEmail = $email ?: $matricule . '@mada-digital.mg';
-            $insertUser = $pdo->prepare('INSERT INTO utilisateurs_systeme (matricule, nom, prenom, email, telephone, id_departement, mot_de_passe_hash, role, statut) VALUES (?, ?, ?, ?, ?, ?, ?, ?, "actif")');
+            $insertUser = $pdo->prepare('INSERT INTO utilisateurs_systeme (matricule, nom, prenom, email, telephone, id_departement, mot_de_passe_hash, role, statut) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'actif\')');
             $insertUser->execute([$matricule, $nom, $prenom, $userEmail, $telephone ?: null, $id_dept > 0 ? $id_dept : null, $hash, $dbRole]);
             $newId = $pdo->lastInsertId();
             $pdo->commit();
@@ -359,7 +359,7 @@ if ($method === 'POST') {
                 $prefix = strtoupper(substr($clean, 0, 3));
                 if (strlen($prefix) < 2) $prefix = 'EMP';
             }
-            $lastStmt = $pdo->prepare("SELECT matricule FROM employes WHERE matricule LIKE ? ORDER BY CAST(SUBSTRING(matricule, 4) AS UNSIGNED) DESC, matricule DESC LIMIT 1");
+            $lastStmt = $pdo->prepare("SELECT matricule FROM employes WHERE matricule LIKE ? ORDER BY CAST(SUBSTRING(matricule FROM 4) AS INTEGER) DESC, matricule DESC LIMIT 1");
             $lastStmt->execute([$prefix . '%']);
             $lastRow = $lastStmt->fetch();
             $nextNum = 1;
@@ -386,7 +386,7 @@ if ($method === 'POST') {
                 if (!move_uploaded_file($_FILES['photo']['tmp_name'], $uploadDir.$photoFilename)) { http_response_code(500); echo json_encode(['ok'=>false,'message'=>'Erreur lors de l\'enregistrement de la photo.']); exit; }
             }
             $pdo->beginTransaction();
-            $insertEmp = $pdo->prepare('INSERT INTO employes (matricule, nom, prenom, email, telephone, id_departement, poste, date_embauche, statut, photo_profil) VALUES (?, ?, ?, ?, ?, ?, ?, ?, "actif", ?)');
+            $insertEmp = $pdo->prepare('INSERT INTO employes (matricule, nom, prenom, email, telephone, id_departement, poste, date_embauche, statut, photo_profil) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'actif\', ?)');
             $poste = 'Employé';
             $insertEmp->execute([$matricule, $nom, $prenom, $email ?: null, $telephone ?: null, $id_dept > 0 ? $id_dept : null, $poste, $dateEmbauche, $photoFilename]);
             $empId = $pdo->lastInsertId();

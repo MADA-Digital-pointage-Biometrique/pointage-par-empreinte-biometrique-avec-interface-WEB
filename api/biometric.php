@@ -62,21 +62,21 @@ if ($method === 'POST') {
             }
 
             // Insert or update biometric data
-            $check = $pdo->prepare('SELECT id_biometrie FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = "empreinte" LIMIT 1');
+            $check = $pdo->prepare('SELECT id_biometrie FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = \'empreinte\' LIMIT 1');
             $check->execute([$userId]);
             $existing = $check->fetch();
 
             if ($existing) {
                 $update = $pdo->prepare('
                     UPDATE donnees_biometriques 
-                    SET gabarit_chiffre = ?, date_enregistrement = NOW(), statut = "actif" 
+                    SET gabarit_chiffre = ?, date_enregistrement = NOW(), statut = \'actif\' 
                     WHERE id_biometrie = ?
                 ');
                 $update->execute([$gabarit, $existing['id_biometrie']]);
             } else {
                 $insert = $pdo->prepare('
                     INSERT INTO donnees_biometriques (id_employe, type_biometrie, gabarit_chiffre, date_enregistrement, statut)
-                    VALUES (?, "empreinte", ?, NOW(), "actif")
+                    VALUES (?, \'empreinte\', ?, NOW(), \'actif\')
                 ');
                 $insert->execute([$userId, $gabarit]);
             }
@@ -100,7 +100,7 @@ if ($method === 'POST') {
             }
             exit;
         } else if ($action === 'delete') {
-            $delete = $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = "empreinte"');
+            $delete = $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = \'empreinte\'');
             $delete->execute([$userId]);
             echo json_encode(['ok' => true, 'message' => 'Empreinte biométrique supprimée.']);
             exit;

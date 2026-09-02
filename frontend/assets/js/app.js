@@ -62,6 +62,75 @@ function initSidebar() {
     if (btn) btn.dataset.label = collapsed ? 'Développer le menu' : 'Réduire le menu';
 }
 
+// ─── BADGE MODE OPÉRATOIRE dans la sidebar ───────────────────
+const MODE_STORAGE_KEY = 'mada-mode';
+
+function getSidebarModeConfig(mode) {
+    const configs = {
+        enrolement: { cls: 'mode-badge-enrolement', icon: 'fingerprint', label: 'Enrôlement' },
+        pointage:   { cls: 'mode-badge-pointage',   icon: 'how_to_reg',  label: 'Pointage'   },
+    };
+    return configs[mode] || null;
+}
+
+function renderSidebarModeBadge(mode) {
+    const badge = document.getElementById('sidebar-mode-badge');
+    if (!badge) return;
+    badge.className = '';
+    badge.id = 'sidebar-mode-badge';
+    if (!mode) { badge.style.display = 'none'; return; }
+    const cfg = getSidebarModeConfig(mode);
+    if (!cfg) { badge.style.display = 'none'; return; }
+    badge.style.display = '';
+    badge.classList.add(cfg.cls);
+
+    let subtext = '';
+    if (mode === 'enrolement') {
+        try {
+            const rawTarget = storage.get('mada-enroll-target');
+            if (rawTarget) {
+                const target = JSON.parse(rawTarget);
+                if (target && target.prenom) {
+                    subtext = `<div class="text-[10px] font-medium opacity-90 truncate max-w-[140px] mt-0.5" title="${target.prenom} ${target.nom}">👉 ${target.prenom} ${target.nom}</div>`;
+                }
+            }
+        } catch (e) {}
+    }
+
+    badge.innerHTML = `
+        <div class="flex flex-col w-full">
+            <div class="flex items-center gap-1.5">
+                <span class="mode-pulse"></span>
+                <span class="material-symbols-outlined" style="font-size:13px;">${cfg.icon}</span>
+                <span>${cfg.label}</span>
+            </div>
+            ${subtext}
+        </div>
+    `;
+}
+
+function initSidebarModeBadge() {
+    const mode = storage.get(MODE_STORAGE_KEY) || null;
+    renderSidebarModeBadge(mode);
+
+    // Écouter les changements de mode et de cible émis par parametres.js
+    document.removeEventListener('mada:modeChanged', _onModeChanged);
+    document.addEventListener('mada:modeChanged', _onModeChanged);
+
+    document.removeEventListener('mada:enrollTargetChanged', _onEnrollTargetChanged);
+    document.addEventListener('mada:enrollTargetChanged', _onEnrollTargetChanged);
+}
+
+function _onModeChanged(e) {
+    renderSidebarModeBadge(e.detail && e.detail.mode ? e.detail.mode : null);
+}
+
+function _onEnrollTargetChanged() {
+    const mode = storage.get(MODE_STORAGE_KEY) || null;
+    renderSidebarModeBadge(mode);
+}
+
+
 // Tooltip (indice d'onglet) au survol des liens de navigation
 function setupNavTooltips() {
     const tip = document.createElement('div');
@@ -159,6 +228,9 @@ function buildShell() {
 
                 <!-- Sidebar Footer : Réduire le menu / Mode sombre / Paramètres / Déconnexion -->
                 <div class="mt-auto px-xs pt-md nav-footer-border">
+                    <!-- Badge Mode Opératoire -->
+                    <div id="sidebar-mode-badge" style="display:none;"></div>
+
                     <ul class="flex flex-col gap-xs">
                         <li>
                             <button id="btn-toggle-sidebar" data-label="Réduire le menu" class="nav-item-link hidden md:flex items-center justify-between px-md py-sm text-[14px] cursor-pointer">
@@ -205,6 +277,9 @@ function buildShell() {
     // Attach sidebar collapse toggle + restore l'état mémorisé
     document.getElementById('btn-toggle-sidebar')?.addEventListener('click', toggleSidebar);
     initSidebar();
+
+    // Initialiser et synchroniser le badge du mode opératoire dans la sidebar
+    initSidebarModeBadge();
 
     // Attach dark mode toggle (sidebar bottom)
     document.getElementById('btn-toggle-darkmode')?.addEventListener('click', () => {

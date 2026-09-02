@@ -17,6 +17,15 @@ function getApiEndpoint(path) {
 
 // Cache du jeton CSRF (valable toute la session)
 let _csrfToken = null;
+// Cache léger Supabase (évite 3 requêtes pooler à chaque filtre)
+const _cache = {};
+function _getCache(k, ttlMs) {
+    const v = _cache[k];
+    if (v && Date.now() - v.t < ttlMs) return v.d;
+    return null;
+}
+function _setCache(k, d) { _cache[k] = { d, t: Date.now() }; }
+function _clearCache(k) { if (k) delete _cache[k]; else Object.keys(_cache).forEach(x=>delete _cache[x]); }
 
 const api = {
     // --- Jeton CSRF (récupéré une fois, mis en cache) ---
@@ -90,25 +99,23 @@ const api = {
         }
     },
 
-    // --- Tableau de bord connecté à MySQL ---
+    // --- Tableau de bord (cache 15s Supabase) ---
     async getDashboardStats() {
+        const c = _getCache('dashStats', 15000); if (c) return c;
         try {
             const res = await fetch(getApiEndpoint('dashboard.php'));
             const data = await res.json();
-            if (data.ok && data.stats) {
-                return data.stats;
-            }
+            if (data.ok && data.stats) { _setCache('dashStats', data.stats); return data.stats; }
         } catch (e) {}
         return { total: 0, entrees: 0, sorties: 0, retards: 0, absents: 0, evenements: 0 };
     },
 
     async getActivity() {
+        const c = _getCache('dashAct', 15000); if (c) return c;
         try {
             const res = await fetch(getApiEndpoint('dashboard.php'));
             const data = await res.json();
-            if (data.ok && data.activite) {
-                return data.activite;
-            }
+            if (data.ok && data.activite) { _setCache('dashAct', data.activite); return data.activite; }
         } catch (e) {}
         return [
             { heure: '06h', count: 0, height: 0 },
@@ -120,12 +127,11 @@ const api = {
     },
 
     async getTodayPointages() {
+        const c = _getCache('pointages', 10000); if (c) return c;
         try {
             const res = await fetch(getApiEndpoint('pointages.php'));
             const data = await res.json();
-            if (data.ok && data.pointages) {
-                return data.pointages;
-            }
+            if (data.ok && data.pointages) { _setCache('pointages', data.pointages); return data.pointages; }
         } catch (e) {}
         return [];
     },
@@ -138,32 +144,33 @@ const api = {
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
                 body: JSON.stringify({ id, ...data })
             });
-            return await res.json();
+            const j = await res.json(); if (j.ok) _clearCache('pointages');
+            return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de la mise à jour du pointage.' };
         }
     },
 
-    // --- Gestion des Employés connectée à MySQL ---
-    async getUsers() {
+    // --- Gestion des Employés (cache 30s) ---
+    async getUsers(force=false) {
+        if (!force) { const c = _getCache('users', 30000); if (c) return c; }
         try {
             const res = await fetch(getApiEndpoint('users.php'));
             const data = await res.json();
-            if (data.ok && data.users) {
-                return data.users;
-            }
+            if (data.ok && data.users) { _setCache('users', data.users); return data.users; }
         } catch (e) {
             console.error('Erreur chargement employés:', e);
         }
         return [];
     },
 
-    // Récupère la liste des départements depuis la BDD
+    // Récupère la liste des départements depuis la BDD (cache 60s)
     async getDepartements() {
+        const c = _getCache('depts', 60000); if (c) return c;
         try {
             const res  = await fetch(getApiEndpoint('departements.php'));
             const data = await res.json();
-            if (data.ok && data.departements) return data.departements;
+            if (data.ok && data.departements) { _setCache('depts', data.departements); return data.departements; }
         } catch (e) {
             console.error('Erreur chargement départements:', e);
         }
@@ -191,7 +198,8 @@ const api = {
             const headers = {};
             if (csrf) headers['X-CSRF-Token'] = csrf;
             const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd });
-            return await res.json();
+            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashStats'); }
+            return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de l\'ajout de l\'employé.' };
         }
@@ -200,8 +208,8 @@ const api = {
     async updateUser(id, data, photoFile = null) {
         try {
             const csrf = await this.getCsrfToken();
-            // Pour les admins (id > 10000), toujours utiliser POST FormData pour correspondre au backend
             const isAdmin = id > 10000;
+            let j;
             if (photoFile || isAdmin) {
                 const fd = new FormData();
                 if (isAdmin) fd.append('action', 'update');
@@ -211,15 +219,17 @@ const api = {
                 const headers = {};
                 if (csrf) headers['X-CSRF-Token'] = csrf;
                 const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd });
-                return await res.json();
+                j = await res.json();
             } else {
                 const res = await fetch(getApiEndpoint('users.php'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
                     body: JSON.stringify({ id, ...data })
                 });
-                return await res.json();
+                j = await res.json();
             }
+            if (j && j.ok) { _clearCache('users'); _clearCache('dashStats'); }
+            return j;
         } catch (e) {
             return { ok: false, message: 'Erreur de mise à jour.' };
         }
@@ -233,7 +243,8 @@ const api = {
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
                 body: JSON.stringify({ id })
             });
-            return await res.json();
+            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashStats'); _clearCache('pointages'); }
+            return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de la suppression.' };
         }
@@ -248,7 +259,8 @@ const api = {
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
                 body: JSON.stringify({ action: 'enroll', userId })
             });
-            return await res.json();
+            const j = await res.json(); if (j.ok) { _clearCache('users'); }
+            return j;
         } catch (e) {
             return { ok: false, message: 'Erreur enrôlement.' };
         }
@@ -262,7 +274,8 @@ const api = {
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
                 body: JSON.stringify({ action: 'delete', userId })
             });
-            return await res.json();
+            const j = await res.json(); if (j.ok) { _clearCache('users'); }
+            return j;
         } catch (e) {
             return { ok: false, message: 'Erreur récurrente.' };
         }

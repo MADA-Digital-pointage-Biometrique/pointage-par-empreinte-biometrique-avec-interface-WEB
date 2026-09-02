@@ -12,19 +12,19 @@ $today = date('Y-m-d');
 
 try {
     // Total employes
-    $totalStmt = $pdo->query('SELECT COUNT(*) FROM employes WHERE statut = "actif"');
+    $totalStmt = $pdo->query("SELECT COUNT(*) FROM employes WHERE statut = 'actif'");
     $total = (int) $totalStmt->fetchColumn();
 
     // Today pointages
-    $ptsStmt = $pdo->prepare('
+    $ptsStmt = $pdo->prepare("
         SELECT 
             p.id_pointage,
             p.id_employe,
             p.type_pointage,
-            TIME(p.date_heure) as heure
+            TO_CHAR(p.date_heure, 'HH24:MI:SS') as heure
         FROM pointages p
-        WHERE DATE(p.date_heure) = ?
-    ');
+        WHERE p.date_heure::date = ?
+    ");
     $ptsStmt->execute([$today]);
     $pointages = $ptsStmt->fetchAll();
 
@@ -51,14 +51,14 @@ try {
     $isSunday = (date('N', strtotime($today)) == 7);
     $absents = $isSunday ? 0 : max(0, $total - count($userEntrees));
 
-    // Hourly activity
-    $activityStmt = $pdo->prepare('
-        SELECT HOUR(date_heure) as h, COUNT(*) as count
+    // Hourly activity (PG compatible)
+    $activityStmt = $pdo->prepare("
+        SELECT EXTRACT(HOUR FROM date_heure)::int as h, COUNT(*) as count
         FROM pointages
-        WHERE DATE(date_heure) = ?
-        GROUP BY HOUR(date_heure)
+        WHERE date_heure::date = ?
+        GROUP BY EXTRACT(HOUR FROM date_heure)
         ORDER BY h ASC
-    ');
+    ");
     $activityStmt->execute([$today]);
     $actRows = $activityStmt->fetchAll();
 

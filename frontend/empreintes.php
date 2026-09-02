@@ -64,6 +64,131 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                 </div>
             </div>
 
+            <!-- Card : Mode Opératoire & Choix Employé Cible -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-lg shadow-sm mb-lg" id="card-mode-operatoire">
+                <div class="flex items-center gap-2 mb-xs">
+                    <span class="material-symbols-outlined text-[#F46A21] text-[20px]">tune</span>
+                    <h3 class="font-bold text-[15px] text-slate-900 dark:text-white">Mode Opératoire du Terminal</h3>
+                </div>
+                <p class="text-[13px] text-slate-500 dark:text-slate-400 mb-lg">Définissez le mode de fonctionnement du terminal biométrique. Ce réglage conditionne le comportement de la borne lors de la détection d'une empreinte.</p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-md" id="mode-selector-grid">
+                    <!-- Mode Enrôlement -->
+                    <button id="btn-mode-enrolement"
+                        class="mode-btn group relative flex flex-col items-start gap-md p-lg rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer overflow-hidden"
+                        data-mode="enrolement">
+                        <div class="absolute inset-0 mode-btn-gradient opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                        <div class="relative flex items-center justify-between w-full">
+                            <div class="w-11 h-11 rounded-xl mode-icon-bg flex items-center justify-center shadow-md transition-all">
+                                <span class="material-symbols-outlined text-[24px]">fingerprint</span>
+                            </div>
+                            <div class="mode-check-ring w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all">
+                                <span class="material-symbols-outlined text-[14px] mode-check-icon hidden">check</span>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <div class="font-bold text-[15px] mode-title">Enrôlement</div>
+                            <div class="text-[12px] mt-0.5 mode-desc leading-relaxed">Le terminal capture et enregistre les empreintes digitales des nouveaux employés.</div>
+                        </div>
+                        <div class="relative flex items-center gap-1.5">
+                            <span class="mode-badge inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+                                <span class="material-symbols-outlined text-[11px]">add_circle</span>
+                                Enrôlement actif
+                            </span>
+                        </div>
+                    </button>
+
+                    <!-- Mode Pointage -->
+                    <button id="btn-mode-pointage"
+                        class="mode-btn group relative flex flex-col items-start gap-md p-lg rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer overflow-hidden"
+                        data-mode="pointage">
+                        <div class="absolute inset-0 mode-btn-gradient opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                        <div class="relative flex items-center justify-between w-full">
+                            <div class="w-11 h-11 rounded-xl mode-icon-bg flex items-center justify-center shadow-md transition-all">
+                                <span class="material-symbols-outlined text-[24px]">how_to_reg</span>
+                            </div>
+                            <div class="mode-check-ring w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all">
+                                <span class="material-symbols-outlined text-[14px] mode-check-icon hidden">check</span>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <div class="font-bold text-[15px] mode-title">Pointage</div>
+                            <div class="text-[12px] mt-0.5 mode-desc leading-relaxed">Le terminal identifie l'employé et enregistre automatiquement son heure d'entrée ou de sortie.</div>
+                        </div>
+                        <div class="relative flex items-center gap-1.5">
+                            <span class="mode-badge inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+                                <span class="material-symbols-outlined text-[11px]">schedule</span>
+                                Pointage actif
+                            </span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Mode actif info banner -->
+                <div id="mode-info-banner" class="mt-md flex items-center gap-sm px-md py-sm rounded-xl border text-[12px] font-medium transition-all">
+                    <span class="material-symbols-outlined text-[16px]" id="mode-banner-icon">info</span>
+                    <span id="mode-banner-text">Aucun mode sélectionné.</span>
+                </div>
+
+                <!-- Panneau sélection employé (mode Enrôlement uniquement) -->
+                <div id="panel-enroll-target" class="hidden mt-lg">
+                    <div class="h-px bg-slate-100 dark:bg-slate-800 mb-lg"></div>
+                    <div class="flex items-center gap-2 mb-sm">
+                        <span class="material-symbols-outlined text-[#F46A21] text-[18px]">person_search</span>
+                        <h4 class="font-bold text-[14px] text-slate-900 dark:text-white">Employé cible de l'enrôlement</h4>
+                    </div>
+                    <p class="text-[12px] text-slate-500 dark:text-slate-400 mb-md">Sélectionnez l'employé à qui sera assignée la prochaine empreinte capturée par le terminal biométrique.</p>
+
+                    <!-- Recherche + liste -->
+                    <div id="enroll-target-state-search" class="">
+                        <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-2.5 border border-slate-200 dark:border-slate-700 focus-within:border-[#F46A21] focus-within:ring-2 focus-within:ring-[#F46A21]/20 transition-all mb-sm">
+                            <span class="material-symbols-outlined text-slate-400 text-[18px]">search</span>
+                            <input id="enroll-target-search" type="text" placeholder="Nom, prénom ou matricule..." autocomplete="off"
+                                class="bg-transparent border-none w-full text-[13px] text-slate-700 dark:text-slate-200 outline-none placeholder-slate-400">
+                            <button id="enroll-target-clear" class="hidden text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">close</span>
+                            </button>
+                        </div>
+
+                        <!-- Résultats de recherche -->
+                        <div id="enroll-target-results" class="hidden flex-col gap-xs max-h-52 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
+                            <!-- Peuplé dynamiquement -->
+                        </div>
+                    </div>
+
+                    <!-- Employé sélectionné (état confirmé) -->
+                    <div id="enroll-target-selected" class="hidden">
+                        <div class="flex items-center justify-between gap-md p-md rounded-2xl border-2 border-[#F46A21]/40 bg-gradient-to-r from-[#FFF7ED] to-[#FFFBF5] dark:from-orange-950/30 dark:to-slate-900 shadow-sm">
+                            <div class="flex items-center gap-md">
+                                <div id="enroll-sel-avatar" class="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[16px] shadow-md flex-shrink-0">—</div>
+                                <div>
+                                    <div class="font-bold text-[14px] text-slate-900 dark:text-white" id="enroll-sel-name">—</div>
+                                    <div class="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5" id="enroll-sel-meta">—</div>
+                                    <div id="enroll-sel-fp-badge" class="mt-1 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"></div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end gap-2">
+                                <button id="btn-launch-enroll" class="flex items-center gap-1.5 bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] text-white text-[12px] font-semibold px-md py-2 rounded-xl shadow-md shadow-orange-500/20 hover:opacity-90 active:scale-[0.97] transition-all cursor-pointer">
+                                    <span class="material-symbols-outlined text-[15px]">fingerprint</span>
+                                    Lancer l'enrôlement
+                                </button>
+                                <button id="btn-change-enroll-target" class="text-[11px] text-slate-400 hover:text-[#F46A21] dark:hover:text-[#F9AE3F] transition-colors cursor-pointer flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[12px]">swap_horiz</span>
+                                    Changer d'employé
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aucun employé ne correspond -->
+                    <div id="enroll-target-empty" class="hidden flex-col items-center py-lg text-center">
+                        <span class="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[40px] mb-sm">group_off</span>
+                        <p class="text-[13px] text-slate-500 dark:text-slate-400">Aucun employé ne correspond à cette recherche.</p>
+                    </div>
+                </div>
+            </div>
+
+
             <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-md rounded-2xl shadow-sm mb-lg flex flex-wrap items-center justify-between gap-md w-full max-w-full overflow-hidden">
                 <div class="flex flex-wrap items-center gap-sm flex-1">
                     <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-1.5 border border-slate-200 dark:border-slate-700">

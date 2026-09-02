@@ -3,6 +3,9 @@
 // Page : Empreintes Biométriques
 // ============================================================
 
+const MODE_KEY          = 'mada-mode';          // 'enrolement' | 'pointage' | null
+const ENROLL_TARGET_KEY = 'mada-enroll-target'; // JSON { id, prenom, nom, matricule, departement, empreinte }
+
 function initials(u) {
     if (!u || !u.prenom || !u.nom) return 'U';
     return (u.prenom[0] + u.nom[0]).toUpperCase();
@@ -67,42 +70,357 @@ async function renderEmpreintes(forceFetch = false) {
     if (badge) badge.textContent = allUsers.length;
 }
 
+// ============================================================
+// MODE OPÉRATOIRE & PANNEAU SÉLECTION EMPLOYÉ
+// ============================================================
+
+function getCurrentMode() {
+    return storage.get(MODE_KEY) || null;
+}
+
+function refreshModeUI(mode) {
+    ['enrolement', 'pointage'].forEach(m => {
+        const btn = document.getElementById(`btn-mode-${m}`);
+        if (!btn) return;
+        btn.classList.toggle('mode-active', mode === m);
+    });
+
+    const banner     = document.getElementById('mode-info-banner');
+    const bannerIcon = document.getElementById('mode-banner-icon');
+    const bannerText = document.getElementById('mode-banner-text');
+    const panel      = document.getElementById('panel-enroll-target');
+
+    if (banner) banner.classList.remove('banner-enrolement', 'banner-pointage');
+
+    if (!mode) {
+        if (bannerIcon) bannerIcon.textContent = 'info';
+        if (bannerText) bannerText.textContent = 'Aucun mode sélectionné. Veuillez choisir le mode opératoire du terminal.';
+        if (panel) panel.classList.add('hidden');
+        return;
+    }
+
+    const configs = {
+        enrolement: {
+            icon: 'fingerprint',
+            text: 'Terminal en mode Enrôlement — Sélectionnez l\'employé cible ci-dessous avant de capturer l\'empreinte.',
+            bannerClass: 'banner-enrolement',
+        },
+        pointage: {
+            icon: 'how_to_reg',
+            text: 'Terminal en mode Pointage — La borne identifiera les employés et enregistrera automatiquement les heures d\'entrée/sortie.',
+            bannerClass: 'banner-pointage',
+        },
+    };
+
+    const cfg = configs[mode];
+    if (cfg) {
+        if (bannerIcon) bannerIcon.textContent = cfg.icon;
+        if (bannerText) bannerText.textContent = cfg.text;
+        if (banner) banner.classList.add(cfg.bannerClass);
+    }
+
+    if (panel) {
+        if (mode === 'enrolement') {
+            panel.classList.remove('hidden');
+            restoreEnrollTarget();
+        } else {
+            panel.classList.add('hidden');
+        }
+    }
+
+    updateSidebarModeBadge(mode);
+}
+
+function applyMode(mode) {
+    storage.set(MODE_KEY, mode);
+    if (mode !== 'enrolement') {
+        storage.remove(ENROLL_TARGET_KEY);
+    }
+    refreshModeUI(mode);
+    document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode } }));
+    const labels = { enrolement: 'Enrôlement', pointage: 'Pointage' };
+    flash(`Mode "${labels[mode]}" activé avec succès.`, 'success');
+}
+
+function updateSidebarModeBadge(mode) {
+    const badge = document.getElementById('sidebar-mode-badge');
+    if (!badge) return;
+    badge.className = '';
+    badge.id = 'sidebar-mode-badge';
+    if (!mode) { badge.style.display = 'none'; return; }
+    const cfgMap = {
+        enrolement: { cls: 'mode-badge-enrolement', icon: 'fingerprint', label: 'Enrôlement' },
+        pointage:   { cls: 'mode-badge-pointage',   icon: 'how_to_reg',  label: 'Pointage'   },
+    };
+    const cfg = cfgMap[mode];
+    if (cfg) {
+        badge.style.display = '';
+        badge.classList.add(cfg.cls);
+    }
+}
+
+function renderSearchResults(employees, query) {
+    const resultsEl = document.getElementById('enroll-target-results');
+    const emptyEl   = document.getElementById('enroll-target-empty');
+    if (!resultsEl) return;
+
+    if (employees.length === 0) {
+        resultsEl.classList.add('hidden');
+        resultsEl.classList.remove('flex');
+        if (emptyEl) { emptyEl.classList.remove('hidden'); emptyEl.classList.add('flex'); }
+        return;
+    }
+
+    if (emptyEl) { emptyEl.classList.add('hidden'); emptyEl.classList.remove('flex'); }
+
+    function hl(str, q) {
+        if (!q) return str;
+        const idx = str.toLowerCase().indexOf(q.toLowerCase());
+        if (idx === -1) return str;
+        return str.slice(0, idx) + `<mark class="bg-[#FFF1E8] dark:bg-orange-950/60 text-[#F46A21] dark:text-[#F9AE3F] rounded px-0.5 not-italic font-semibold">${str.slice(idx, idx + q.length)}</mark>` + str.slice(idx + q.length);
+    }
+
+    resultsEl.innerHTML = employees.map(u => {
+        const hasFp = !!u.empreinte;
+        const fpBadge = hasFp
+            ? `<span class="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                <span class="material-symbols-outlined text-[10px]">warning</span> À remplacer
+               </span>`
+            : `<span class="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                <span class="material-symbols-outlined text-[10px]">add_circle</span> Sans empreinte
+               </span>`;
+
+        return `
+            <button class="enroll-result-row flex items-center gap-sm px-md py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left w-full border-b border-slate-100 dark:border-slate-700/50 last:border-0"
+                    data-emp-id="${u.id}">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[12px] flex-shrink-0">
+                    ${initials(u)}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-[13px] text-slate-900 dark:text-white truncate">${hl(u.prenom + ' ' + u.nom, query)}</div>
+                    <div class="text-[11px] font-mono text-slate-400">${hl(u.matricule, query)} · ${u.departement || 'Général'}</div>
+                </div>
+                ${fpBadge}
+            </button>
+        `;
+    }).join('');
+
+    resultsEl.classList.remove('hidden');
+    resultsEl.classList.add('flex');
+}
+
+function selectEnrollTarget(employee) {
+    storage.set(ENROLL_TARGET_KEY, JSON.stringify({
+        id:         employee.id,
+        prenom:     employee.prenom,
+        nom:        employee.nom,
+        matricule:  employee.matricule,
+        departement:employee.departement || '',
+        empreinte:  employee.empreinte,
+    }));
+
+    const stateSearch   = document.getElementById('enroll-target-state-search');
+    const stateSelected = document.getElementById('enroll-target-selected');
+    const emptyEl       = document.getElementById('enroll-target-empty');
+    if (stateSearch)   { stateSearch.classList.add('hidden'); }
+    if (emptyEl)       { emptyEl.classList.add('hidden'); emptyEl.classList.remove('flex'); }
+    if (stateSelected) { stateSelected.classList.remove('hidden'); }
+
+    const avatarEl = document.getElementById('enroll-sel-avatar');
+    const nameEl   = document.getElementById('enroll-sel-name');
+    const metaEl   = document.getElementById('enroll-sel-meta');
+    const fpBadge  = document.getElementById('enroll-sel-fp-badge');
+
+    if (avatarEl) {
+        if (employee.photo_url) {
+            avatarEl.innerHTML = `<img src="${employee.photo_url}" class="w-full h-full object-cover rounded-xl" alt="">`;
+            avatarEl.className = 'w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 shadow-md';
+        } else {
+            avatarEl.textContent = initials(employee);
+            avatarEl.className = 'w-12 h-12 rounded-xl bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[16px] shadow-md flex-shrink-0';
+        }
+    }
+    if (nameEl) nameEl.textContent = `${employee.prenom} ${employee.nom}`;
+    if (metaEl) metaEl.textContent = `${employee.matricule}${employee.departement ? ' · ' + employee.departement : ''}`;
+    if (fpBadge) {
+        if (employee.empreinte) {
+            fpBadge.className = 'mt-1 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 border border-amber-200 dark:border-amber-800';
+            fpBadge.innerHTML = `<span class="material-symbols-outlined text-[11px]">warning</span> Empreinte existante — sera remplacée`;
+        } else {
+            fpBadge.className = 'mt-1 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800';
+            fpBadge.innerHTML = `<span class="material-symbols-outlined text-[11px]">add_circle</span> Aucune empreinte — premier enrôlement`;
+        }
+    }
+
+    document.dispatchEvent(new CustomEvent('mada:enrollTargetChanged', { detail: { employee } }));
+}
+
+function restoreEnrollTarget() {
+    const raw = storage.get(ENROLL_TARGET_KEY);
+    if (!raw) return;
+    try {
+        const emp = JSON.parse(raw);
+        if (emp && emp.id) selectEnrollTarget(emp);
+    } catch (e) {}
+}
+
+function resetEnrollTarget() {
+    storage.remove(ENROLL_TARGET_KEY);
+    const stateSearch   = document.getElementById('enroll-target-state-search');
+    const stateSelected = document.getElementById('enroll-target-selected');
+    const searchInput   = document.getElementById('enroll-target-search');
+    const resultsEl     = document.getElementById('enroll-target-results');
+    const emptyEl       = document.getElementById('enroll-target-empty');
+    if (stateSelected) stateSelected.classList.add('hidden');
+    if (stateSearch)   stateSearch.classList.remove('hidden');
+    if (resultsEl)     { resultsEl.classList.add('hidden'); resultsEl.classList.remove('flex'); }
+    if (emptyEl)       { emptyEl.classList.add('hidden'); emptyEl.classList.remove('flex'); }
+    if (searchInput)   { searchInput.value = ''; searchInput.focus(); }
+
+    const clearBtn = document.getElementById('enroll-target-clear');
+    if (clearBtn) clearBtn.classList.add('hidden');
+
+    document.dispatchEvent(new CustomEvent('mada:enrollTargetChanged', { detail: { employee: null } }));
+}
+
+// ============================================================
+// MODAL D'ENRÔLEMENT
+// ============================================================
+
 function openEnrollModal(target) {
     if (!target) return;
+
+    // Définir automatiquement cet employé comme cible
+    selectEnrollTarget(target);
+
     const startEnrollment = () => {
         openModal('modal-enroll');
         const icon = document.getElementById('enroll-icon');
         const step = document.getElementById('enroll-step');
         const btn = document.getElementById('btn-enroll');
         document.getElementById('enroll-person').textContent = `${target.prenom} ${target.nom} (${target.matricule})`;
-        if (icon) { icon.className = 'w-24 h-24 rounded-full bg-[#FFF1E8] text-[#F46A21] flex items-center justify-center mb-lg transition-colors duration-300 shadow-inner'; icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>'; }
-        if (step) step.textContent = "Placez le doigt de l'employé sur le lecteur.";
+        if (icon) {
+            icon.className = 'w-24 h-24 rounded-full bg-[#FFF1E8] dark:bg-orange-950 text-[#F46A21] flex items-center justify-center mb-lg transition-colors duration-300 shadow-inner';
+            icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>';
+        }
+        if (step) step.textContent = "Placez le doigt de l'employé sur le capteur.";
         if (btn) btn.disabled = false;
         if (btn) {
             btn.onclick = async () => {
-                if (icon) { icon.className = 'w-24 h-24 rounded-full bg-[#F46A21] text-white pulse-ring flex items-center justify-center mb-lg transition-colors duration-300'; icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>'; }
-                if (step) step.textContent = 'Numérisation biométrique en cours...';
+                if (icon) {
+                    icon.className = 'w-24 h-24 rounded-full bg-[#F46A21] text-white pulse-ring flex items-center justify-center mb-lg transition-colors duration-300';
+                    icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>';
+                }
+                if (step) step.textContent = 'Numérisation biométrique en cours…';
                 btn.disabled = true;
                 const res = await api.enrollFingerprint(target.id);
                 if (res.ok) {
-                    if (icon) { icon.className = 'w-24 h-24 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-lg transition-colors duration-300'; icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">check_circle</span>'; }
+                    if (icon) {
+                        icon.className = 'w-24 h-24 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-lg transition-colors duration-300';
+                        icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">check_circle</span>';
+                    }
                     if (step) step.textContent = res.message;
                     flash(res.message, 'success');
                     btn.disabled = false;
-                    setTimeout(() => { closeModal('modal-enroll'); renderEmpreintes(true); }, 1200);
+
+                    // Mettre à jour la cible et rafraîchir le tableau
+                    const updated = { ...target, empreinte: true };
+                    selectEnrollTarget(updated);
+
+                    setTimeout(() => {
+                        closeModal('modal-enroll');
+                        renderEmpreintes(true);
+                    }, 1200);
                 } else {
-                    if (icon) { icon.className = 'w-24 h-24 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-lg transition-colors duration-300'; icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">error</span>'; }
+                    if (icon) {
+                        icon.className = 'w-24 h-24 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-lg transition-colors duration-300';
+                        icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">error</span>';
+                    }
                     if (step) step.textContent = res.message;
                     btn.disabled = false;
                 }
             };
         }
     };
+
     if (target.empreinte) {
-        showConfirmModal({ title: 'Remplacer l\'empreinte ?', message: `Une empreinte est déjà enregistrée pour ${target.prenom} ${target.nom}. Souhaitez-vous effectuer une nouvelle numérisation ?`, type: 'warning', confirmText: 'Ré-enrôler', cancelText: 'Conserver', onConfirm: startEnrollment });
-    } else { startEnrollment(); }
+        showConfirmModal({
+            title: 'Remplacer l\'empreinte ?',
+            message: `Une empreinte est déjà enregistrée pour ${target.prenom} ${target.nom}. Souhaitez-vous effectuer une nouvelle numérisation ?`,
+            type: 'warning',
+            confirmText: 'Ré-enrôler',
+            cancelText: 'Conserver',
+            onConfirm: startEnrollment
+        });
+    } else {
+        startEnrollment();
+    }
 }
 
+function initEnrollTargetPanel() {
+    const searchInput = document.getElementById('enroll-target-search');
+    const clearBtn    = document.getElementById('enroll-target-clear');
+    const resultsEl   = document.getElementById('enroll-target-results');
+    const changeBtn   = document.getElementById('btn-change-enroll-target');
+    const launchBtn   = document.getElementById('btn-launch-enroll');
+
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        if (clearBtn) clearBtn.classList.toggle('hidden', q.length === 0);
+
+        if (q.length === 0) {
+            if (resultsEl) { resultsEl.classList.add('hidden'); resultsEl.classList.remove('flex'); }
+            const emptyEl = document.getElementById('enroll-target-empty');
+            if (emptyEl) { emptyEl.classList.add('hidden'); emptyEl.classList.remove('flex'); }
+            return;
+        }
+
+        const filtered = allUsers.filter(u =>
+            u.nom.toLowerCase().includes(q) ||
+            u.prenom.toLowerCase().includes(q) ||
+            u.matricule.toLowerCase().includes(q) ||
+            (u.departement || '').toLowerCase().includes(q)
+        );
+        renderSearchResults(filtered, q);
+    });
+
+    if (resultsEl) {
+        resultsEl.addEventListener('click', (e) => {
+            const row = e.target.closest('.enroll-result-row');
+            if (!row) return;
+            const id  = parseInt(row.dataset.empId, 10);
+            const emp = allUsers.find(u => u.id === id);
+            if (emp) selectEnrollTarget(emp);
+        });
+    }
+
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+        clearBtn.classList.add('hidden');
+        if (resultsEl) { resultsEl.classList.add('hidden'); resultsEl.classList.remove('flex'); }
+        const emptyEl = document.getElementById('enroll-target-empty');
+        if (emptyEl) { emptyEl.classList.add('hidden'); emptyEl.classList.remove('flex'); }
+    });
+
+    if (changeBtn) changeBtn.addEventListener('click', resetEnrollTarget);
+
+    if (launchBtn) {
+        launchBtn.addEventListener('click', () => {
+            try {
+                const raw = storage.get(ENROLL_TARGET_KEY);
+                const emp = raw ? JSON.parse(raw) : null;
+                if (!emp) { flash('Veuillez sélectionner un employé cible.', 'warning'); return; }
+                openEnrollModal(emp);
+            } catch (e) {
+                flash('Erreur lors de la lecture de l\'employé cible.', 'danger');
+            }
+        });
+    }
+}
+
+// Global click event delegation
 if (!window._empreintesGlobalClickAttached) {
     window._empreintesGlobalClickAttached = true;
     document.addEventListener('click', (e) => {
@@ -127,8 +445,20 @@ if (!window._empreintesGlobalClickAttached) {
                     cancelText: 'Annuler',
                     onConfirm: async () => {
                         const res = await api.deleteFingerprint(target.id);
-                        if (res.ok) { flash(`Empreinte de ${target.prenom} ${target.nom} supprimée.`, 'success'); await renderEmpreintes(true); }
-                        else { flash(res.message || 'Échec de la suppression.', 'danger'); }
+                        if (res.ok) {
+                            flash(`Empreinte de ${target.prenom} ${target.nom} supprimée.`, 'success');
+                            // Si c'était la cible actuelle, réinitialiser la cible
+                            const rawTarget = storage.get(ENROLL_TARGET_KEY);
+                            if (rawTarget) {
+                                try {
+                                    const cur = JSON.parse(rawTarget);
+                                    if (cur.id === target.id) selectEnrollTarget({ ...target, empreinte: false });
+                                } catch(e){}
+                            }
+                            await renderEmpreintes(true);
+                        } else {
+                            flash(res.message || 'Échec de la suppression.', 'danger');
+                        }
                     }
                 });
             }
@@ -146,16 +476,35 @@ async function initPage() {
         setTimeout(() => { window.location.href = 'dashboard.php'; }, 1500);
         return;
     }
+
     const [, depts] = await Promise.all([
         renderEmpreintes(true),
         api.getDepartements()
     ]);
+
+    // Mode opératoire
+    const currentMode = getCurrentMode();
+    refreshModeUI(currentMode);
+
+    ['enrolement', 'pointage'].forEach(m => {
+        const btn = document.getElementById(`btn-mode-${m}`);
+        if (btn) {
+            btn.onclick = () => {
+                if (!btn.classList.contains('mode-active')) applyMode(m);
+            };
+        }
+    });
+
+    // Panneau sélection employé
+    initEnrollTargetPanel();
+
     const searchInput = document.getElementById('top-search');
     if (searchInput) searchInput.oninput = () => renderEmpreintes(false);
     const filterDept = document.getElementById('filter-dept');
     if (filterDept) filterDept.onchange = () => renderEmpreintes(false);
     const filterEmp = document.getElementById('filter-emp');
     if (filterEmp) filterEmp.onchange = () => renderEmpreintes(false);
+
     // Remplir départements
     const sel = document.getElementById('filter-dept');
     if (sel && depts && depts.length > 0) {

@@ -29,14 +29,14 @@ if ($method === 'GET') {
         exit;
     }
     try {
-        // Groupé par employé + date : combine entree/sortie en une ligne
-        $stmt = $pdo->query('
+        // Groupé par employé + date : combine entree/sortie en une ligne (PG compatible)
+        $stmt = $pdo->query("
             SELECT 
                 MIN(p.id_pointage) AS id,
                 p.id_employe AS user_id,
-                DATE(p.date_heure) AS date,
-                MIN(CASE WHEN p.type_pointage = "entree" THEN TIME(p.date_heure) END) AS entree,
-                MAX(CASE WHEN p.type_pointage = "sortie" THEN TIME(p.date_heure) END) AS sortie,
+                (p.date_heure::date) AS date,
+                MIN(CASE WHEN p.type_pointage = 'entree' THEN TO_CHAR(p.date_heure, 'HH24:MI:SS') END) AS entree,
+                MAX(CASE WHEN p.type_pointage = 'sortie' THEN TO_CHAR(p.date_heure, 'HH24:MI:SS') END) AS sortie,
                 MIN(e.matricule) AS matricule,
                 MIN(e.nom) AS nom,
                 MIN(e.prenom) AS prenom,
@@ -44,10 +44,10 @@ if ($method === 'GET') {
             FROM pointages p
             LEFT JOIN employes e ON p.id_employe = e.id_employe
             LEFT JOIN departements d ON e.id_departement = d.id_departement
-            GROUP BY p.id_employe, DATE(p.date_heure)
+            GROUP BY p.id_employe, p.date_heure::date
             ORDER BY date DESC, entree DESC
             LIMIT 200
-        ');
+        ");
         $rows = $stmt->fetchAll();
         $pointages = [];
         foreach ($rows as $r) {
@@ -85,7 +85,7 @@ if ($method === 'PUT') {
     }
     try {
         // Retrouver l'employé et la date d'origine via l'id groupé
-        $origStmt = $pdo->prepare('SELECT id_employe, DATE(date_heure) as date FROM pointages WHERE id_pointage = ?');
+        $origStmt = $pdo->prepare('SELECT id_employe, (date_heure::date) as date FROM pointages WHERE id_pointage = ?');
         $origStmt->execute([$id]);
         $orig = $origStmt->fetch();
         if (!$orig) {
@@ -98,21 +98,21 @@ if ($method === 'PUT') {
         $upsert = function($type, $time) use ($pdo, $userId, $oldDate, $date) {
             if (empty($time)) {
                 // Supprimer si vide
-                $del = $pdo->prepare('DELETE FROM pointages WHERE id_employe = ? AND DATE(date_heure) = ? AND type_pointage = ?');
+                $del = $pdo->prepare('DELETE FROM pointages WHERE id_employe = ? AND (date_heure::date) = ? AND type_pointage = ?');
                 $del->execute([$userId, $oldDate, $type]);
                 // Si date changée et time vide, rien à créer
                 return;
             }
             $newDateTime = $date . ' ' . $time;
             // Chercher existant sur ancienne date
-            $chk = $pdo->prepare('SELECT id_pointage FROM pointages WHERE id_employe = ? AND DATE(date_heure) = ? AND type_pointage = ? LIMIT 1');
+            $chk = $pdo->prepare('SELECT id_pointage FROM pointages WHERE id_employe = ? AND (date_heure::date) = ? AND type_pointage = ? LIMIT 1');
             $chk->execute([$userId, $oldDate, $type]);
             $existing = $chk->fetch();
             if ($existing) {
                 $upd = $pdo->prepare('UPDATE pointages SET date_heure = ?, type_pointage = ? WHERE id_pointage = ?');
                 $upd->execute([$newDateTime, $type, $existing['id_pointage']]);
             } else {
-                $ins = $pdo->prepare('INSERT INTO pointages (id_uuid_local, id_employe, type_pointage, date_heure, methode_verification, source_donnee, statut) VALUES (UUID(), ?, ?, ?, "manuel", "serveur", "valide")');
+                $ins = $pdo->prepare("INSERT INTO pointages (id_uuid_local, id_employe, type_pointage, date_heure, methode_verification, source_donnee, statut) VALUES (gen_random_uuid(), ?, ?, ?, 'manuel', 'serveur', 'valide')");
                 $ins->execute([$userId, $type, $newDateTime]);
             }
         };
@@ -122,12 +122,12 @@ if ($method === 'PUT') {
         // Si la date a changé, les nouvelles lignes sont déjà à la nouvelle date via upsert
         $pdo->commit();
         // Retourner le pointage mis à jour groupé
-        $stmt = $pdo->prepare('
-            SELECT MIN(p.id_pointage) AS id, p.id_employe AS user_id, DATE(p.date_heure) AS date,
-                   MIN(CASE WHEN p.type_pointage="entree" THEN TIME(p.date_heure) END) AS entree,
-                   MAX(CASE WHEN p.type_pointage="sortie" THEN TIME(p.date_heure) END) AS sortie
-            FROM pointages p WHERE p.id_employe = ? AND DATE(p.date_heure) = ? GROUP BY p.id_employe, DATE(p.date_heure) LIMIT 1
-        ');
+        $stmt = $pdo->prepare("
+            SELECT MIN(p.id_pointage) AS id, p.id_employe AS user_id, (p.date_heure::date) AS date,
+                   MIN(CASE WHEN p.type_pointage='entree' THEN TO_CHAR(p.date_heure, 'HH24:MI:SS') END) AS entree,
+                   MAX(CASE WHEN p.type_pointage='sortie' THEN TO_CHAR(p.date_heure, 'HH24:MI:SS') END) AS sortie
+            FROM pointages p WHERE p.id_employe = ? AND p.date_heure::date = ? GROUP BY p.id_employe, p.date_heure::date LIMIT 1
+        ");
         $stmt->execute([$userId, $date]);
         $row = $stmt->fetch();
         echo json_encode(['ok' => true, 'message' => 'Pointage mis à jour.', 'pointage' => $row ? [

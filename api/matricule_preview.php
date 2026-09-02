@@ -51,7 +51,7 @@ if (in_array($role, ['admin', 'super_admin', 'admin_systeme'])) {
 try {
     $table = in_array($role, ['admin', 'super_admin', 'admin_systeme']) ? 'utilisateurs_systeme' : 'employes';
     $lastStmt = $pdo->prepare(
-        "SELECT matricule FROM $table WHERE matricule LIKE ? ORDER BY CAST(SUBSTRING(matricule, 4) AS UNSIGNED) DESC, matricule DESC LIMIT 1"
+        "SELECT matricule FROM $table WHERE matricule LIKE ? ORDER BY CAST(SUBSTRING(matricule FROM 4) AS INTEGER) DESC, matricule DESC LIMIT 1"
     );
     $lastStmt->execute([$prefix . '%']);
     $lastRow = $lastStmt->fetch();
