@@ -1086,10 +1086,37 @@ function initSingleFileApp() {
     });
 })();
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     if (SINGLE_FILE_MODE) {
         initSingleFileApp();
         return;
+    }
+    // Garde auth avec retry pour éviter le rebond dashboard->login juste après login
+    const page = document.body.dataset.page;
+    const isPublic = page === 'login' || document.body.dataset.noShell === '1';
+    async function getServerUserWithRetry(tries=3) {
+        for (let i=0;i<tries;i++) {
+            const u = await api.verifyAuth();
+            if (u) return u;
+            const local = api.getCurrentUser();
+            if (local && i < tries-1) { await new Promise(r=>setTimeout(r,400)); continue; }
+            return null;
+        }
+        return null;
+    }
+    if (!isPublic) {
+        const serverUser = await getServerUserWithRetry(3);
+        if (!serverUser) {
+            const local = api.getCurrentUser();
+            if (!local) { window.location.replace('login.php?v=' + Date.now()); return; }
+            // local existe mais serveur dit non après 3 essais -> clear et redirect
+            try { sessionStorage.clear(); } catch {}
+            window.location.replace('login.php?v=' + Date.now());
+            return;
+        }
+    } else if (page === 'login') {
+        const serverUser = await api.verifyAuth();
+        if (serverUser) { window.location.replace('dashboard.php?v=' + Date.now()); return; }
     }
     if (document.body.dataset.page && !document.body.dataset.noShell) buildShell();
     setupSPARouting();

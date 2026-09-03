@@ -94,13 +94,16 @@ const api = {
     },
 
     async verifyAuth() {
+        // Vérifie la session serveur sans déconnecter sur erreur réseau
         try {
             const res = await fetch(getApiEndpoint('me.php'), { credentials: 'include', cache: 'no-store' });
-            if (res.status === 401) { handleUnauthorized(res); return null; }
+            if (res.status === 401) return null; // non authentifié -> pas de throw, le caller décide
             const data = await res.json();
             if (data.ok && data.user) return data.user;
         } catch (e) {
-            if (e.message === 'Session expirée') throw e;
+            // Erreur réseau Supabase lente -> on garde l'utilisateur local pour éviter déconnexion brutale
+            const local = this.getCurrentUser();
+            if (local) return local;
         }
         return null;
     },

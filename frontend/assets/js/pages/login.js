@@ -35,8 +35,25 @@ function initPage() {
 
         if (res.ok) {
             flash(`Bienvenue ${res.user.prenom} ${res.user.nom}`, 'success');
-            buildShell();
-            switchPage('dashboard');
+            // Vérifie que la session est bien active côté serveur avant de rediriger
+            let ok = false;
+            for (let i = 0; i < 3; i++) {
+                await new Promise(r => setTimeout(r, 400));
+                try {
+                    const v = await api.verifyAuth();
+                    if (v) { ok = true; break; }
+                } catch {}
+            }
+            if (!ok) {
+                // Session pas encore prête, on force quand même le dashboard qui vérifiera
+                console.warn('verifyAuth non prêt, redirection dashboard quand même');
+            }
+            if (typeof SINGLE_FILE_MODE !== 'undefined' && SINGLE_FILE_MODE) {
+                buildShell();
+                switchPage('dashboard');
+            } else {
+                window.location.replace('dashboard.php?v=' + Date.now());
+            }
         } else {
             flash(res.message, 'danger');
         }
