@@ -242,16 +242,33 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                 </button>
             </div>
             <div class="relative flex flex-col items-center py-md">
+                <!-- Indicateur 2 captures -->
+                <div id="enroll-steps" class="flex items-center gap-3 mb-4">
+                    <div id="step-1" class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500">
+                        <span class="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[12px]">1</span>
+                        <span>Capture 1</span>
+                        <span class="material-symbols-outlined text-[14px] step-icon hidden">check</span>
+                    </div>
+                    <span class="material-symbols-outlined text-slate-300 text-[16px]">arrow_forward</span>
+                    <div id="step-2" class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500">
+                        <span class="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[12px]">2</span>
+                        <span>Capture 2</span>
+                        <span class="material-symbols-outlined text-[14px] step-icon hidden">check</span>
+                    </div>
+                </div>
                 <div class="w-24 h-24 rounded-full bg-[#FFF1E8] dark:bg-orange-950 text-[#F46A21] flex items-center justify-center mb-lg transition-colors duration-300 shadow-inner" id="enroll-icon">
                     <span class="material-symbols-outlined text-[48px]">fingerprint</span>
                 </div>
                 <h4 class="font-bold text-base text-slate-900 dark:text-white" id="enroll-person">—</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 min-h-[1.25rem]" id="enroll-step">Placez le doigt de l'employé sur le capteur.</p>
+                <div id="enroll-progress" class="hidden w-full max-w-[260px] h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-3">
+                    <div id="enroll-progress-bar" class="h-full bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] transition-all duration-500" style="width:0%"></div>
+                </div>
                 <button class="mt-lg bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] hover:from-[#EA580C] hover:to-[#F59E0B] text-white font-semibold text-xs py-2.5 px-xl rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-2 cursor-pointer active:scale-98" id="btn-enroll">
                     <span class="material-symbols-outlined text-[18px]">touch_app</span>
                     Poser le doigt sur le lecteur
                 </button>
-                <p class="text-[11px] text-slate-400 mt-sm">Placez votre doigt sur le lecteur biométrique.</p>
+                <p class="text-[11px] text-slate-400 mt-sm" id="enroll-hint">Placez votre doigt sur le lecteur biométrique.</p>
             </div>
         </div>
     </div>

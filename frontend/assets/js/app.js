@@ -20,7 +20,7 @@ const NAV_SECTIONS = [
         title: 'VUE GÉNÉRALE',
         items: [
             { page: 'dashboard', link: 'dashboard.php', icon: 'dashboard', label: 'Tableau de bord' },
-            { page: 'pointage', link: 'pointage.php', icon: 'fingerprint', label: 'Pointage', badge: 'En service' },
+            { page: 'pointage', link: 'pointage.php', icon: 'fingerprint', label: 'Pointage', badgeId: 'sidebar-capteur-badge' },
         ]
     },
     {
@@ -130,6 +130,34 @@ function _onEnrollTargetChanged() {
     renderSidebarModeBadge(mode);
 }
 
+function updateSidebarCapteurBadge(data) {
+    const badge = document.getElementById('sidebar-capteur-badge');
+    if (!badge) return;
+    const hs = data && data.status === 'hs';
+    if (hs) {
+        badge.textContent = 'HS';
+        badge.className = 'nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800';
+    } else {
+        badge.textContent = 'En service';
+        badge.className = 'nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800';
+    }
+    badge.title = data.detail || (hs ? 'HS' : 'En service');
+}
+let sidebarCapteurTimer = null;
+function initSidebarCapteurBadge() {
+    async function refresh() {
+        try {
+            const res = await fetch(getApiEndpoint('sensor_status.php'), { credentials: 'include', cache: 'no-store' });
+            const data = await res.json();
+            if (data.ok) updateSidebarCapteurBadge(data);
+        } catch {}
+    }
+    refresh();
+    if (sidebarCapteurTimer) clearInterval(sidebarCapteurTimer);
+    sidebarCapteurTimer = setInterval(refresh, 5000);
+    document.addEventListener('capteurStatusChanged', (e) => updateSidebarCapteurBadge(e.detail));
+}
+
 
 // Tooltip (indice d'onglet) au survol des liens de navigation
 function setupNavTooltips() {
@@ -214,8 +242,7 @@ function buildShell() {
                                                     ${icon(i.icon, 20, isActive)}
                                                     <span>${i.label}</span>
                                                 </div>
-                                                ${i.badge ? `<span class="nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge}</span>` : ''}
-                                                ${i.badgeId ? `<span id="${i.badgeId}" class="nav-badge-count text-[10px] font-mono px-2 py-0.5 rounded-full"></span>` : ''}
+                                                ${i.badgeId ? `<span id="${i.badgeId}" class="${i.page==='pointage' ? 'nav-badge-service' : 'nav-badge-count'} text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge || (i.page==='pointage' ? 'En service' : '')}</span>` : (i.badge ? `<span class="nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge}</span>` : '')}
                                             </a>
                                         </li>
                                         `;

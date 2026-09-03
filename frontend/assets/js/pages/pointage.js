@@ -73,22 +73,49 @@ function populateDeptFilter(db) {
         depts.map(d => `<option value="${d}" ${d === current ? 'selected' : ''}>${d}</option>`).join('');
 }
 
-function renderCapteurStatus() {
-    const hs = storage.get('mada_capteur_hs') === '1';
+let capteurPollTimer = null;
+async function fetchCapteurStatus() {
+    try {
+        const res = await fetch(getApiEndpoint('sensor_status.php'), { credentials: 'include', cache: 'no-store' });
+        const data = await res.json();
+        if (data.ok) return data;
+    } catch {}
+    return { status: 'hs', detail: 'Capteur non joignable' };
+}
+function renderCapteurStatusReal(data) {
     const badge = document.getElementById('capteur-badge');
     if (!badge) return;
-
     const label = document.getElementById('capteur-label');
     const icon = document.getElementById('capteur-icon');
+    const hs = data && data.status === 'hs';
     if (hs) {
         badge.className = 'ml-1 inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border cursor-pointer transition-colors bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800';
         if (label) label.textContent = 'Capteur : HS';
         if (icon) icon.textContent = 'sensor_occupied';
+        badge.title = data.detail || 'HS';
     } else {
         badge.className = 'ml-1 inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border cursor-pointer transition-colors bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-500/20';
         if (label) label.textContent = 'Capteur : En service';
         if (icon) icon.textContent = 'sensors';
+        badge.title = data.detail || 'En service';
     }
+    document.dispatchEvent(new CustomEvent('capteurStatusChanged', { detail: { status: data.status, detail: data.detail } }));
+}
+function renderCapteurStatus() {
+    const hs = storage.get('mada_capteur_hs') === '1';
+    renderCapteurStatusReal({ status: hs ? 'hs' : 'en_service', detail: hs ? 'HS (local)' : 'En service (local)' });
+}
+async function refreshCapteurStatus() {
+    const data = await fetchCapteurStatus();
+    renderCapteurStatusReal(data);
+}
+function startCapteurPolling() {
+    refreshCapteurStatus();
+    if (capteurPollTimer) clearInterval(capteurPollTimer);
+    capteurPollTimer = setInterval(refreshCapteurStatus, 5000);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') refreshCapteurStatus();
+    });
 }
 
 let cachedPointagesDb = null;
@@ -178,19 +205,17 @@ async function renderHistoryTable(forceFetch = false) {
 function initPage() {
     window._lastInitializedModule = 'pointage';
     renderHistoryTable(true);
+    startCapteurPolling();
 
     document.getElementById('btn-refresh-history')?.addEventListener('click', () => renderHistoryTable(true));
     document.getElementById('top-search')?.addEventListener('input', () => renderHistoryTable(false));
     document.getElementById('filter-status')?.addEventListener('change', () => renderHistoryTable(false));
     document.getElementById('filter-dept')?.addEventListener('change', () => renderHistoryTable(false));
 
-    document.getElementById('capteur-badge')?.addEventListener('click', () => {
-        const hs = storage.get('mada_capteur_hs') !== '1';
-        storage.set('mada_capteur_hs', hs ? '1' : '0');
-        renderCapteurStatus();
-        flash(hs
-            ? 'Le lecteur biométrique est désormais hors service (HS).'
-            : 'Le lecteur biométrique est de nouveau en service.', hs ? 'warning' : 'success');
+    document.getElementById('capteur-badge')?.addEventListener('click', async () => {
+        await refreshCapteurStatus();
+        const data = await fetchCapteurStatus();
+        flash(data.detail || (data.status==='hs' ? 'Capteur HS' : 'Capteur en service'), data.status==='hs' ? 'warning' : 'success');
     });
 
     document.querySelectorAll('.period-pill').forEach(btn => {
