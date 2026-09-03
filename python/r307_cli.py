@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 CLI R307 appelé par PHP (SdkReader -> exec)
-PHP passe toujours par api/biometric.php -> SdkReader -> python r307_cli.py
+PHP passe toujours par api/biometric.php -> SdkReader -> exec python r307_cli.py
 
 Usage:
   python r307_cli.py --port COM3 --baud 57600 --action enroll --id 12
@@ -9,8 +9,10 @@ Usage:
   python r307_cli.py --port COM3 --action delete --id 12
   python r307_cli.py --port COM3 --action empty
   python r307_cli.py --port COM3 --action status
+  python r307_cli.py --port COM3 --action count
   python r307_cli.py --list-ports
   python r307_cli.py --auto-port
+  python r307_cli.py --mock --action enroll --id 5
 
 Sortie JSON sur stdout pour PHP :
   {"ok":true, "page_id":12, "score":87}
@@ -57,7 +59,6 @@ def main():
         print(json.dumps({"ok": True, "port": R307.auto_detect()}))
         return
 
-    # Réel
     port = args.port
     if port == 'auto':
         port = R307.auto_detect() or 'COM3'
@@ -67,7 +68,7 @@ def main():
         r.open()
         if args.action == 'enroll':
             # page_id = id_employe (1..1000). R307 page 0..999
-            pid = max(0, min(999, args.page_id))
+            pid = max(1, min(999, args.page_id))
             if pid == 0:
                 raise RuntimeError('id invalide (1..999)')
             r.enroll(pid)

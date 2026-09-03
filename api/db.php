@@ -126,9 +126,9 @@ function getJsonInput(): array {
     return $_POST;
 }
 
-// CSRF central : vérifie automatiquement POST/PUT/DELETE sauf login/logout/csrf/me
+// CSRF central : vérifie automatiquement POST/PUT/DELETE sauf login/logout/csrf/me + sensor_mode/status (borne mobile sans session admin)
 $__method = $_SERVER['REQUEST_METHOD'] ?? '';
-$__csrfExempt = ['/api/login.php', '/api/logout.php', '/api/csrf.php', '/api/me.php'];
+$__csrfExempt = ['/api/login.php', '/api/logout.php', '/api/csrf.php', '/api/me.php', '/api/sensor_mode.php', '/api/sensor_status.php'];
 $__requestUri = $_SERVER['REQUEST_URI'] ?? '';
 $__scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
 $__isExempt = false;

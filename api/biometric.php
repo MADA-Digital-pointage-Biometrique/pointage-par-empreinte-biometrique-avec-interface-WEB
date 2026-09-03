@@ -47,7 +47,7 @@ if ($method === 'POST') {
                 exit;
             }
 
-            // WA28 : tentative de capture réelle, fallback simulé si SDK non configuré
+            // R307 : tentative de capture réelle, fallback simulé si SDK non configuré
             $gabarit = null;
             $waMsg = '';
             try {
@@ -55,10 +55,10 @@ if ($method === 'POST') {
                 $gabarit = $reader->enroll($userId);
                 $waMsg = ' (' . $reader->name() . ')';
             } catch (Throwable $eWa) {
-                // SDK WA28 non prêt : génération simulée (pré-prod)
+                // R307 non prêt : génération simulée (pré-prod)
                 $gabarit = bin2hex(random_bytes(32));
-                $waMsg = ' [SIMULÉ - WA28 non configuré: ' . $eWa->getMessage() . ']';
-                error_log('WA28 enroll fallback: ' . $eWa->getMessage());
+                $waMsg = ' [SIMULÉ - R307 non configuré: ' . $eWa->getMessage() . ']';
+                error_log('R307 enroll fallback: ' . $eWa->getMessage());
             }
 
             // Insert or update biometric data
@@ -85,22 +85,24 @@ if ($method === 'POST') {
             exit;
 
         } else if ($action === 'scan') {
-            // WA28 scan pour pointage direct (à brancher quand SDK prêt)
+            // R307 scan pour pointage direct
             try {
                 $reader = SdkReader::fromConfig();
                 $foundId = $reader->scan();
                 if ($foundId) {
-                    echo json_encode(['ok' => true, 'user_id' => $foundId, 'message' => 'Empreinte reconnue (WA28)']);
+                    echo json_encode(['ok' => true, 'user_id' => $foundId, 'message' => 'Empreinte reconnue (R307)']);
                 } else {
                     echo json_encode(['ok' => false, 'message' => 'Aucune empreinte reconnue']);
                 }
             } catch (Throwable $eWa) {
                 http_response_code(501);
-                echo json_encode(['ok' => false, 'message' => 'WA28 non prêt: ' . $eWa->getMessage()]);
+                echo json_encode(['ok' => false, 'message' => 'R307 non prêt: ' . $eWa->getMessage()]);
             }
             exit;
         } else if ($action === 'delete') {
-            $delete = $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = \'empreinte\'');
+            // Supprime du module R307 + BDD
+            try { $reader = SdkReader::fromConfig(); $reader->delete($userId); } catch (Throwable $e) { error_log('R307 delete: '.$e->getMessage()); }
+            $delete = $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = "empreinte"');
             $delete->execute([$userId]);
             echo json_encode(['ok' => true, 'message' => 'Empreinte biométrique supprimée.']);
             exit;

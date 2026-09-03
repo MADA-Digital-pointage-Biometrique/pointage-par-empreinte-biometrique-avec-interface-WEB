@@ -27,6 +27,19 @@ function _getCache(k, ttlMs) {
 function _setCache(k, d) { _cache[k] = { d, t: Date.now() }; }
 function _clearCache(k) { if (k) delete _cache[k]; else Object.keys(_cache).forEach(x=>delete _cache[x]); }
 
+function handleUnauthorized(res) {
+    if (res && res.status === 401) {
+        try { sessionStorage.clear(); } catch {}
+        try { localStorage.removeItem('mada_user_session'); } catch {}
+        storage.remove(SESSION_KEY);
+        // évite boucle si déjà sur login
+        if (!window.location.pathname.endsWith('login.php') && !window.location.pathname.endsWith('login.html')) {
+            window.location.replace('login.php?v=' + Date.now());
+        }
+        throw new Error('Session expirée');
+    }
+}
+
 const api = {
     // --- Jeton CSRF (récupéré une fois, mis en cache) ---
     async getCsrfToken() {
@@ -50,7 +63,8 @@ const api = {
             const res = await fetch(getApiEndpoint('login.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ matricule, password })
+                body: JSON.stringify({ matricule, password }),
+                credentials: 'include'
             });
 
             const data = await res.json();
@@ -68,21 +82,39 @@ const api = {
 
     async logout() {
         try {
-            await fetch(getApiEndpoint('logout.php'), { method: 'POST' });
+            await fetch(getApiEndpoint('logout.php'), { method: 'POST', credentials: 'include', cache: 'no-store' });
         } catch (e) {}
-        sessionStorage.removeItem('mada_user_session');
+        try { sessionStorage.clear(); } catch {}
+        try { localStorage.removeItem('mada_user_session'); } catch {}
         storage.remove(SESSION_KEY);
-        window.location.href = 'login.php';
+        // vide le cache Supabase
+        try { Object.keys(_cache).forEach(k=>delete _cache[k]); } catch {}
+        // force rechargement sans cache
+        window.location.replace('login.php?v=' + Date.now());
+    },
+
+    async verifyAuth() {
+        try {
+            const res = await fetch(getApiEndpoint('me.php'), { credentials: 'include', cache: 'no-store' });
+            if (res.status === 401) { handleUnauthorized(res); return null; }
+            const data = await res.json();
+            if (data.ok && data.user) return data.user;
+        } catch (e) {
+            if (e.message === 'Session expirée') throw e;
+        }
+        return null;
     },
 
     getCurrentUser() {
         try {
             const raw = sessionStorage.getItem('mada_user_session') || storage.get(SESSION_KEY);
             if (raw) {
-                return JSON.parse(raw);
+                const u = JSON.parse(raw);
+                // ne jamais retourner de faux utilisateur après logout
+                if (u && u.id) return u;
             }
         } catch (e) {}
-        return { id: 1, nom: 'Administrateur', prenom: 'Système', role: 'admin' };
+        return null;
     },
 
     async changePassword(currentPassword, newPassword) {
@@ -103,20 +135,22 @@ const api = {
     async getDashboardStats() {
         const c = _getCache('dashStats', 15000); if (c) return c;
         try {
-            const res = await fetch(getApiEndpoint('dashboard.php'));
+            const res = await fetch(getApiEndpoint('dashboard.php'), { credentials: 'include' });
+            if (res.status === 401) handleUnauthorized(res);
             const data = await res.json();
             if (data.ok && data.stats) { _setCache('dashStats', data.stats); return data.stats; }
-        } catch (e) {}
+        } catch (e) { if (e.message==='Session expirée') throw e; }
         return { total: 0, entrees: 0, sorties: 0, retards: 0, absents: 0, evenements: 0 };
     },
 
     async getActivity() {
         const c = _getCache('dashAct', 15000); if (c) return c;
         try {
-            const res = await fetch(getApiEndpoint('dashboard.php'));
+            const res = await fetch(getApiEndpoint('dashboard.php'), { credentials: 'include' });
+            if (res.status === 401) handleUnauthorized(res);
             const data = await res.json();
             if (data.ok && data.activite) { _setCache('dashAct', data.activite); return data.activite; }
-        } catch (e) {}
+        } catch (e) { if (e.message==='Session expirée') throw e; }
         return [
             { heure: '06h', count: 0, height: 0 },
             { heure: '07h', count: 0, height: 0 },
@@ -129,10 +163,11 @@ const api = {
     async getTodayPointages() {
         const c = _getCache('pointages', 10000); if (c) return c;
         try {
-            const res = await fetch(getApiEndpoint('pointages.php'));
+            const res = await fetch(getApiEndpoint('pointages.php'), { credentials: 'include' });
+            if (res.status === 401) handleUnauthorized(res);
             const data = await res.json();
             if (data.ok && data.pointages) { _setCache('pointages', data.pointages); return data.pointages; }
-        } catch (e) {}
+        } catch (e) { if (e.message==='Session expirée') throw e; }
         return [];
     },
 
@@ -155,10 +190,12 @@ const api = {
     async getUsers(force=false) {
         if (!force) { const c = _getCache('users', 30000); if (c) return c; }
         try {
-            const res = await fetch(getApiEndpoint('users.php'));
+            const res = await fetch(getApiEndpoint('users.php'), { credentials: 'include' });
+            if (res.status === 401) handleUnauthorized(res);
             const data = await res.json();
             if (data.ok && data.users) { _setCache('users', data.users); return data.users; }
         } catch (e) {
+            if (e.message==='Session expirée') throw e;
             console.error('Erreur chargement employés:', e);
         }
         return [];
@@ -168,10 +205,12 @@ const api = {
     async getDepartements() {
         const c = _getCache('depts', 60000); if (c) return c;
         try {
-            const res  = await fetch(getApiEndpoint('departements.php'));
+            const res  = await fetch(getApiEndpoint('departements.php'), { credentials: 'include' });
+            if (res.status === 401) handleUnauthorized(res);
             const data = await res.json();
             if (data.ok && data.departements) { _setCache('depts', data.departements); return data.departements; }
         } catch (e) {
+            if (e.message==='Session expirée') throw e;
             console.error('Erreur chargement départements:', e);
         }
         return [];
@@ -197,7 +236,7 @@ const api = {
             if (photoFile) fd.append('photo', photoFile);
             const headers = {};
             if (csrf) headers['X-CSRF-Token'] = csrf;
-            const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd });
+            const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd, credentials: 'include' });
             const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashStats'); }
             return j;
         } catch (e) {
@@ -218,13 +257,14 @@ const api = {
                 if (photoFile) fd.append('photo', photoFile);
                 const headers = {};
                 if (csrf) headers['X-CSRF-Token'] = csrf;
-                const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd });
+                const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd, credentials: 'include' });
                 j = await res.json();
             } else {
                 const res = await fetch(getApiEndpoint('users.php'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
-                    body: JSON.stringify({ id, ...data })
+                    body: JSON.stringify({ id, ...data }),
+                    credentials: 'include'
                 });
                 j = await res.json();
             }
@@ -241,7 +281,8 @@ const api = {
             const res = await fetch(getApiEndpoint('users.php'), {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
-                body: JSON.stringify({ id })
+                body: JSON.stringify({ id }),
+                credentials: 'include'
             });
             const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashStats'); _clearCache('pointages'); }
             return j;
@@ -257,7 +298,8 @@ const api = {
             const res = await fetch(getApiEndpoint('biometric.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
-                body: JSON.stringify({ action: 'enroll', userId })
+                body: JSON.stringify({ action: 'enroll', userId }),
+                credentials: 'include'
             });
             const j = await res.json(); if (j.ok) { _clearCache('users'); }
             return j;
@@ -272,7 +314,8 @@ const api = {
             const res = await fetch(getApiEndpoint('biometric.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
-                body: JSON.stringify({ action: 'delete', userId })
+                body: JSON.stringify({ action: 'delete', userId }),
+                credentials: 'include'
             });
             const j = await res.json(); if (j.ok) { _clearCache('users'); }
             return j;
