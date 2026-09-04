@@ -131,7 +131,25 @@ function refreshModeUI(mode) {
     updateSidebarModeBadge(mode);
 }
 
+let capteurHs = false;
+function setModeButtonsDisabled(hs, detail) {
+    capteurHs = hs;
+    ['enrolement','pointage'].forEach(m=>{
+        const btn=document.getElementById(`btn-mode-${m}`);
+        if(!btn) return;
+        btn.disabled = hs;
+        btn.classList.toggle('opacity-50', hs);
+        btn.classList.toggle('cursor-not-allowed', hs);
+        btn.classList.toggle('pointer-events-none', hs);
+        btn.title = hs ? (detail || 'Capteur HS — changement de mode désactivé') : '';
+    });
+}
+async function syncModeButtonsWithCapteur(){
+    try{ const r=await fetch(getApiEndpoint('sensor_status.php'),{credentials:'include',cache:'no-store'}); const j=await r.json(); if(j.ok) setModeButtonsDisabled(j.status==='hs', j.detail); }catch{}
+}
+
 function applyMode(mode) {
+    if (capteurHs) { flash('Capteur HS — changement de mode désactivé.', 'warning'); return; }
     // Enrôlement sans employé = reste en pointage côté R307 (en attente d'employé)
     if (mode === 'enrolement' && !storage.get(ENROLL_TARGET_KEY)) {
         // UI passe en enrolement mais R307 reste pointage jusqu'à sélection
@@ -506,10 +524,15 @@ async function initPage() {
         const btn = document.getElementById(`btn-mode-${m}`);
         if (btn) {
             btn.onclick = () => {
+                if (btn.disabled) { flash('Capteur HS — changement de mode désactivé.', 'warning'); return; }
                 if (!btn.classList.contains('mode-active')) applyMode(m);
             };
         }
     });
+    // Capteur HS → boutons non cliquables
+    syncModeButtonsWithCapteur();
+    setInterval(syncModeButtonsWithCapteur, 5000);
+    document.addEventListener('capteurStatusChanged', e=> setModeButtonsDisabled(e.detail?.status==='hs', e.detail?.detail));
 
     // Panneau sélection employé
     initEnrollTargetPanel();
