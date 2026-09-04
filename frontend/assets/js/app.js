@@ -311,6 +311,8 @@ function buildShell() {
 
     // Initialiser et synchroniser le badge du mode opératoire dans la sidebar
     initSidebarModeBadge();
+    // Badge capteur HS/En service à côté de Pointage (état réel R307)
+    initSidebarCapteurBadge();
 
     // Attach dark mode toggle (sidebar bottom)
     document.getElementById('btn-toggle-darkmode')?.addEventListener('click', () => {
