@@ -143,6 +143,15 @@ function setModeButtonsDisabled(hs, detail) {
         btn.classList.toggle('pointer-events-none', hs);
         btn.title = hs ? (detail || 'Capteur HS — changement de mode désactivé') : '';
     });
+    const notice=document.getElementById('mode-capteur-notice');
+    const noticeText=document.getElementById('mode-capteur-notice-text');
+    if(notice){
+        notice.className = hs
+            ? 'flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border mb-lg bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+            : 'flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg border mb-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+        if(noticeText) noticeText.textContent = hs ? 'Capteur HS — changement de mode désactivé' : 'Capteur En service — changement de mode disponible';
+        const ic=notice.querySelector('.material-symbols-outlined'); if(ic) ic.textContent = hs ? 'sensor_occupied' : 'sensors';
+    }
 }
 async function syncModeButtonsWithCapteur(){
     try{ const r=await fetch(getApiEndpoint('sensor_status.php'),{credentials:'include',cache:'no-store'}); const j=await r.json(); if(j.ok) setModeButtonsDisabled(j.status==='hs', j.detail); }catch{}

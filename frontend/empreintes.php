@@ -70,7 +70,11 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                     <span class="material-symbols-outlined text-[#F46A21] text-[20px]">tune</span>
                     <h3 class="font-bold text-[15px] text-slate-900 dark:text-white">Mode Opératoire du Terminal</h3>
                 </div>
-                <p class="text-[13px] text-slate-500 dark:text-slate-400 mb-lg">Définissez le mode de fonctionnement du terminal biométrique. Ce réglage conditionne le comportement de la borne lors de la détection d'une empreinte.</p>
+                <p class="text-[13px] text-slate-500 dark:text-slate-400 mb-md">Définissez le mode de fonctionnement du terminal biométrique. Ce réglage conditionne le comportement de la borne lors de la détection d'une empreinte.</p>
+                <div id="mode-capteur-notice" class="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg border mb-lg">
+                    <span class="material-symbols-outlined text-[14px]">sensors</span>
+                    <span id="mode-capteur-notice-text">Capteur En service requis pour changer de mode</span>
+                </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-md" id="mode-selector-grid">
                     <!-- Mode Enrôlement -->
