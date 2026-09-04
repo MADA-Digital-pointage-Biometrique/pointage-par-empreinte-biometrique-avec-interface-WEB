@@ -1,74 +1,41 @@
 # Pointage biométrique — MADA Digital
 
-Application de pointage (présence) des employés par **empreinte digitale**,
-architecture **MVC** en PHP natif + **prototype frontend** statique.
+Application de pointage par **empreinte R307 + CP2102** (USB-UART) + interface WEB, **Supabase Postgres** (pooler) au lieu de MySQL XAMPP.
 
-## Prototype frontend (en cours de développement)
+## Architecture actuelle (semaine)
 
-Le backend PHP est en stand-by : on se concentre d'abord sur le frontend.
+* **BDD** : `Supabase Postgres 17` via `aws-1-eu-west-1.pooler.supabase.com:6543` (Transaction Pooler), `sslmode=require`, `pdo_pgsql` (`config/database.php:5`)
+* **Capteur** : `R307` 57600 bauds, `CP2102` auto-detect, piloté **PHP → Python** `python/r307_cli.py` → `SdkReader.php` (`exec`), `python/r307_driver.py` protocole `0xEF01` (checksum, `_read_ack` validé, `wait_finger_removed`, `timeout`/`password` depuis `config/biometric.php`)
+* **Mode Opératoire du Terminal** : `frontend/assets/js/app.js` + `empreintes.js` (`mada-mode` `localStorage`, défaut `pointage`), sync `api/sensor_mode.php` → `python/mode.json` + `.mode_trigger` (R307 idle si `enrolement` sans cible)
+* **Pointage** : `api/biometric.php` transaction atomique `FOR UPDATE`, décision `entree/sortie` par `DATE(date_heure)`, `INSERT pointages` (`id_uuid_local`, `score_correspondance`, `device_id`, `NOW()`), anti-double 45s `409`, audit `journal_audit`
+* **Slots** : `database/migration_biometric_slots.sql` table `biometric_slots(device_id,slot 0..999 UNIQUE)` — `SdkReader::allocateSlot()` évite `min(999)` silencieux (`507` si plein)
+* **Score** : `scanWithScore()` → `threshold 60` (`config/biometric.php:17`) rejet si < seuil
+* **Borne** : `api/borne_pointage.php` auth `X-Device-Token` (`BORNE_TOKEN` env), rate-limit, CSRF exempt (`api/db.php:131`), `api/sync_offline.php` queue UUID idempotent
+* **Service local** : `python/r307_service.py` `http://127.0.0.1:8765` lock unique COM (évite concurrence poll 5s)
+* **UI** : sidebar badge `Pointage` → `HS`/`En service` temps réel (`sensor_status.php` + `pointage.js:88` poll 5s), `empreintes` notice `Capteur En service requis` + boutons désactivés si `HS`, flash `HS→En service` fixé (`…` neutre), `login.php:23` `data-page="login" data-no-shell="1"` fix boucle `login.php?v=Date.now()`
 
-- Dossier : `frontend/`
-- **Aucune installation** : ouvrir `frontend/login.html` dans le navigateur,
-  ou servir le dossier : `php -S localhost:8000 -t frontend`
-- Données fictives stockées en `localStorage` (aucun serveur requis)
-- Couche `frontend/assets/js/api.js` = **même API que le futur backend** :
-  il suffira de remplacer chaque méthode par un `fetch()` vers les routes PHP
+## Installation (XAMPP)
 
-### Comptes de démonstration
-| Matricule | Mot de passe | Rôle      |
-|-----------|--------------|-----------|
-| `ADM001`  | `admin123`   | Admin     |
-| `EMP001`  | `emp123`     | Employé   |
-| `EMP002`  | `emp123`     | Employé   |
+1. Copier dans `C:\xampp\htdocs\projet_Stage_MADA-Digital`
+2. `php.ini` activer `extension=pdo_pgsql` + `extension=pgsql`, `Apache Restart`
+3. `py -m pip install pyserial`
+4. `.env` depuis `.env.example` (`BORNE_TOKEN`, `R307_PASSWORD`)
+5. `config/biometric.php:12` `port` = `COMx` ou `auto`, `python` chemin
+6. `py python/r307_service.py --port auto &` (optionnel, sinon `exec` direct)
 
-### Pages
-- `login.html` — connexion par matricule
-- `dashboard.html` — statistiques (présents, retards, absents), pointage du jour, derniers pointages
-- `pointage.html` — scan d'empreinte (simulé), pointage manuel de secours, historique 30 jours
-- `employes.html` — liste des employés, ajout/suppression, enrôlement de l'empreinte (admin uniquement)
+BDD déjà sur Supabase — si vide : `psql < database/migration_biometric_slots.sql`
 
-### Structure du frontend
-```
-frontend/
-├── login.html / dashboard.html / pointage.html / employes.html
-└── assets/
-    ├── css/style.css
-    └── js/
-        ├── data.js                 # Données fictives (utilisateurs, pointages)
-        ├── api.js                  # API simulée (à brancher sur le backend plus tard)
-        ├── app.js                  # Shell partagé (sidebar, topbar, flash, modales)
-        └── pages/                  # Logique par page
-```
+## Accès
 
-## Backend PHP MVC (préparé, à développer)
+* `http://localhost/projet_Stage_MADA-Digital/frontend/login.php` (`ADM001/admin123`)
+* Santé : `api/health.php` (`connected` si Supabase OK), `api/sensor_status.php` (`hs`/`en_service`)
 
-```
-├── app/
-│   ├── Core/                  # App, Router, Database, Model, Controller, Auth, Session, Config
-│   │   └── Biometric/         # FingerprintReader, SimulatorReader, SdkReader, BiometricReader
-│   ├── Controllers/           # Auth, Dashboard, Pointage, Biometric, User
-│   ├── Models/                # User, Pointage, Empreinte
-│   └── Views/                 # Templates PHP
-├── config/                    # database.php, biometric.php
-├── public/                    # Front controller + assets
-├── routes/                    # web.php
-└── database/                  # schema.sql + seed.php
-```
+## Pages
 
-Le schéma SQL prévoit la table `empreintes` (templates LONGBLOB) et le pointage
-via lecteur (`config/biometric.php` choisit entre simulateur et SDK réel).
+`login.php` `dashboard.php` `pointage.php` (poll capteur) `empreintes.php` (mode + 2 captures) `employes.php` `historique.php` (archivage `pg_cron` minuit `historique_pointages`)
 
-## Installation sur XAMPP
+## Comptes démo
 
-1. Copier le dossier dans `C:\xampp\htdocs\projet_Stage_MADA-Digital`.
-2. Démarrer **Apache** et **MySQL** dans le panneau XAMPP.
-3. Base de données :
-   - Ouvrir `http://localhost/phpmyadmin`
-   - Importer `database/schema.sql` (crée la base `pointage_biometrique`)
-   - Créer l'admin : `php database/seed.php` (depuis le dossier du projet)
-4. La config `config/database.php` (localhost / root / mot de passe vide) correspond
-   aux valeurs par défaut de XAMPP.
-
-### Accès
-- Prototype frontend : `http://localhost/projet_Stage_MADA-Digital/frontend/login.html`
-- Backend PHP (quand il sera actif) : `http://localhost/projet_Stage_MADA-Digital/public`
+| Matricule | mdp | rôle |
+|-----------|-----|------|
+| `ADM001` | `admin123` | super_admin |
