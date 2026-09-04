@@ -121,6 +121,32 @@ if (!window._historiqueEditHandler) {
     });
 }
 
+if (!window._historiqueDeleteHandler) {
+    window._historiqueDeleteHandler = true;
+    document.addEventListener('click', (e) => {
+        if (document.body.dataset.page !== 'historique') return;
+        const btn = e.target.closest('[data-delete-pointage]');
+        if (!btn) return;
+        const id = parseInt(btn.dataset.deletePointage, 10);
+        showConfirmModal({
+            title: 'Supprimer ce pointage ?',
+            message: 'Cette action supprimera définitivement le pointage de cette journée pour cet employé.',
+            type: 'danger',
+            confirmText: 'Oui, Supprimer',
+            cancelText: 'Annuler',
+            onConfirm: async () => {
+                const res = await api.deletePointage(id);
+                if (res.ok) {
+                    flash('Pointage supprimé avec succès.', 'success');
+                    renderHistory(true);
+                } else {
+                    flash(res.message, 'danger');
+                }
+            }
+        });
+    });
+}
+
 async function renderHistory(forceFetch = false) {
     if (forceFetch || !cachedHistoriqueDb) {
         const [users, pointages] = await Promise.all([
@@ -184,9 +210,15 @@ async function renderHistory(forceFetch = false) {
                 ${(() => {
                     const isSuper = (() => { try { const cu = api.getCurrentUser(); return cu && (cu.role === 'super_admin' || cu.role === 'admin_systeme'); } catch(e){ return false; } })();
                     if (!isSuper) return '';
-                    return `<button class="text-slate-500 hover:text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Modifier les heures" data-edit-pointage="${p.id}">
-                    <span class="material-symbols-outlined text-[16px]">edit</span>
-                </button>`;
+                    return `
+                    <div class="flex items-center justify-end gap-1">
+                        <button class="text-slate-500 hover:text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Modifier les heures" data-edit-pointage="${p.id}">
+                            <span class="material-symbols-outlined text-[16px]">edit</span>
+                        </button>
+                        <button class="text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Supprimer le pointage" data-delete-pointage="${p.id}">
+                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                        </button>
+                    </div>`;
                 })()}
             </td>
         </tr>`;
@@ -194,6 +226,7 @@ async function renderHistory(forceFetch = false) {
 }
 
 async function exportCSV() {
+    const currentUser = api.getCurrentUser() || { prenom: 'Admin', nom: 'Système' };
     const [users, pointages] = await Promise.all([
         api.getUsers(),
         api.getTodayPointages()
@@ -201,22 +234,92 @@ async function exportCSV() {
     const db = { users, pointages };
     const records = filterRecords(db);
 
-    let csvContent = 'data:text/csv;charset=utf-8,Matricule,Nom,Prenom,Departement,Date,Entree,Sortie,Statut\n';
+    const now = new Date();
+    const formattedNow = now.toLocaleDateString('fr-FR') + ' à ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    
+    // Total KPIs pour le résumé
+    const totalRecords = records.length;
+    const retards = records.filter(p => isRetard(p.entree)).length;
+    const encours = records.filter(p => !p.sortie).length;
+    const presents = totalRecords - retards;
+    const pctPonctualite = totalRecords > 0 ? Math.round((presents / totalRecords) * 100) : 100;
+
+    // Délimiteur point-virgule (;) pour comptabilité native Excel FR + BOM UTF-8
+    const sep = ';';
+    const lines = [];
+
+    // --- En-tête du Rapport ---
+    lines.push(`MADA DIGITAL - RAPPORT GÉNÉRAL DU REGISTRE DE POINTAGE`);
+    lines.push(`Date d'extraction${sep}"${formattedNow}"`);
+    lines.push(`Généré par${sep}"${currentUser.prenom} ${currentUser.nom}"`);
+    lines.push(`Période sélectionnée${sep}"${currentPeriod === 'today' ? "Aujourd'hui (" + todayISO() + ")" : (document.getElementById('filter-date')?.value || todayISO())}"`);
+    lines.push(`Volume d'enregistrements${sep}"${totalRecords}"`);
+    lines.push(``); // Ligne vide de séparation
+
+    // --- Colonnes du Tableau ---
+    lines.push([
+        'Matricule',
+        'Nom',
+        'Prénom',
+        'Département',
+        'Date',
+        'Heure Entrée',
+        'Heure Sortie',
+        'Durée Présence',
+        'Statut Biométrique'
+    ].map(c => `"${c}"`).join(sep));
+
+    // --- Lignes de Données ---
     records.forEach(p => {
-        const u = (db.users || []).find(usr => usr.id === p.user_id) || p.user || { nom: '', prenom: '', matricule: '', departement: '' };
-        const status = !p.sortie ? 'En cours' : (isRetard(p.entree) ? 'Retard' : 'Present');
-        csvContent += `"${u.matricule}","${u.nom}","${u.prenom}","${u.departement || ''}","${p.date}","${p.entree || ''}","${p.sortie || ''}","${status}"\n`;
+        const u = (db.users || []).find(usr => usr.id === p.user_id) || p.user || { nom: 'Inconnu', prenom: '', matricule: '', departement: 'Général' };
+        
+        let status = 'Présent';
+        if (!p.sortie) status = 'Journée en cours';
+        else if (isRetard(p.entree)) status = 'En Retard';
+
+        const dateFormatted = p.date ? formatDate(p.date) : '—';
+        const entreeStr = p.entree ? p.entree.slice(0, 8) : '—';
+        const sortieStr = p.sortie ? p.sortie.slice(0, 8) : 'Non pointé';
+        const dureeStr  = calculateDuration(p.entree, p.sortie);
+
+        const row = [
+            u.matricule || '—',
+            u.nom || '',
+            u.prenom || '',
+            u.departement || 'Général',
+            dateFormatted,
+            entreeStr,
+            sortieStr,
+            dureeStr,
+            status
+        ];
+
+        lines.push(row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(sep));
     });
 
-    const encodedUri = encodeURI(csvContent);
+    // --- Bloc Synthèse KPI en bas ---
+    lines.push(``);
+    lines.push(`SYNTHÈSE ET INDICATEURS CLÉS DE PERFORMANCE (KPI)`);
+    lines.push(`Total des pointages extraits${sep}"${totalRecords}"`);
+    lines.push(`Présences à l'heure${sep}"${presents}"`);
+    lines.push(`Retards constatés${sep}"${retards}"`);
+    lines.push(`Journées non clôturées${sep}"${encours}"`);
+    lines.push(`Taux de ponctualité global${sep}"${pctPonctualite}%"`);
+
+    // Assemblage avec BOM UTF-8 (\uFEFF) pour l'ouverture directe sous Microsoft Excel sans accents corrompus
+    const csvString = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `rapport_pointage_mada_${todayISO()}.csv`);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Rapport_Pointage_MADA_${todayISO()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 
-    flash('Export du rapport CSV téléchargé avec succès.', 'success');
+    flash('Export CSV haute qualité téléchargé avec succès.', 'success');
 }
 
 function initPage() {

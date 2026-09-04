@@ -174,18 +174,51 @@ const api = {
         return [];
     },
 
+    async addPointage(data) {
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('pointages.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify(data),
+                credentials: 'include'
+            });
+            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('dashStats'); }
+            return j;
+        } catch (e) {
+            return { ok: false, message: 'Erreur lors de l\'ajout du pointage.' };
+        }
+    },
+
     async updatePointage(id, data) {
         try {
             const csrf = await this.getCsrfToken();
             const res = await fetch(getApiEndpoint('pointages.php'), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
-                body: JSON.stringify({ id, ...data })
+                body: JSON.stringify({ id, ...data }),
+                credentials: 'include'
             });
-            const j = await res.json(); if (j.ok) _clearCache('pointages');
+            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('dashStats'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de la mise à jour du pointage.' };
+        }
+    },
+
+    async deletePointage(id) {
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('pointages.php'), {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ id }),
+                credentials: 'include'
+            });
+            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('dashStats'); }
+            return j;
+        } catch (e) {
+            return { ok: false, message: 'Erreur lors de la suppression du pointage.' };
         }
     },
 

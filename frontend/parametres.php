@@ -131,20 +131,6 @@ if (!isset($_SESSION['user_id'])) {
                     </form>
                 </div>
 
-                <!-- Card : Gestion des données -->
-                <div class="bg-white dark:bg-stone-900 border border-slate-200/80 dark:border-stone-800 rounded-2xl p-lg shadow-sm flex flex-col">
-                    <div class="flex items-center gap-2 mb-xs">
-                        <span class="material-symbols-outlined text-[#F46A21] text-[20px]">database</span>
-                        <h3 class="font-bold text-[15px] text-slate-900 dark:text-white">Gestion des données</h3>
-                    </div>
-                    <p class="text-[13px] text-slate-500 dark:text-stone-400 mb-lg">Base de démonstration locale (mock). Cette action supprime employés, pointages et session.</p>
-                    <div class="mt-auto">
-                        <button id="btn-reset-data" class="w-full flex items-center justify-center gap-2 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/70 text-xs font-semibold py-2.5 rounded-xl border border-rose-200 dark:border-rose-900 transition-colors cursor-pointer">
-                            <span class="material-symbols-outlined text-[18px]">delete_sweep</span>
-                            Réinitialiser la base de démonstration
-                        </button>
-                    </div>
-                </div>
             </div>
 
             <!-- Footer note -->

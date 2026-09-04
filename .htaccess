@@ -23,10 +23,13 @@ RewriteRule ^pointage/?$ frontend/pointage.php [L]
 RewriteRule ^parametres/?$ frontend/parametres.php [L]
 
 # Bloquer l'accès direct aux fichiers sensibles
-<FilesMatch "^(config|\.env|composer|\.git|database\.sql)">
+<FilesMatch "^\.env">
     Require all denied
 </FilesMatch>
-<FilesMatch "\.(env|log|sql|ini)$">
+<FilesMatch "^(config|\.env|composer|\.git|schema)">
+    Require all denied
+</FilesMatch>
+<FilesMatch "\.(env|example|log|sql|ini|json|lock)$">
     Require all denied
 </FilesMatch>
 

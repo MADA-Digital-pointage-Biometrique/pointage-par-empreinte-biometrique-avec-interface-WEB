@@ -68,9 +68,6 @@ try {
         exit;
     }
 
-    // Debug: log the user found
-    error_log('Login attempt for: ' . $matricule . ' | Found user: ' . ($user['email'] ?? 'none') . ' | Role: ' . ($user['role'] ?? 'none') . ' | Hash starts with: ' . substr($user['mot_de_passe_hash'] ?? '', 0, 20));
-
     if (isset($user['user_statut']) && $user['user_statut'] !== 'actif') {
         http_response_code(403);
         echo json_encode(['ok' => false, 'message' => 'Ce compte est inactif ou suspendu.']);

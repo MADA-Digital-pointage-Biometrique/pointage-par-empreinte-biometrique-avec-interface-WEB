@@ -9,9 +9,9 @@ return [
         // R307 + CP2102 — relié direct PC, piloté par python/r307_cli.py (PHP -> Python -> capteur)
         'r307' => [
             'class'      => \App\Core\Biometric\SdkReader::class,
-            'port'       => 'COM3', // à ajuster : COM3/COM4 (CP2102). Mets 'auto' pour détection CP2102
-            'baud'       => 57600,
-            'python'     => 'C:\\Users\\ADOLPHE\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
+            'port'       => getenv('R307_PORT') ?: 'COM3', // à ajuster : COM3/COM4 (CP2102). Mets 'auto' pour détection CP2102
+            'baud'       => (int)(getenv('R307_BAUD') ?: 57600),
+            'python'     => getenv('R307_PYTHON_PATH') ?: 'python',
             'cli'        => __DIR__ . '/../python/r307_cli.py',
             'timeout'    => 15,
             'threshold'  => 60, // score minimal R307 (0..100) pour accepter pointage

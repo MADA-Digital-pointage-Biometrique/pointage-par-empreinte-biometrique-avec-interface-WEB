@@ -92,22 +92,6 @@ function initPage() {
         if (res.ok) { flash(res.message, 'success'); pwForm.reset(); }
         else        { flash(res.message, 'danger'); }
     });
-
-    // Réinitialisation des données
-    document.getElementById('btn-reset-data')?.addEventListener('click', () => {
-        showConfirmModal({
-            title: 'Réinitialiser la base de démonstration ?',
-            message: "Tous les employés, pointages et la session seront supprimés. Les données d'origine seront restaurées au prochain démarrage.",
-            type: 'danger',
-            confirmText: 'Oui, Réinitialiser',
-            cancelText: 'Annuler',
-            onConfirm: () => {
-                resetDB();
-                flash('Base de démonstration réinitialisée.', 'success');
-                setTimeout(() => window.location.reload(), 900);
-            }
-        });
-    });
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};
