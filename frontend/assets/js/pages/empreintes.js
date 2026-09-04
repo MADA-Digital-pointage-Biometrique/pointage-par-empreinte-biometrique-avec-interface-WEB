@@ -154,7 +154,13 @@ function setModeButtonsDisabled(hs, detail) {
     }
 }
 async function syncModeButtonsWithCapteur(){
-    try{ const r=await fetch(getApiEndpoint('sensor_status.php'),{credentials:'include',cache:'no-store'}); const j=await r.json(); if(j.ok) setModeButtonsDisabled(j.status==='hs', j.detail); }catch{}
+    try{
+        const r=await fetch(getApiEndpoint('sensor_status.php'),{credentials:'include',cache:'no-store'});
+        if(r.status===401){ setModeButtonsDisabled(true,'Non authentifié'); return; }
+        const j=await r.json();
+        if(j.ok) setModeButtonsDisabled(j.status==='hs', j.detail);
+        else setModeButtonsDisabled(true, j.message||'Capteur HS');
+    }catch(e){ setModeButtonsDisabled(true,'Capteur non joignable'); }
 }
 
 function applyMode(mode) {
@@ -538,7 +544,8 @@ async function initPage() {
             };
         }
     });
-    // Capteur HS → boutons non cliquables
+    // Capteur HS → boutons non cliquables (désactivés par défaut jusqu'à preuve En service)
+    setModeButtonsDisabled(true, 'Vérification capteur…');
     syncModeButtonsWithCapteur();
     setInterval(syncModeButtonsWithCapteur, 5000);
     document.addEventListener('capteurStatusChanged', e=> setModeButtonsDisabled(e.detail?.status==='hs', e.detail?.detail));

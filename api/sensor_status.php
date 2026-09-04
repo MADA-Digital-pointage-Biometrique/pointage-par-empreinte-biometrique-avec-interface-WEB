@@ -16,16 +16,22 @@ try {
     // Vérifie R307 via Python (status = template_num / verify)
     $reader = SdkReader::fromConfig();
     $name = $reader->name();
-    // On tente un appel Python status avec timeout court
-    $py = $conf['python'] ?? 'py';
+    // On tente un appel Python status avec timeout court (fallback py/python)
+    $candidates = array_unique([$conf['python'] ?? 'py', 'py', 'python', 'C:\\Users\\ADOLPHE\\AppData\\Local\\Programs\\Python\\Python311\\python.exe']);
     $cli = $conf['cli'] ?? __DIR__ . '/../python/r307_cli.py';
     $baud = $conf['baud'] ?? 57600;
+    $timeout = $conf['timeout'] ?? 15;
+    $pwd = $conf['password'] ?? '00000000';
     $portArg = escapeshellarg($port);
-    $cmd = escapeshellarg($py) . ' ' . escapeshellarg($cli) . " --port $portArg --baud $baud --action status 2>&1";
-    $out = []; $code = 0;
-    exec($cmd, $out, $code);
-    $json = implode("\n", $out);
-    $data = json_decode($json, true);
+    $data = null; $json=''; $out=[];
+    foreach($candidates as $py){
+        if(!$py) continue;
+        $cmd = '"' . str_replace('"','',$py) . '" "' . str_replace('"','',$cli) . "\" --port $portArg --baud $baud --timeout $timeout --password ".escapeshellarg($pwd)." --action status 2>&1";
+        $out=[]; $code=0; exec($cmd,$out,$code);
+        $json=implode("\n",$out);
+        $data=json_decode($json,true);
+        if(is_array($data)) break;
+    }
 
     if (is_array($data) && !empty($data['ok'])) {
         // Capteur répond
