@@ -14,6 +14,10 @@ return [
             'python'     => 'C:\\Users\\ADOLPHE\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
             'cli'        => __DIR__ . '/../python/r307_cli.py',
             'timeout'    => 15,
+            'threshold'  => 60, // score minimal R307 (0..100) pour accepter pointage
+            'device_id'  => 'r307_main',
+            'anti_double_seconds' => 45,
+            'password'   => getenv('R307_PASSWORD') ?: '00000000', // remplace défaut 0x00000000
         ],
         // Fallback générique (legacy)
         'wa28' => [

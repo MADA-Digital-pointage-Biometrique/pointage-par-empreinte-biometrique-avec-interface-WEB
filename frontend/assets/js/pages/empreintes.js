@@ -75,7 +75,7 @@ async function renderEmpreintes(forceFetch = false) {
 // ============================================================
 
 function getCurrentMode() {
-    return storage.get(MODE_KEY) || null;
+    return storage.get(MODE_KEY) || 'pointage';
 }
 
 function refreshModeUI(mode) {
@@ -132,10 +132,22 @@ function refreshModeUI(mode) {
 }
 
 function applyMode(mode) {
-    storage.set(MODE_KEY, mode);
-    if (mode !== 'enrolement') {
-        storage.remove(ENROLL_TARGET_KEY);
+    // Enrôlement sans employé = reste en pointage côté R307 (en attente d'employé)
+    if (mode === 'enrolement' && !storage.get(ENROLL_TARGET_KEY)) {
+        // UI passe en enrolement mais R307 reste pointage jusqu'à sélection
+        storage.set(MODE_KEY, mode);
+        refreshModeUI(mode);
+        document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode } }));
+        flash('Mode Enrôlement : sélectionne un employé — R307 reste en Pointage (en attente).', 'info');
+        return;
     }
+    storage.set(MODE_KEY, mode);
+    if (mode !== 'enrolement') storage.remove(ENROLL_TARGET_KEY);
+    // Sync PHP→Python R307 (sensor_mode.php → python/mode.json)
+    const targetRaw = storage.get(ENROLL_TARGET_KEY);
+    let targetId = null; try { const t = targetRaw ? JSON.parse(targetRaw) : null; if (t && t.id) targetId = t.id; } catch {}
+    fetch(getApiEndpoint('sensor_mode.php'), { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({mode, target_id: targetId}) })
+        .then(r=>r.json()).then(j=>{ if(!j.ok) flash(j.message||'Erreur mode R307','danger'); }).catch(()=>{});
     refreshModeUI(mode);
     document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode } }));
     const labels = { enrolement: 'Enrôlement', pointage: 'Pointage' };
@@ -253,6 +265,10 @@ function selectEnrollTarget(employee) {
     }
 
     document.dispatchEvent(new CustomEvent('mada:enrollTargetChanged', { detail: { employee } }));
+    // Si mode enrolement, configure R307 immédiatement (PHP→python/mode.json)
+    if (getCurrentMode() === 'enrolement') {
+        fetch(getApiEndpoint('sensor_mode.php'), { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({mode:'enrolement', target_id: employee.id}) }).catch(()=>{});
+    }
 }
 
 function restoreEnrollTarget() {

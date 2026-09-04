@@ -4,116 +4,109 @@ require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
 require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
 use App\Core\Biometric\SdkReader;
 
-if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(['ok' => false, 'message' => 'Non authentifié.']);
-    exit;
-}
-
+if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Non authentifié.']); exit; }
 $pdo = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
+if ($method === 'POST' && !in_array($_SESSION['role'] ?? '', ['super_admin','admin_systeme'])) { http_response_code(403); echo json_encode(['ok'=>false,'message'=>'Accès refusé : seul Super Admin (enrôlement/suppression).']); exit; }
+if (!in_array($method, ['POST'])) { http_response_code(405); echo json_encode(['ok'=>false,'message'=>'Méthode non autorisée.']); exit; }
 
-// RBAC : seul super_admin peut gérer les empreintes
-if ($method === 'POST' && !in_array($_SESSION['role'] ?? '', ['super_admin','admin_systeme'])) {
-    http_response_code(403);
-    echo json_encode(['ok' => false, 'message' => 'Accès refusé : seul le Super Administrateur peut gérer les empreintes.']);
-    exit;
-}
-if (!in_array($method, ['POST'])) {
-    http_response_code(405);
-    echo json_encode(['ok' => false, 'message' => 'Méthode non autorisée.']);
-    exit;
+function auditLog(PDO $pdo, string $action, ?int $empId, ?int $slot, ?int $score, ?string $device, ?string $motif): void {
+    try { $pdo->prepare("INSERT INTO journal_audit (id_utilisateur, action, table_concernee, id_enregistrement_concerne, details, date_heure) VALUES (?,?,?,?,?, NOW())")
+        ->execute([$_SESSION['user_id']??null, $action, 'biometrie', $empId, json_encode(['slot'=>$slot,'score'=>$score,'device'=>$device,'motif'=>$motif], JSON_UNESCAPED_UNICODE)]); } catch(Throwable $e){}
 }
 
 if ($method === 'POST') {
     $input = getJsonInput();
     $action = $input['action'] ?? '';
-    $userId = (int) ($input['userId'] ?? 0);
-
-    if ($userId <= 0) {
-        echo json_encode(['ok' => false, 'message' => 'Identifiant employé invalide.']);
-        exit;
-    }
+    $userId = (int)($input['userId'] ?? 0);
 
     try {
         if ($action === 'enroll') {
-            // Check if employee exists
-            $empStmt = $pdo->prepare('SELECT prenom, nom FROM employes WHERE id_employe = ?');
+            if ($userId <=0) { echo json_encode(['ok'=>false,'message'=>'Identifiant employé invalide.']); exit; }
+            $empStmt = $pdo->prepare('SELECT prenom, nom, statut FROM employes WHERE id_employe=?');
             $empStmt->execute([$userId]);
             $emp = $empStmt->fetch();
+            if (!$emp) { echo json_encode(['ok'=>false,'message'=>'Employé introuvable.']); exit; }
+            if (($emp['statut']??'actif')!=='actif') { echo json_encode(['ok'=>false,'message'=>'Employé non actif.']); exit; }
 
-            if (!$emp) {
-                echo json_encode(['ok' => false, 'message' => 'Employé introuvable.']);
-                exit;
-            }
-
-            // R307 : tentative de capture réelle, fallback simulé si SDK non configuré
-            $gabarit = null;
-            $waMsg = '';
+            $pdo->beginTransaction();
             try {
                 $reader = SdkReader::fromConfig();
                 $gabarit = $reader->enroll($userId);
-                $waMsg = ' (' . $reader->name() . ')';
-            } catch (Throwable $eWa) {
-                // R307 non prêt : génération simulée (pré-prod)
-                $gabarit = bin2hex(random_bytes(32));
-                $waMsg = ' [SIMULÉ - R307 non configuré: ' . $eWa->getMessage() . ']';
-                error_log('R307 enroll fallback: ' . $eWa->getMessage());
-            }
-
-            // Insert or update biometric data
-            $check = $pdo->prepare('SELECT id_biometrie FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = \'empreinte\' LIMIT 1');
-            $check->execute([$userId]);
-            $existing = $check->fetch();
-
-            if ($existing) {
-                $update = $pdo->prepare('
-                    UPDATE donnees_biometriques 
-                    SET gabarit_chiffre = ?, date_enregistrement = NOW(), statut = \'actif\' 
-                    WHERE id_biometrie = ?
-                ');
-                $update->execute([$gabarit, $existing['id_biometrie']]);
-            } else {
-                $insert = $pdo->prepare('
-                    INSERT INTO donnees_biometriques (id_employe, type_biometrie, gabarit_chiffre, date_enregistrement, statut)
-                    VALUES (?, \'empreinte\', ?, NOW(), \'actif\')
-                ');
-                $insert->execute([$userId, $gabarit]);
-            }
-
-            echo json_encode(['ok' => true, 'message' => 'Empreinte biométrique enrôlée avec succès pour ' . $emp['prenom'] . ' ' . $emp['nom'] . '.' . $waMsg]);
+                $waMsg = ' ('.$reader->name().')';
+                $slot = $reader->getSlotForUser($userId);
+                // upsert donnees_biometriques
+                $chk = $pdo->prepare("SELECT id_biometrie FROM donnees_biometriques WHERE id_employe=? AND type_biometrie='empreinte' LIMIT 1");
+                $chk->execute([$userId]);
+                $ex = $chk->fetch();
+                if ($ex) $pdo->prepare("UPDATE donnees_biometriques SET gabarit_chiffre=?, date_enregistrement=NOW(), statut='actif' WHERE id_biometrie=?")->execute([$gabarit,$ex['id_biometrie']]);
+                else $pdo->prepare("INSERT INTO donnees_biometriques (id_employe, type_biometrie, gabarit_chiffre, date_enregistrement, statut) VALUES (?,'empreinte',?,NOW(),'actif')")->execute([$userId,$gabarit]);
+                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),'enroll ok');
+                $pdo->commit();
+                echo json_encode(['ok'=>true,'message'=>"Empreinte enrôlée pour {$emp['prenom']} {$emp['nom']} (slot $slot).$waMsg",'slot'=>$slot]);
+            } catch(Throwable $e) { $pdo->rollBack(); throw $e; }
             exit;
 
         } else if ($action === 'scan') {
-            // R307 scan pour pointage direct
-            try {
-                $reader = SdkReader::fromConfig();
-                $foundId = $reader->scan();
-                if ($foundId) {
-                    echo json_encode(['ok' => true, 'user_id' => $foundId, 'message' => 'Empreinte reconnue (R307)']);
-                } else {
-                    echo json_encode(['ok' => false, 'message' => 'Aucune empreinte reconnue']);
-                }
-            } catch (Throwable $eWa) {
-                http_response_code(501);
-                echo json_encode(['ok' => false, 'message' => 'R307 non prêt: ' . $eWa->getMessage()]);
-            }
+            // Scan avec création pointage atomique (super_admin uniquement ici; borne utilise borne_pointage.php)
+            $reader = SdkReader::fromConfig();
+            $res = $reader->scanWithScore();
+            if (!$res) { auditLog($pdo,'scan_refuse',null,null,0,$reader->getDeviceId(),'aucune correspondance'); echo json_encode(['ok'=>false,'message'=>'Aucune empreinte reconnue']); exit; }
+            $foundId = $res['page_id']; $score = $res['score'];
+            $threshold = $reader->getThreshold();
+            if ($score < $threshold) { auditLog($pdo,'scan_refuse',$foundId,$foundId,$score,$reader->getDeviceId(),"score $score < seuil $threshold"); echo json_encode(['ok'=>false,'message'=>"Score trop faible ($score < $threshold)"]); exit; }
+            // Résout employé via slot
+            $st = $pdo->prepare('SELECT id_employe FROM biometric_slots WHERE slot_number=? AND device_id=?');
+            $st->execute([$foundId,$reader->getDeviceId()]);
+            $slotRow = $st->fetch();
+            $empId = $slotRow ? (int)$slotRow['id_employe'] : $foundId;
+            // Vérif employé actif + empreinte active
+            $emp = $pdo->prepare('SELECT id_employe, prenom, nom, statut FROM employes WHERE id_employe=?');
+            $emp->execute([$empId]); $empRow=$emp->fetch();
+            if (!$empRow || ($empRow['statut']??'actif')!=='actif') { auditLog($pdo,'scan_refuse',$empId,$foundId,$score,$reader->getDeviceId(),'employé non actif'); echo json_encode(['ok'=>false,'message'=>'Employé non actif ou introuvable']); exit; }
+            $chkBio = $pdo->prepare("SELECT 1 FROM donnees_biometriques WHERE id_employe=? AND type_biometrie='empreinte' AND statut='actif' LIMIT 1"); $chkBio->execute([$empId]); if (!$chkBio->fetch()) { echo json_encode(['ok'=>false,'message'=>'Empreinte révoquée']); exit; }
+            // Anti-double 45s
+            $cfg = require __DIR__.'/../config/biometric.php'; $anti = $cfg['drivers']['r307']['anti_double_seconds']??45;
+            $last = $pdo->prepare('SELECT date_heure FROM pointages WHERE id_employe=? ORDER BY date_heure DESC LIMIT 1'); $last->execute([$empId]); $lr=$last->fetch();
+            if ($lr) { $diff = time() - strtotime($lr['date_heure']); if ($diff < $anti) { auditLog($pdo,'scan_refuse',$empId,$foundId,$score,$reader->getDeviceId(),"anti-double ${diff}s"); http_response_code(409); echo json_encode(['ok'=>false,'message'=>"Pointage ignoré (anti-double {$diff}s < {$anti}s)",'retry_after'=>$anti-$diff]); exit; } }
+            // Transaction entrée/sortie
+            $pdo->beginTransaction();
+            // Verrou employé
+            $pdo->prepare('SELECT statut FROM employes WHERE id_employe=? FOR UPDATE')->execute([$empId]);
+            $today = date('Y-m-d');
+            $lastToday = $pdo->prepare("SELECT id_pointage, type_pointage FROM pointages WHERE id_employe=? AND DATE(date_heure)=? ORDER BY date_heure DESC LIMIT 1");
+            $lastToday->execute([$empId,$today]); $lt=$lastToday->fetch();
+            $type = (!$lt || $lt['type_pointage']==='sortie' || $lt['type_pointage']==='pause_fin') ? 'entree' : 'sortie';
+            // id_appareil
+            $appId=null; try{ $a=$pdo->query("SELECT id_appareil FROM appareils_pointage WHERE type_capteur='empreinte' LIMIT 1")->fetch(); if($a) $appId=$a['id_appareil']; }catch(Throwable $e){}
+            $uuid = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0x0fff)|0x4000,mt_rand(0,0x3fff)|0x8000,mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff));
+            $pdo->prepare("INSERT INTO pointages (id_uuid_local, id_employe, id_appareil, type_pointage, date_heure, methode_verification, score_correspondance, source_donnee, synchronise, statut) VALUES (?,?,?,?,NOW(),'empreinte',?,'serveur',true,'valide')")
+                ->execute([$uuid,$empId,$appId,$type,$score]);
+            auditLog($pdo,'scan_'.$type,$empId,$foundId,$score,$reader->getDeviceId(),$type);
+            $pdo->commit();
+            echo json_encode(['ok'=>true,'user_id'=>$empId,'page_id'=>$foundId,'score'=>$score,'type'=>$type,'nom'=>$empRow['prenom'].' '.$empRow['nom'],'heure'=>date('H:i:s'),'message'=>"Pointage $type enregistré"]);
             exit;
+
         } else if ($action === 'delete') {
-            // Supprime du module R307 + BDD
-            try { $reader = SdkReader::fromConfig(); $reader->delete($userId); } catch (Throwable $e) { error_log('R307 delete: '.$e->getMessage()); }
-            $delete = $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe = ? AND type_biometrie = "empreinte"');
-            $delete->execute([$userId]);
-            echo json_encode(['ok' => true, 'message' => 'Empreinte biométrique supprimée.']);
+            if ($userId<=0) { echo json_encode(['ok'=>false,'message'=>'ID invalide']); exit; }
+            $reader = SdkReader::fromConfig();
+            $slot = $reader->getSlotForUser($userId);
+            try { $reader->delete($userId); } catch(Throwable $e) {
+                auditLog($pdo,'delete_echec',$userId,$slot,null,$reader->getDeviceId(),$e->getMessage());
+                http_response_code(500); echo json_encode(['ok'=>false,'message'=>'R307 échec, base conservée: '.$e->getMessage(),'a_supprimer'=>true]); exit;
+            }
+            $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe=? AND type_biometrie=\'empreinte\'')->execute([$userId]);
+            // slot déjà supprimé par SdkReader
+            auditLog($pdo,'delete_ok',$userId,$slot,null,$reader->getDeviceId(),'suppression synchrone');
+            echo json_encode(['ok'=>true,'message'=>'Empreinte supprimée (R307 + BDD).']);
             exit;
         }
-
-        http_response_code(400);
-        echo json_encode(['ok' => false, 'message' => 'Action biométrique inconnue.']);
-    } catch (Throwable $e) {
-        http_response_code(500);
-        error_log('Biometric error: ' . $e->getMessage());
-        echo json_encode(['ok' => false, 'message' => 'Erreur biométrique.']);
+        http_response_code(400); echo json_encode(['ok'=>false,'message'=>'Action inconnue.']);
+    } catch(Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code($e->getCode()>=400?$e->getCode():500);
+        error_log('Biometric error: '.$e->getMessage());
+        echo json_encode(['ok'=>false,'message'=>$e->getMessage()]);
     }
     exit;
 }
