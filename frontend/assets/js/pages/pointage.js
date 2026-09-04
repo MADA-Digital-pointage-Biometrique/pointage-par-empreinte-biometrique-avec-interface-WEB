@@ -102,6 +102,7 @@ function renderCapteurStatusReal(data) {
     document.dispatchEvent(new CustomEvent('capteurStatusChanged', { detail: { status: data.status, detail: data.detail } }));
 }
 function renderCapteurStatus() {
+    // Fallback local uniquement si fetch échoue — n'est plus appelé avant fetch réel
     const hs = storage.get('mada_capteur_hs') === '1';
     renderCapteurStatusReal({ status: hs ? 'hs' : 'en_service', detail: hs ? 'HS (local)' : 'En service (local)' });
 }
@@ -110,6 +111,8 @@ async function refreshCapteurStatus() {
     renderCapteurStatusReal(data);
 }
 function startCapteurPolling() {
+    // Affiche … neutre jusqu'au premier fetch réel (évite flash HS→En service→HS)
+    const badge=document.getElementById('capteur-badge'); if(badge){ badge.className='ml-1 inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border-slate-200 dark:border-slate-700'; const lab=document.getElementById('capteur-label'); if(lab) lab.textContent='Capteur : …'; }
     refreshCapteurStatus();
     if (capteurPollTimer) clearInterval(capteurPollTimer);
     capteurPollTimer = setInterval(refreshCapteurStatus, 5000);
@@ -159,7 +162,7 @@ async function renderHistoryTable(forceFetch = false) {
 
     const db = cachedPointagesDb;
     populateDeptFilter(db);
-    renderCapteurStatus();
+    // Ne plus écraser l'état réel avec le fallback local
     const list = filterPointages(db);
 
     const summary = document.getElementById('pointage-count-summary');

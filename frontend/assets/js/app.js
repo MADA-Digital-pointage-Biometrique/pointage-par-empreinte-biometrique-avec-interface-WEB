@@ -246,7 +246,7 @@ function buildShell() {
                                                     ${icon(i.icon, 20, isActive)}
                                                     <span>${i.label}</span>
                                                 </div>
-                                                ${i.badgeId ? `<span id="${i.badgeId}" class="${i.page==='pointage' ? 'nav-badge-service' : 'nav-badge-count'} text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge || (i.page==='pointage' ? 'En service' : '')}</span>` : (i.badge ? `<span class="nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge}</span>` : '')}
+                                                ${i.badgeId ? `<span id="${i.badgeId}" class="${i.page==='pointage' ? 'nav-badge-service bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700' : 'nav-badge-count'} text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge || (i.page==='pointage' ? '…' : '')}</span>` : (i.badge ? `<span class="nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge}</span>` : '')}
                                             </a>
                                         </li>
                                         `;
