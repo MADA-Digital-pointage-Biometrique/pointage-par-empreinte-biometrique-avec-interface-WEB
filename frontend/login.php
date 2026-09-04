@@ -20,7 +20,7 @@ if (isset($_SESSION['user_id'])) {
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/app.css?v=<?= time() ?>">
 </head>
-<body class="login-bg antialiased min-h-screen flex items-center justify-center p-md relative overflow-hidden">
+<body class="login-bg antialiased min-h-screen flex items-center justify-center p-md relative overflow-hidden" data-page="login" data-no-shell="1">
 
     <!-- Decorative Animated Glow Elements -->
     <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 login-glow rounded-full blur-3xl pointer-events-none"></div>
