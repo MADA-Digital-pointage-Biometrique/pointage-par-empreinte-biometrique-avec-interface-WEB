@@ -38,12 +38,12 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
             setTimeout(removeLoading, 300);
         })();
     </script>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries" integrity="sha384-1DcZPGeODWbGGjS/i/n4ULX/pEc0DPcKK2WhyuWEmBXRfzOwoVTDQBN9C3C5jJHK" crossorigin="anonymous"></script>
     <script src="assets/js/theme.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" integrity="sha384-QgEpRMlHS1eb16ppCdNvZpgSnfgP7/JidxQdEi39i0icPBZP7cX7fe5Hy7RruCDN" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet" integrity="sha384-2kBmDcgZhyUp2WK+Fjpm0T7UwKRHLJkDBBLJ/GUfgpHuBr5FLOwvUne/2WgYVbSu" crossorigin="anonymous">
     <link rel="stylesheet" href="assets/css/app.css?v=<?= time() ?>">
 </head>
 <body class="bg-[#F7F8FA] dark:bg-stone-950 text-[#303030] dark:text-slate-100 antialiased flex" data-page="empreintes" data-search="1">
