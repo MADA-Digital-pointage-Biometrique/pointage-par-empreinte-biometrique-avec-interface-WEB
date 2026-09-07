@@ -54,7 +54,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 header('Content-Type: application/json; charset=utf-8');
-// CORS restreint au même origine (gère http et https)
+// CORS strict même origine uniquement (pas de localhost wildcards)
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $allowedOrigins = [];
@@ -62,15 +62,7 @@ if ($host) {
     $allowedOrigins[] = 'http://' . $host;
     $allowedOrigins[] = 'https://' . $host;
 }
-$allowedOrigins[] = 'http://localhost';
-$allowedOrigins[] = 'http://127.0.0.1';
-$allowedOrigins[] = 'https://localhost';
-$allowedOrigins[] = 'https://127.0.0.1';
-$isAllowed = false;
-foreach ($allowedOrigins as $ao) {
-    if ($origin === $ao || str_starts_with($origin, $ao . ':') || str_starts_with($origin, $ao . '/')) { $isAllowed = true; break; }
-}
-if ($origin && $isAllowed) {
+if ($origin && in_array($origin, $allowedOrigins, true)) {
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Access-Control-Allow-Credentials: true');
     header('Vary: Origin');
