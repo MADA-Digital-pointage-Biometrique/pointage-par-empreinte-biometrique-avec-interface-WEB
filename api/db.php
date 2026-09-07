@@ -25,6 +25,7 @@ ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_secure', '0');
 ini_set('session.use_only_cookies', '1');
 ini_set('session.use_strict_mode', '1');
+ini_set('expose_php', '0');
 if (session_status() === PHP_SESSION_NONE) {
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
     $samesite = $isHttps ? 'None' : 'Lax';

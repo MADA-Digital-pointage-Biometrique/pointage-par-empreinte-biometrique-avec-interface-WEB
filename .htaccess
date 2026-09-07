@@ -5,6 +5,8 @@ ServerSignature Off
 <IfModule mod_headers.c>
     Header unset Server
     Header always unset Server
+    Header unset X-Powered-By
+    Header always unset X-Powered-By
 </IfModule>
 
 # Redirection Front Controller : /login, /dashboard, /employes, /empreintes, etc. → frontend/
