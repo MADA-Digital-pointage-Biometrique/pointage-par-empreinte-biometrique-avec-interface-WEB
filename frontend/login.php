@@ -12,12 +12,12 @@ if (isset($_SESSION['user_id'])) {
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Connexion - P.Biometrique</title>
     <script>!function(){var e=localStorage.getItem('mada-theme'),d=window.matchMedia('(prefers-color-scheme: dark)').matches;var isDark=(e==='dark'||(e===null&&d));document.documentElement.classList.toggle('dark',isDark);}();</script>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries" crossorigin="anonymous"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="assets/js/theme.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" crossorigin="anonymous">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/app.css?v=<?= time() ?>">
 </head>
 <body class="login-bg antialiased min-h-screen flex items-center justify-center p-md relative overflow-hidden" data-page="login" data-no-shell="1">
