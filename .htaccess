@@ -1,6 +1,11 @@
 # Sécurité : masquer l'architecture, interdire l'exploration
 Options -Indexes
 ServerSignature Off
+# ServerTokens Prod doit être dans httpd.conf (pas possible ici)
+<IfModule mod_headers.c>
+    Header unset Server
+    Header always unset Server
+</IfModule>
 
 # Redirection Front Controller : /login, /dashboard, /employes, /empreintes, etc. → frontend/
 RewriteEngine On
