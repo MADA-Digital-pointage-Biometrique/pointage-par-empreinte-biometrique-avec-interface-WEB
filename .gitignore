@@ -3,3 +3,5 @@ config/database.php
 .vscode/
 .idea/
 Thumbs.db
+node_modules/
+python/__pycache__/

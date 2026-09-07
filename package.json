@@ -1,0 +1,70 @@
+{
+  "name": "projet_stage_mada-digital",
+  "version": "1.0.0",
+  "description": "Application de pointage par **empreinte R307 + CP2102** (USB-UART) + interface WEB, **Supabase Postgres** (pooler) au lieu de MySQL XAMPP.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "dependencies": {
+    "base64-js": "^1.5.1",
+    "brotli": "^1.3.3",
+    "browserify-zlib": "^0.2.0",
+    "chart.js": "^4.5.1",
+    "clone": "^2.1.2",
+    "core-util-is": "^1.0.3",
+    "dfa": "^1.2.0",
+    "docx": "^9.7.1",
+    "fast-deep-equal": "^3.1.3",
+    "fontkit": "^2.0.4",
+    "hash.js": "^1.1.7",
+    "immediate": "^3.0.6",
+    "inherits": "^2.0.4",
+    "isarray": "^1.0.0",
+    "js-md5": "^0.8.3",
+    "jszip": "^3.10.1",
+    "lie": "^3.3.0",
+    "linebreak": "^1.1.0",
+    "minimalistic-assert": "^1.0.1",
+    "nanoid": "^5.1.16",
+    "pako": "^1.0.11",
+    "pdfkit": "^0.19.1",
+    "png-js": "^1.1.0",
+    "process-nextick-args": "^2.0.1",
+    "readable-stream": "^2.3.8",
+    "restructure": "^3.0.2",
+    "safe-buffer": "^5.1.2",
+    "sax": "^1.6.1",
+    "setimmediate": "^1.0.5",
+    "string_decoder": "^1.1.1",
+    "tiny-inflate": "^1.0.3",
+    "tslib": "^2.8.1",
+    "undici-types": "^7.24.6",
+    "unicode-properties": "^1.4.1",
+    "unicode-trie": "^2.0.0",
+    "util-deprecate": "^1.0.2",
+    "xml": "^1.0.1",
+    "xml-js": "^1.6.11"
+  },
+  "devDependencies": {
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.11",
+    "tailwindcss": "^3.4.19"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:css": "tailwindcss -i frontend/assets/css/input.css -o frontend/assets/css/tailwind.css --minify"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexdenisadolphe7-code/pointage-par-empreinte-biometrique-avec-interface-WEB.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/alexdenisadolphe7-code/pointage-par-empreinte-biometrique-avec-interface-WEB/issues"
+  },
+  "homepage": "https://github.com/alexdenisadolphe7-code/pointage-par-empreinte-biometrique-avec-interface-WEB#readme"
+}
