@@ -42,7 +42,7 @@ function adminRow(u) {
             </td>
             <td class="py-sm px-md hidden md:table-cell font-mono text-[13px] text-slate-600 dark:text-slate-300">${u.matricule}</td>
             <td class="py-sm px-md hidden md:table-cell text-slate-600 dark:text-slate-400">${u.email || '—'}</td>
-            <td class="py-sm px-md hidden sm:table-cell font-medium text-slate-700 dark:text-slate-300">${u.departement || 'Direction'}</td>
+            <td class="py-sm px-md hidden md:table-cell font-medium text-slate-700 dark:text-slate-300">${u.departement || 'Direction'}</td>
             <td class="py-sm px-md">${roleBadge}</td>
             <td class="py-sm px-md hidden md:table-cell">${empBadge}</td>
             <td class="py-sm px-md text-right">

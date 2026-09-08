@@ -73,7 +73,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['super_admin', 'a
                                 <th class="py-md px-md">Administrateur</th>
                                 <th class="py-md px-md hidden md:table-cell">Matricule</th>
                                 <th class="py-md px-md hidden md:table-cell">Email Accès</th>
-                                <th class="py-md px-md hidden sm:table-cell">Département</th>
+                                <th class="py-md px-md hidden md:table-cell">Département</th>
                                 <th class="py-md px-md">Privilège</th>
                                 <th class="py-md px-md hidden md:table-cell">Empreinte</th>
                                 <th class="py-md px-md text-right">Actions</th>
