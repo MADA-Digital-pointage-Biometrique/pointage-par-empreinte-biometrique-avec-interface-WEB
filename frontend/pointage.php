@@ -12,8 +12,8 @@ if (!isset($_SESSION['user_id'])) {
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Borne de Pointage Biométrique - P.Biometrique</title>
     <script src="assets/js/theme-init.js"></script>
-    <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= time() ?>">
-    <link rel="stylesheet" href="assets/css/app.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= asset_ver('assets/css/tailwind.css') ?>">
+    <link rel="stylesheet" href="assets/css/app.css?v=<?= asset_ver('assets/css/app.css') ?>">
 </head>
 <body class="bg-[#F7F8FA] dark:bg-stone-950 text-[#303030] dark:text-slate-100 antialiased flex" data-page="pointage">
     <div id="app-shell"></div>
@@ -154,10 +154,10 @@ if (!isset($_SESSION['user_id'])) {
         </div>
     </div>
 
-<script src="assets/js/data.js?v=<?= time() ?>"></script>
-    <script src="assets/js/api.js?v=<?= time() ?>"></script>
-    <script src="assets/js/templates.js?v=<?= time() ?>"></script>
-    <script src="assets/js/app.js?v=<?= time() ?>"></script>
-    <script src="assets/js/pages/pointage.js?v=<?= time() ?>"></script>
+<script src="assets/js/data.js?v=<?= asset_ver('assets/js/data.js') ?>"></script>
+    <script src="assets/js/api.js?v=<?= asset_ver('assets/js/api.js') ?>"></script>
+    <script src="assets/js/templates.js?v=<?= asset_ver('assets/js/templates.js') ?>"></script>
+    <script src="assets/js/app.js?v=<?= asset_ver('assets/js/app.js') ?>"></script>
+    <script src="assets/js/pages/pointage.js?v=<?= asset_ver('assets/js/pages/pointage.js') ?>"></script>
 </body>
 </html>

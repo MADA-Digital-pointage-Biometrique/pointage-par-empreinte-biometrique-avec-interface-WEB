@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/asset.php';
 // Bootstrap session centralisé — TOUTES les pages/API doivent passer par ici
 // (jamais de session_start() nu, sinon PHPSESSID sans HttpOnly/SameSite).
 // Garantit : HttpOnly + SameSite=Lax (ou None+Secure en HTTPS) + timeout 30 min.

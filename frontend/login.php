@@ -12,8 +12,8 @@ if (isset($_SESSION['user_id'])) {
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Connexion - P.Biometrique</title>
     <script src="assets/js/theme-init.js"></script>
-    <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= time() ?>">
-    <link rel="stylesheet" href="assets/css/app.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= asset_ver('assets/css/tailwind.css') ?>">
+    <link rel="stylesheet" href="assets/css/app.css?v=<?= asset_ver('assets/css/app.css') ?>">
 </head>
 <body class="login-bg antialiased min-h-screen flex items-center justify-center p-md relative overflow-hidden" data-page="login" data-no-shell="1">
 
