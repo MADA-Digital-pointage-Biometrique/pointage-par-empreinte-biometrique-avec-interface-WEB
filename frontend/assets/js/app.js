@@ -3,7 +3,7 @@
 // ============================================================
 
 function icon(name, size = 18, filled = false) {
-    return `<span class="material-symbols-outlined ${filled ? 'filled' : ''}" style="font-size:${size}px;">${name}</span>`;
+    return `<span class="material-symbols-outlined ${filled ? 'filled' : ''} text-[${size}px]">${name}</span>`;
 }
 
 function escapeHtml(str) {
@@ -78,10 +78,10 @@ function renderSidebarModeBadge(mode) {
     if (!badge) return;
     badge.className = '';
     badge.id = 'sidebar-mode-badge';
-    if (!mode) { badge.style.display = 'none'; return; }
+    if (!mode) { badge.classList.add('hidden'); return; }
     const cfg = getSidebarModeConfig(mode);
-    if (!cfg) { badge.style.display = 'none'; return; }
-    badge.style.display = '';
+    if (!cfg) { badge.classList.add('hidden'); return; }
+    badge.classList.remove('hidden');
     badge.classList.add(cfg.cls);
 
     let subtext = '';
@@ -101,7 +101,7 @@ function renderSidebarModeBadge(mode) {
         <div class="flex flex-col w-full">
             <div class="flex items-center gap-1.5">
                 <span class="mode-pulse"></span>
-                <span class="material-symbols-outlined" style="font-size:13px;">${cfg.icon}</span>
+                <span class="material-symbols-outlined text-[13px]">${cfg.icon}</span>
                 <span>${cfg.label}</span>
             </div>
             ${subtext}
@@ -260,13 +260,13 @@ function buildShell() {
                 <!-- Sidebar Footer : Réduire le menu / Mode sombre / Paramètres / Déconnexion -->
                 <div class="mt-auto px-xs pt-md nav-footer-border">
                     <!-- Badge Mode Opératoire -->
-                    <div id="sidebar-mode-badge" style="display:none;"></div>
+                    <div id="sidebar-mode-badge" class="hidden"></div>
 
                     <ul class="flex flex-col gap-xs">
                         <li>
                             <button id="btn-toggle-sidebar" data-label="Réduire le menu" class="nav-item-link hidden md:flex items-center justify-between px-md py-sm text-[14px] cursor-pointer">
                                 <div class="flex items-center gap-md">
-                                    <span class="material-symbols-outlined transition-transform duration-300" style="font-size:20px;">menu_open</span>
+                                    <span class="material-symbols-outlined transition-transform duration-300 text-[20px]">menu_open</span>
                                     <span>Réduire le menu</span>
                                 </div>
                             </button>
@@ -274,8 +274,8 @@ function buildShell() {
                         <li>
                             <button id="btn-toggle-darkmode" data-label="Mode sombre" class="nav-item-link flex items-center justify-between px-md py-sm text-[14px] cursor-pointer">
                                 <div class="flex items-center gap-md">
-                                    <span class="material-symbols-outlined dark:hidden" style="font-size:20px;">light_mode</span>
-                                    <span class="material-symbols-outlined hidden dark:inline" style="font-size:20px;">dark_mode</span>
+<span class="material-symbols-outlined dark:hidden text-[20px]">light_mode</span>
+                                        <span class="material-symbols-outlined hidden dark:inline text-[20px]">dark_mode</span>
                                     <span id="darkmode-label">Mode sombre</span>
                                 </div>
                             </button>

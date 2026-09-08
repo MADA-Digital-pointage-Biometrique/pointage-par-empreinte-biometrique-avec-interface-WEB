@@ -7,6 +7,8 @@ module.exports = {
         "./frontend/**/*.php",
         "./frontend/assets/js/**/*.js",
     ],
+    // Tailles dynamiques de icon() (app.js) : text-[${size}px] non détectable au scan
+    safelist: ['text-[16px]', 'text-[18px]', 'text-[20px]', 'text-[22px]', 'text-[24px]', 'text-[32px]'],
     theme: {
         extend: {
             "colors": {

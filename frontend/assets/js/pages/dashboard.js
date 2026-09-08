@@ -335,11 +335,13 @@ async function initPage() {
             if (activityBarsEl) {
                 activityBarsEl.innerHTML = bars.map(b => `
                     <div class="w-full bg-[#F46A21]/20 hover:bg-[#F46A21] transition-colors relative group rounded-t-md cursor-pointer"
-                         style="height:${Math.max(12, Math.round((((b && b.count) || 0) / maxCount) * 100))}%">
+                         data-h="${Math.max(12, Math.round((((b && b.count) || 0) / maxCount) * 100))}">
                         <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg border border-slate-700">
                             ${b.heure || ''} : ${b.count || 0} scan(s)
                         </div>
                     </div>`).join('');
+                // Hauteurs via CSSOM (autorisé par CSP style-src sans unsafe-inline)
+                activityBarsEl.querySelectorAll('[data-h]').forEach(el => { el.style.height = el.dataset.h + '%'; });
             }
             const peakEl = document.getElementById('activity-peak');
             if (peakEl && peak) peakEl.textContent = `Pic à ${peak.heure || ''} (${peak.count || 0} pointages)`;
