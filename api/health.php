@@ -19,7 +19,6 @@ echo json_encode([
     'ok' => ($dbStatus === 'connected'),
     'status' => ($dbStatus === 'connected') ? 'healthy' : 'unhealthy',
     'timestamp' => date('c'),
-    'php_version' => PHP_VERSION,
     'session_status' => session_status() === PHP_SESSION_ACTIVE ? 'active' : 'inactive',
     'db' => $dbStatus,
     'error' => $dbError
