@@ -11,30 +11,7 @@ if (!isset($_SESSION['user_id'])) {
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Paramètres - P.Biometrique</title>
-    <script>
-        /* ── ANTI-FLASH : doit s'exécuter avant tout rendu ── */
-        (function() {
-            document.documentElement.classList.add('page-loading');
-            var saved = localStorage.getItem('mada-theme');
-            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (saved === 'dark' || (saved === null && prefersDark)) {
-                document.documentElement.classList.add('dark');
-            }
-            function removeLoading() {
-                requestAnimationFrame(function() {
-                    requestAnimationFrame(function() {
-                        document.documentElement.classList.remove('page-loading');
-                    });
-                });
-            }
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', removeLoading);
-            } else {
-                removeLoading();
-            }
-            setTimeout(removeLoading, 300);
-        })();
-    </script>
+    <script src="assets/js/theme-init.js"></script>
     <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= time() ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

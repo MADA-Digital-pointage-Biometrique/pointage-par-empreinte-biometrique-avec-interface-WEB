@@ -11,30 +11,7 @@ if (!isset($_SESSION['user_id'])) {
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Historique des Pointages & Rapports - P.Biometrique</title>
-    <script>
-        /* ── ANTI-FLASH : doit s'exécuter avant tout rendu ── */
-        (function() {
-            document.documentElement.classList.add('page-loading');
-            var saved = localStorage.getItem('mada-theme');
-            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (saved === 'dark' || (saved === null && prefersDark)) {
-                document.documentElement.classList.add('dark');
-            }
-            function removeLoading() {
-                requestAnimationFrame(function() {
-                    requestAnimationFrame(function() {
-                        document.documentElement.classList.remove('page-loading');
-                    });
-                });
-            }
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', removeLoading);
-            } else {
-                removeLoading();
-            }
-            setTimeout(removeLoading, 300);
-        })();
-    </script>
+    <script src="assets/js/theme-init.js"></script>
     <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= time() ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -64,7 +41,7 @@ if (!isset($_SESSION['user_id'])) {
                     <button class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold px-md py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-2 cursor-pointer" id="btn-export-history">
                         <span class="material-symbols-outlined text-[18px]">download</span> Exporter CSV
                     </button>
-                    <button class="bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] hover:from-[#EA580C] hover:to-[#F59E0B] text-white text-xs font-semibold px-md py-2.5 rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 cursor-pointer" onclick="window.print()">
+                    <button class="bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] hover:from-[#EA580C] hover:to-[#F59E0B] text-white text-xs font-semibold px-md py-2.5 rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 cursor-pointer" data-print>
                         <span class="material-symbols-outlined text-[18px]">print</span> Imprimer Rapport
                     </button>
                 </div>

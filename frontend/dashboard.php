@@ -11,30 +11,7 @@ if (!isset($_SESSION['user_id'])) {
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Tableau de bord - P.Biometrique</title>
-    <script>
-        /* ── ANTI-FLASH : doit s'exécuter avant tout rendu ── */
-        (function() {
-            document.documentElement.classList.add('page-loading');
-            var saved = localStorage.getItem('mada-theme');
-            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (saved === 'dark' || (saved === null && prefersDark)) {
-                document.documentElement.classList.add('dark');
-            }
-            function removeLoading() {
-                requestAnimationFrame(function() {
-                    requestAnimationFrame(function() {
-                        document.documentElement.classList.remove('page-loading');
-                    });
-                });
-            }
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', removeLoading);
-            } else {
-                removeLoading();
-            }
-            setTimeout(removeLoading, 300);
-        })();
-    </script>
+    <script src="assets/js/theme-init.js"></script>
     <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= time() ?>">
     <script src="assets/js/vendor/chart.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -285,7 +262,7 @@ if (!isset($_SESSION['user_id'])) {
             <h3 class="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <span class="material-symbols-outlined text-[#F46A21]">add_circle</span> Forcer un pointage
             </h3>
-            <button class="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer" onclick="closeModal('modal-force-pointage')">
+            <button class="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer" data-close="modal-force-pointage">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
@@ -310,7 +287,7 @@ if (!isset($_SESSION['user_id'])) {
                 </div>
             </div>
             <div class="flex justify-end gap-sm">
-                <button type="button" class="px-md py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" onclick="closeModal('modal-force-pointage')">Annuler</button>
+                <button type="button" class="px-md py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" data-close="modal-force-pointage">Annuler</button>
                 <button type="submit" class="px-md py-2 rounded-xl text-xs font-semibold bg-[#F46A21] text-white hover:bg-[#EA580C] shadow-md shadow-orange-500/20">Enregistrer</button>
             </div>
         </form>

@@ -11,7 +11,7 @@ if (isset($_SESSION['user_id'])) {
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Connexion - P.Biometrique</title>
-    <script>!function(){var e=localStorage.getItem('mada-theme'),d=window.matchMedia('(prefers-color-scheme: dark)').matches;var isDark=(e==='dark'||(e===null&&d));document.documentElement.classList.toggle('dark',isDark);}();</script>
+    <script src="assets/js/theme-init.js"></script>
     <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= time() ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,35 +73,6 @@ if (isset($_SESSION['user_id'])) {
 <script src="assets/js/data.js"></script>
     <script src="assets/js/api.js"></script>
     <script src="assets/js/app.js"></script>
-    <script>
-        document.getElementById('btn-login-theme').addEventListener('click', () => toggleDarkMode());
-
-        document.getElementById('login-form')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const mat = document.getElementById('matricule').value.trim();
-            const pwd = document.getElementById('password').value;
-            const btn = document.getElementById('btn-submit');
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">sync</span> Connexion en cours...';
-
-            try {
-                const res = await api.login(mat, pwd);
-
-                if (res && res.ok) {
-                    window.location.href = 'dashboard.php';
-                } else {
-                    flash(res ? res.message : 'Identifiants incorrects.', 'danger');
-                    btn.disabled = false;
-                    btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">login</span> Se connecter au système';
-                }
-            } catch (err) {
-                console.error(err);
-                flash('Erreur de connexion au serveur.', 'danger');
-                btn.disabled = false;
-                btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">login</span> Se connecter au système';
-            }
-        });
-    </script>
+    <script src="assets/js/pages/login.js"></script>
 </body>
 </html>

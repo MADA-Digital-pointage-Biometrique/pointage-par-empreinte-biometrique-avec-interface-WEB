@@ -691,7 +691,7 @@ function flash(message, type = 'success', title = null) {
             <div class="font-bold text-[13px] tracking-tight">${toastTitle}</div>
             <div class="text-[12px] opacity-90 leading-snug mt-0.5">${message}</div>
         </div>
-        <button class="text-slate-400 hover:text-white transition-colors cursor-pointer p-1 rounded-lg" onclick="this.closest('.menu-dropdown-panel').remove()">
+        <button class="text-slate-400 hover:text-white transition-colors cursor-pointer p-1 rounded-lg" data-dismiss>
             ${icon('close', 16)}
         </button>
     `;
@@ -720,7 +720,7 @@ function flash(message, type = 'success', title = null) {
                     ${icon(s.ic, 20)}
                     <span>${message}</span>
                 </div>
-                <button onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100 cursor-pointer">
+                <button data-dismiss class="opacity-60 hover:opacity-100 cursor-pointer">
                     ${icon('close', 16)}
                 </button>
             </div>`;
@@ -801,6 +801,20 @@ function closeModal(id) {
         el.classList.remove('flex');
     }
 }
+
+// Délégation globale (CSP sans unsafe-inline) : [data-close] ferme un modal,
+// [data-dismiss] retire un toast/alerte, [data-print] imprime. Couvre le HTML
+// statique ET le contenu injecté dynamiquement (innerHTML/templates).
+document.addEventListener('click', (e) => {
+    const closer = e.target.closest('[data-close]');
+    if (closer) { closeModal(closer.dataset.close); return; }
+    if (e.target.closest('[data-print]')) { window.print(); return; }
+    const dismisser = e.target.closest('[data-dismiss]');
+    if (dismisser) {
+        const root = dismisser.closest('.menu-dropdown-panel') || dismisser.parentElement;
+        if (root) root.remove();
+    }
+});
 
 // Fermeture globale des modales : boutons [data-close], clic sur le fond, touche Échap
 // + Ouverture globale via [data-open] (nécessaire pour SPA où les modales sont injectées dynamiquement)
