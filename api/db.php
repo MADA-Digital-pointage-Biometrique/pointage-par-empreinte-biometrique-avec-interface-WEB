@@ -61,22 +61,10 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 header('Content-Type: application/json; charset=utf-8');
-// CORS strict même origine uniquement (pas de localhost wildcards)
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$host = $_SERVER['HTTP_HOST'] ?? '';
-$allowedOrigins = [];
-if ($host) {
-    $allowedOrigins[] = 'http://' . $host;
-    $allowedOrigins[] = 'https://' . $host;
-}
-if ($origin && in_array($origin, $allowedOrigins, true)) {
-    header('Access-Control-Allow-Origin: ' . $origin);
-    header('Access-Control-Allow-Credentials: true');
-    header('Vary: Origin');
-}
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token, Authorization');
-header('Access-Control-Max-Age: 86400');
+// Pas de CORS : frontend 100 % même origine (fetch relatifs, connect-src 'self').
+// Aucun en-tête Access-Control-* émis → le navigateur applique strictement la SOP.
+// (L'ancien code reflétait Origin quand il égalait Host, or Host est falsifiable
+//  par l'attaquant → réflexion abusive signalée par ZAP.)
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('X-XSS-Protection: 0');
