@@ -115,7 +115,7 @@ function initSidebarModeBadge() {
     const mode = storage.get(MODE_STORAGE_KEY);
     renderSidebarModeBadge(mode);
     // Sync Python si jamais initialisé (évite R307 en idle)
-    try { fetch(getApiEndpoint('sensor_mode.php'), { method:'GET', credentials:'include', cache:'no-store' }).then(r=>r.json()).then(j=>{ if(j.ok && !j.mode?.mode) fetch(getApiEndpoint('sensor_mode.php'),{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})}); }); } catch {}
+    try { fetch(getApiEndpoint('sensor_mode.php'), { method:'GET', credentials:'include', cache:'no-store' }).then(r=>r.json()).then(j=>{ if(j.ok && !j.mode?.mode) fetchCsrf('sensor_mode.php', {mode}); }); } catch {}
 
     // Écouter les changements de mode et de cible émis par parametres.js
     document.removeEventListener('mada:modeChanged', _onModeChanged);
