@@ -140,7 +140,9 @@ function updateSidebarCapteurBadge(data) {
     const hs = data && data.status === 'hs';
     if (hs) {
         badge.textContent = 'HS';
-        badge.className = 'nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800';
+        // Sans nav-badge-service : sa couleur orange/bleu écrasait le rouge
+        // (même spécificité, app.css chargé après tailwind.css).
+        badge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800';
     } else {
         badge.textContent = 'En service';
         badge.className = 'nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800';
