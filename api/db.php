@@ -62,6 +62,13 @@ function getDB(): PDO {
         }
         try {
             $config = require $configFile;
+            // C2 : refuse de connecter sans identifiants explicites (.env).
+            if (empty($config['username']) || !isset($config['password']) || $config['password'] === '') {
+                error_log('DB config: DB_USERNAME/DB_PASSWORD manquants (.env).');
+                http_response_code(500);
+                echo json_encode(['ok' => false, 'message' => 'Configuration indisponible.']);
+                exit;
+            }
             $driver = $config['driver'] ?? 'mysql';
             if ($driver === 'pgsql') {
                 $host = $config['host']; $port = $config['port'] ?? 5432; $db = $config['dbname']; $ssl = $config['sslmode'] ?? 'require';

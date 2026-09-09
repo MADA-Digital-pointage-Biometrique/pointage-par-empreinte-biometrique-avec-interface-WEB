@@ -1,5 +1,12 @@
 <?php
 require_once __DIR__.'/db.php';
+// C1 : endpoint d'écriture — exige le token borne (comme borne_pointage.php).
+// Sans quoi n'importe qui injecte des pointages arbitraires.
+$token = $_SERVER['HTTP_X_DEVICE_TOKEN'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+$expected = getenv('BORNE_TOKEN') ?: '';
+if ($expected === '' || !hash_equals($expected, trim(str_replace('Bearer ','',$token)))) {
+    http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Borne non authentifiée (X-Device-Token)']); exit;
+}
 $pdo=getDB();
 $input=getJsonInput();
 $points=$input['pointages'] ?? $input ?? [];

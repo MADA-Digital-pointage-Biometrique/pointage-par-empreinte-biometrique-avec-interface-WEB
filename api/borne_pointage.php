@@ -6,7 +6,11 @@ use App\Core\Biometric\SdkReader;
 
 // CSRF exempt pour borne (ajouté à api/db.php)
 $token = $_SERVER['HTTP_X_DEVICE_TOKEN'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? getJsonInput()['device_token'] ?? '';
-$expected = getenv('BORNE_TOKEN') ?: 'mada-borne-2024';
+// C2 : fail-closed — sans BORNE_TOKEN configuré, TOUT est refusé (pas de fallback devinable).
+$expected = getenv('BORNE_TOKEN') ?: '';
+if ($expected === '') {
+    http_response_code(500); echo json_encode(['ok'=>false,'message'=>'Borne non configurée (BORNE_TOKEN manquant)']); exit;
+}
 if (!hash_equals($expected, trim(str_replace('Bearer ','',$token)))) {
     http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Borne non authentifiée (X-Device-Token)']); exit;
 }

@@ -14,7 +14,9 @@ try {
     $count = (int) $stmt->fetchColumn();
 
     if ($count === 0) {
-        $hash = password_hash('admin123', PASSWORD_BCRYPT);
+        // C2 : mot de passe jamais en dur — via arg/env, sinon généré aléatoirement (affiché UNE fois).
+        $plain = $argv[1] ?? getenv('SEED_ADMIN_PASSWORD') ?: bin2hex(random_bytes(12));
+        $hash = password_hash($plain, PASSWORD_BCRYPT);
         
         // Résoudre ou créer le département Direction Générale
         $deptStmt = $pdo->query("SELECT id_departement FROM departements WHERE nom_departement = 'Direction Générale' LIMIT 1");
@@ -31,7 +33,8 @@ try {
             VALUES (?, ?, ?, ?, ?, 'admin_systeme', 'actif', ?)
         ");
         $insert->execute(['ADM001', 'Administrateur', 'Système', 'admin@mada.com', $hash, $deptId]);
-        echo "Admin créé avec succès : ADM001 / admin123 (email: admin@mada.com)\n";
+        echo "Admin créé avec succès : ADM001 / {$plain} (email: admin@mada.com)\n";
+        echo "NOTE : changez ce mot de passe dès la première connexion.\n";
     } else {
         echo "L'administrateur ADM001 (ou admin@mada.com) existe déjà.\n";
     }

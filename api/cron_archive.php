@@ -6,7 +6,8 @@ require_once __DIR__ . '/db.php';
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $key = $_GET['key'] ?? $_POST['key'] ?? '';
-$expected = getenv('CRON_SECRET') ?: 'mada2024';
+// C2 : fail-closed — sans CRON_SECRET configuré, refus (pas de fallback devinable).
+$expected = getenv('CRON_SECRET') ?: '';
 
 // Autorise appel sans clé si cli ou si depuis localhost + super_admin
 $isLocal = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1','::1']);

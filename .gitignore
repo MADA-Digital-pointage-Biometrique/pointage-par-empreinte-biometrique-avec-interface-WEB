@@ -1,4 +1,5 @@
 config/database.php
+.env
 *.log
 .vscode/
 .idea/
