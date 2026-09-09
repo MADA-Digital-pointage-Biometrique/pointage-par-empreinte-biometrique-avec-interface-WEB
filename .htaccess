@@ -48,5 +48,8 @@ RewriteRule ^parametres/?$ frontend/parametres.php [L]
     Header always set Referrer-Policy "strict-origin-when-cross-origin" "expr=-z %{resp:Referrer-Policy}"
     Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" "expr=-z %{resp:Content-Security-Policy}"
-    Header always edit Set-Cookie ^(.*)$ $1;HttpOnly;SameSite=Lax
+    # M1 : n'ajoute chaque attribut que s'il est ABSENT (évite le doublon
+    # SameSite=Lax qui écraserait le SameSite=None; Secure posé en HTTPS par PHP)
+    Header always edit Set-Cookie ^((?:(?!HttpOnly).)*)$ "$1;HttpOnly"
+    Header always edit Set-Cookie ^((?:(?!SameSite).)*)$ "$1;SameSite=Lax"
 </IfModule>

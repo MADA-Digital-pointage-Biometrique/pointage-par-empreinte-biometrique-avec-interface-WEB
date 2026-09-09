@@ -7,7 +7,11 @@ ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_secure', '0');
 ini_set('session.use_only_cookies', '1');
 ini_set('session.use_strict_mode', '1');
+ini_set('session.gc_maxlifetime', '43200');
 ini_set('expose_php', '0');
+// M1 : jamais de stack trace / paths vers le client — tout en error.log Apache.
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 if (session_status() === PHP_SESSION_NONE) {
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
     $samesite = $isHttps ? 'None' : 'Lax';
@@ -25,13 +29,20 @@ if (session_status() === PHP_SESSION_NONE) {
         'samesite' => $samesite
     ]);
     session_start();
-    // Timeout inactivité 30 min + fixation
+    // Timeout inactivité 30 min + DURÉE ABSOLUE 12h (re-login obligatoire,
+    // même si activité continue) + fixation
     $timeout = 1800;
-    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout)) {
+    $absoluteMax = 43200;
+    if (empty($_SESSION['session_created'])) {
+        $_SESSION['session_created'] = time();
+    }
+    if ((time() - (int)$_SESSION['session_created'] > $absoluteMax)
+        || (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout))) {
         session_unset();
         session_destroy();
         session_start();
         session_regenerate_id(true);
+        $_SESSION['session_created'] = time();
     } elseif (isset($_SESSION['user_id']) && empty($_SESSION['regenerated'])) {
         session_regenerate_id(true);
         $_SESSION['regenerated'] = true;
