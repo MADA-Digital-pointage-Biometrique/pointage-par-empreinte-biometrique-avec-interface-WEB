@@ -563,13 +563,11 @@ function getToastContainer() {
     return container;
 }
 
-function flash(message, type = 'success', title = null) {
-    const container = getToastContainer();
-    // Thème courant : le fond suit le mode (plus de toast sombre forcé en light,
-    // et sans menu-dropdown-panel qui écrasait le fond en blanc + texte invisible).
+// Thème LU À CHAQUE FOIS (pas figé) : permet de re-teinter les toasts
+// visibles si l'utilisateur bascule sombre/clair pendant leur apparition.
+function flashSkin(type) {
     const isDark = document.documentElement.classList.contains('dark');
     const shellBg = isDark ? 'bg-stone-900/95 text-white' : 'bg-white/95 text-slate-900';
-
     const styles = {
         success: {
             bg: `${shellBg} ${isDark ? 'border-[#F46A21]/40' : 'border-orange-200'}`,
@@ -600,15 +598,57 @@ function flash(message, type = 'success', title = null) {
             defaultTitle: 'Information'
         },
     };
-    const s = styles[type] || styles.info;
+    return styles[type] || styles.info;
+}
+const FLASH_TOAST_BASE = 'pointer-events-auto rounded-2xl border shadow-2xl backdrop-blur-xl p-md flex items-start gap-md relative overflow-hidden transition-all transform duration-300 ';
+const FLASH_CHIP_BASE = 'w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ';
+
+// Re-teinte tous les toasts visibles + la bannière intégrée au toggle de thème.
+function restyleFlashes() {
+    document.querySelectorAll('[data-flash-type]').forEach(toast => {
+        const s = flashSkin(toast.dataset.flashType);
+        const shown = toast.classList.contains('opacity-100');
+        toast.className = FLASH_TOAST_BASE + (shown ? 'translate-x-0 opacity-100 ' : 'translate-x-10 opacity-0 ') + s.bg;
+        const chip = toast.querySelector('[data-flash-chip]');
+        if (chip) chip.className = FLASH_CHIP_BASE + s.icBg;
+    });
+    const embeddedFlash = document.getElementById('flash');
+    if (embeddedFlash && embeddedFlash._flash) {
+        renderEmbeddedFlash(embeddedFlash, embeddedFlash._flash.message, embeddedFlash._flash.type);
+    }
+}
+if (!window._flashThemeBound) {
+    window._flashThemeBound = true;
+    document.addEventListener('mada:themeChanged', restyleFlashes);
+}
+
+function renderEmbeddedFlash(el, message, type) {
+    const s = flashSkin(type);
+    el._flash = { message, type };
+    el.innerHTML = `
+        <div class="border rounded-2xl px-md py-sm text-[13px] flex items-center justify-between gap-sm mb-md shadow-md ${s.bg} border-l-4">
+            <div class="flex items-center gap-sm">
+                ${icon(s.ic, 20)}
+                <span>${message}</span>
+            </div>
+            <button data-dismiss class="opacity-60 hover:opacity-100 cursor-pointer">
+                ${icon('close', 16)}
+            </button>
+        </div>`;
+}
+
+function flash(message, type = 'success', title = null) {
+    const container = getToastContainer();
+    const s = flashSkin(type);
     const toastTitle = title || s.defaultTitle;
 
     const toast = document.createElement('div');
-    toast.className = `pointer-events-auto rounded-2xl border shadow-2xl backdrop-blur-xl p-md flex items-start gap-md relative overflow-hidden transition-all transform duration-300 translate-x-10 opacity-0 ${s.bg}`;
+    toast.dataset.flashType = type;
+    toast.className = `${FLASH_TOAST_BASE}translate-x-10 opacity-0 ${s.bg}`;
 
     toast.innerHTML = `
         <div class="absolute left-0 top-0 bottom-0 w-1 ${s.accent}"></div>
-        <div class="w-9 h-9 rounded-xl ${s.icBg} flex items-center justify-center flex-shrink-0 mt-0.5">
+        <div data-flash-chip class="${FLASH_CHIP_BASE}${s.icBg}">
             ${icon(s.ic, 20)}
         </div>
         <div class="flex-1 min-w-0 pr-4">
@@ -637,18 +677,7 @@ function flash(message, type = 'success', title = null) {
 
     // Also update embedded flash container if present
     const embeddedFlash = document.getElementById('flash');
-    if (embeddedFlash) {
-        embeddedFlash.innerHTML = `
-            <div class="border rounded-2xl px-md py-sm text-[13px] flex items-center justify-between gap-sm mb-md shadow-md ${s.bg} border-l-4">
-                <div class="flex items-center gap-sm">
-                    ${icon(s.ic, 20)}
-                    <span>${message}</span>
-                </div>
-                <button data-dismiss class="opacity-60 hover:opacity-100 cursor-pointer">
-                    ${icon('close', 16)}
-                </button>
-            </div>`;
-    }
+    if (embeddedFlash) renderEmbeddedFlash(embeddedFlash, message, type);
 }
 
 // Custom Glassmorphic Confirmation Dialog Box Modal
