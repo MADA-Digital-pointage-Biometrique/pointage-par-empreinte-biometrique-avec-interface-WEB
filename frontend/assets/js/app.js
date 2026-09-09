@@ -647,33 +647,37 @@ function getToastContainer() {
 
 function flash(message, type = 'success', title = null) {
     const container = getToastContainer();
+    // Thème courant : le fond suit le mode (plus de toast sombre forcé en light,
+    // et sans menu-dropdown-panel qui écrasait le fond en blanc + texte invisible).
+    const isDark = document.documentElement.classList.contains('dark');
+    const shellBg = isDark ? 'bg-stone-900/95 text-white' : 'bg-white/95 text-slate-900';
 
     const styles = {
         success: {
-            bg: 'bg-stone-900/95 dark:bg-stone-900/95 border-[#F46A21]/40 text-white',
+            bg: `${shellBg} ${isDark ? 'border-[#F46A21]/40' : 'border-orange-200'}`,
             accent: 'bg-[#F46A21]',
-            icBg: 'bg-[#F46A21]/20 text-[#F9AE3F]',
+            icBg: isDark ? 'bg-[#F46A21]/20 text-[#F9AE3F]' : 'bg-orange-100 text-[#EA580C]',
             ic: 'check_circle',
             defaultTitle: 'Succès'
         },
         danger: {
-            bg: 'bg-stone-900/95 dark:bg-stone-900/95 border-rose-500/40 text-white',
+            bg: `${shellBg} ${isDark ? 'border-rose-500/40' : 'border-rose-200'}`,
             accent: 'bg-rose-500',
-            icBg: 'bg-rose-500/20 text-rose-400',
+            icBg: isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-600',
             ic: 'error',
             defaultTitle: 'Erreur'
         },
         warning: {
-            bg: 'bg-stone-900/95 dark:bg-stone-900/95 border-amber-500/40 text-white',
+            bg: `${shellBg} ${isDark ? 'border-amber-500/40' : 'border-amber-200'}`,
             accent: 'bg-amber-500',
-            icBg: 'bg-amber-500/20 text-amber-400',
+            icBg: isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-600',
             ic: 'warning',
             defaultTitle: 'Avertissement'
         },
         info: {
-            bg: 'bg-stone-900/95 dark:bg-stone-900/95 border-[#F46A21]/40 text-white',
+            bg: `${shellBg} ${isDark ? 'border-[#F46A21]/40' : 'border-orange-200'}`,
             accent: 'bg-[#F46A21]',
-            icBg: 'bg-[#F46A21]/20 text-[#F9AE3F]',
+            icBg: isDark ? 'bg-[#F46A21]/20 text-[#F9AE3F]' : 'bg-orange-100 text-[#EA580C]',
             ic: 'info',
             defaultTitle: 'Information'
         },
@@ -682,7 +686,7 @@ function flash(message, type = 'success', title = null) {
     const toastTitle = title || s.defaultTitle;
 
     const toast = document.createElement('div');
-    toast.className = `pointer-events-auto rounded-2xl border shadow-2xl backdrop-blur-xl p-md flex items-start gap-md relative overflow-hidden menu-dropdown-panel transition-all transform duration-300 translate-x-10 opacity-0 ${s.bg}`;
+    toast.className = `pointer-events-auto rounded-2xl border shadow-2xl backdrop-blur-xl p-md flex items-start gap-md relative overflow-hidden transition-all transform duration-300 translate-x-10 opacity-0 ${s.bg}`;
 
     toast.innerHTML = `
         <div class="absolute left-0 top-0 bottom-0 w-1 ${s.accent}"></div>
@@ -693,7 +697,7 @@ function flash(message, type = 'success', title = null) {
             <div class="font-bold text-[13px] tracking-tight">${toastTitle}</div>
             <div class="text-[12px] opacity-90 leading-snug mt-0.5">${message}</div>
         </div>
-        <button class="text-slate-400 hover:text-white transition-colors cursor-pointer p-1 rounded-lg" data-dismiss>
+        <button class="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer p-1 rounded-lg" data-dismiss>
             ${icon('close', 16)}
         </button>
     `;
