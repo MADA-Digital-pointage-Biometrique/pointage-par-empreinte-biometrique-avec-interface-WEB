@@ -620,6 +620,13 @@ html.dark .dark\:hidden { display: none !important; }
     color: #ffffff;
     box-shadow: 0 2px 8px rgba(255, 122, 0, 0.32);
 }
+/* Spécificité maximale : l'actif reste blanc sur orange dans tous les thèmes,
+   même face aux utilitaires dark:text-* (conflit constaté en mode sombre) */
+#dashboard-period-menu .filter-pill.active,
+.dark #dashboard-period-menu .filter-pill.active {
+    background-color: var(--primary);
+    color: #ffffff;
+}
 
 /* Card Hover Elevation */
 .card-hover {
