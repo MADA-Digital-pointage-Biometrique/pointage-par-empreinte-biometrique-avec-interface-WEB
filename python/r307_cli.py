@@ -29,7 +29,7 @@ def main():
     p.add_argument('--baud', type=int, default=57600)
     p.add_argument('--timeout', type=int, default=15)
     p.add_argument('--password', default='00000000')
-    p.add_argument('--action', choices=['enroll','search','verify','delete','empty','status','count','template'], default='status')
+    p.add_argument('--action', choices=['enroll','search','verify','delete','empty','status','count','template','enroll1','enroll2'], default='status')
     p.add_argument('--id', type=int, default=0, dest='page_id')
     p.add_argument('--list-ports', action='store_true')
     p.add_argument('--auto-port', action='store_true')
@@ -39,6 +39,8 @@ def main():
     if args.mock:
         if args.action == 'enroll':
             print(json.dumps({"ok": True, "page_id": args.page_id, "mock": True, "message": f"Enrôlement simulé page {args.page_id}"}))
+        elif args.action in ('enroll1', 'enroll2'):
+            print(json.dumps({"ok": True, "mock": True, "step": 1 if args.action == 'enroll1' else 2, "page_id": args.page_id, "message": "Capture simulée"}))
         elif args.action in ('search','verify'):
             print(json.dumps({"ok": False, "message": "Aucune empreinte (mock)", "mock": True}))
         elif args.action == 'delete':
@@ -76,7 +78,7 @@ def main():
                 mj = json.load(mf)
             mmode = (mj.get('mode') or 'pointage')
             mtarget = mj.get('target_id')
-            if args.action == 'enroll' and (mmode != 'enrolement' or not mtarget):
+            if args.action in ('enroll', 'enroll1', 'enroll2') and (mmode != 'enrolement' or not mtarget):
                 print(json.dumps({"ok": False, "message": "R307 en attente : mode Pointage ou enrolement sans employé (sélectionne cible)", "mode": mmode}))
                 sys.exit(0)
             # F3 : le slot (--id) alloué par PHP/SdkReader fait foi. L'ancien code
@@ -127,6 +129,18 @@ def main():
             r.load(int(args.page_id), 1)
             blob = r.up_char(1)
             print(json.dumps({"ok": True, "page_id": int(args.page_id), "size": len(blob), "template": blob.hex()}))
+        elif args.action == 'enroll1':
+            # Étape 1/2 : 1re capture -> CharBuffer1 (le buffer survit entre appels)
+            r.enroll_capture1()
+            print(json.dumps({"ok": True, "step": 1, "message": "Capture 1 validée — retirez puis reposez le doigt"}))
+        elif args.action == 'enroll2':
+            # Étape 2/2 : retrait + 2e capture + fusion + stockage page
+            if args.page_id < 1 or args.page_id > 999:
+                print(json.dumps({"ok": False, "message": f"slot invalide {args.page_id} (1..999)"}))
+                sys.exit(0)
+            pid = int(args.page_id)
+            r.enroll_capture2(pid)
+            print(json.dumps({"ok": True, "step": 2, "page_id": pid, "message": f"Capture 2 validée — empreinte stockée page {pid}"}))
         else:
             print(json.dumps({"ok": False, "message": "Action inconnue"}))
     except Exception as e:

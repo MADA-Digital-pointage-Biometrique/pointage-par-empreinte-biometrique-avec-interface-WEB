@@ -342,6 +342,36 @@ function openEnrollModal(target) {
     // Définir automatiquement cet employé comme cible
     selectEnrollTarget(target);
 
+    // États visuels des pastilles Capture 1 / Capture 2
+    const setEnrollStep = (n, state) => {
+        const el = document.getElementById(`step-${n}`);
+        if (!el) return;
+        const badge = el.querySelector('span');
+        const check = el.querySelector('.step-icon');
+        const base = 'flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-semibold ';
+        if (state === 'done') {
+            el.className = base + 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+            if (check) check.classList.remove('hidden');
+        } else if (state === 'active') {
+            el.className = base + 'bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] border-[#F46A21]/40';
+            if (check) check.classList.add('hidden');
+        } else {
+            el.className = base + 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500';
+            if (check) check.classList.add('hidden');
+        }
+        if (badge && state !== 'done') badge.className = 'w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[12px]';
+    };
+    const setEnrollProgress = (pct) => {
+        const wrap = document.getElementById('enroll-progress');
+        const bar = document.getElementById('enroll-progress-bar');
+        if (wrap) wrap.classList.remove('hidden');
+        if (bar) bar.style.width = pct + '%'; // CSSOM autorisé par la CSP
+    };
+    const setEnrollHint = (txt) => {
+        const hint = document.getElementById('enroll-hint');
+        if (hint) hint.textContent = txt;
+    };
+
     const startEnrollment = () => {
         openModal('modal-enroll');
         const icon = document.getElementById('enroll-icon');
@@ -353,41 +383,67 @@ function openEnrollModal(target) {
             icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>';
         }
         if (step) step.textContent = "Placez le doigt de l'employé sur le capteur.";
+        setEnrollStep(1, 'idle'); setEnrollStep(2, 'idle');
+        setEnrollProgress(0); setEnrollHint("En attente — cliquez pour démarrer la capture 1.");
         if (btn) btn.disabled = false;
         if (btn) {
             btn.onclick = async () => {
+                btn.disabled = true;
+                // ── CAPTURE 1 ──
+                setEnrollStep(1, 'active');
                 if (icon) {
                     icon.className = 'w-24 h-24 rounded-full bg-[#F46A21] text-white pulse-ring flex items-center justify-center mb-lg transition-colors duration-300';
                     icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>';
                 }
-                if (step) step.textContent = 'Numérisation biométrique en cours…';
-                btn.disabled = true;
-                const res = await api.enrollFingerprint(target.id);
-                if (res.ok) {
-                    if (icon) {
-                        icon.className = 'w-24 h-24 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-lg transition-colors duration-300';
-                        icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">check_circle</span>';
-                    }
-                    if (step) step.textContent = res.message;
-                    flash(res.message, 'success');
-                    btn.disabled = false;
-
-                    // Mettre à jour la cible et rafraîchir le tableau
-                    const updated = { ...target, empreinte: true };
-                    selectEnrollTarget(updated);
-
-                    setTimeout(() => {
-                        closeModal('modal-enroll');
-                        renderEmpreintes(true);
-                    }, 1200);
-                } else {
+                if (step) step.textContent = 'Capture 1/2 : posez le doigt sur le capteur…';
+                setEnrollHint('En attente du doigt (capture 1)…');
+                const r1 = await api.enrollStep1(target.id);
+                if (!r1.ok) {
                     if (icon) {
                         icon.className = 'w-24 h-24 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-lg transition-colors duration-300';
                         icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">error</span>';
                     }
-                    if (step) step.textContent = res.message;
+                    if (step) step.textContent = r1.message;
+                    setEnrollStep(1, 'idle'); setEnrollHint('Échec capture 1 — réessaie.');
                     btn.disabled = false;
+                    return;
                 }
+                // Capture 1 validée
+                setEnrollStep(1, 'done'); setEnrollStep(2, 'active');
+                setEnrollProgress(50);
+                if (step) step.textContent = 'Capture 1 validée ✓ — retirez puis reposez le doigt…';
+                setEnrollHint('En attente du doigt (capture 2)…');
+                flash('Capture 1 validée.', 'success');
+                // ── CAPTURE 2 ──
+                const r2 = await api.enrollStep2(target.id, r1.slot);
+                if (!r2.ok) {
+                    if (icon) {
+                        icon.className = 'w-24 h-24 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-lg transition-colors duration-300';
+                        icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">error</span>';
+                    }
+                    if (step) step.textContent = r2.message;
+                    setEnrollStep(2, 'idle'); setEnrollHint('Échec capture 2 — reprends à la capture 1.');
+                    btn.disabled = false;
+                    return;
+                }
+                setEnrollStep(2, 'done'); setEnrollProgress(100);
+                if (icon) {
+                    icon.className = 'w-24 h-24 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-lg transition-colors duration-300';
+                    icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">check_circle</span>';
+                }
+                if (step) step.textContent = r2.message;
+                setEnrollHint('Enrôlement terminé.');
+                flash(r2.message, 'success');
+                btn.disabled = false;
+
+                // Mettre à jour la cible et rafraîchir le tableau
+                const updated = { ...target, empreinte: true };
+                selectEnrollTarget(updated);
+
+                setTimeout(() => {
+                    closeModal('modal-enroll');
+                    renderEmpreintes(true);
+                }, 1200);
             };
         }
     };

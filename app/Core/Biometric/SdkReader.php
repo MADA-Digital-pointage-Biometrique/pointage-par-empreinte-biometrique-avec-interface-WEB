@@ -147,9 +147,29 @@ class SdkReader implements FingerprintReader
 
     public function enroll(int $userId): string
     {
+        // Enrôlement complet en un appel (compat) = étape 1 + étape 2.
+        $slot = $this->enrollStep1($userId);
+        return $this->enrollStep2($userId, $slot);
+    }
+
+    /** Étape 1/2 : alloue le slot + 1re capture (bloque jusqu'au doigt ou timeout). */
+    public function enrollStep1(int $userId): int
+    {
         if ($userId < 1 || $userId > 9999) throw new \InvalidArgumentException("userId invalide $userId");
         $slot = $this->allocateSlot($userId);
-        $this->callPython('enroll', $slot);
+        $this->callPython('enroll1');
+        return $slot;
+    }
+
+    /** Étape 2/2 : retrait + 2e capture + fusion + stockage + gabarit réel. */
+    public function enrollStep2(int $userId, int $slot): string
+    {
+        if ($slot < 1 || $slot > 999) throw new \InvalidArgumentException("slot invalide $slot");
+        // Le slot doit appartenir à cet employé (anti-confusion inter-utilisateurs).
+        if ($this->getSlotForUser($userId) !== $slot) {
+            throw new \RuntimeException("Slot $slot non alloué à l'employé $userId (reprends à l'étape 1)");
+        }
+        $this->callPython('enroll2', $slot);
         // F5 : gabarit RÉEL via UP_CHAR (sauvegarde/audit). Si le dump échoue,
         // l'enrôlement reste valide côté capteur (marqueur de repli).
         try {

@@ -352,6 +352,38 @@ const api = {
         }
     },
 
+    // --- Enrôlement 2 étapes (temps réel : capture 1 puis capture 2) ---
+    async enrollStep1(userId) {
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('biometric.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ action: 'enroll_step1', userId }),
+                credentials: 'include'
+            });
+            return await res.json();
+        } catch (e) {
+            return { ok: false, message: 'Erreur capture 1.' };
+        }
+    },
+
+    async enrollStep2(userId, slot) {
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('biometric.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ action: 'enroll_step2', userId, slot }),
+                credentials: 'include'
+            });
+            const j = await res.json(); if (j.ok) { _clearCache('users'); }
+            return j;
+        } catch (e) {
+            return { ok: false, message: 'Erreur capture 2.' };
+        }
+    },
+
     async deleteFingerprint(userId) {
         try {
             const csrf = await this.getCsrfToken();

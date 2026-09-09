@@ -49,6 +49,39 @@ if ($method === 'POST') {
             } catch(Throwable $e) { $pdo->rollBack(); throw $e; }
             exit;
 
+        } else if ($action === 'enroll_step1') {
+            // Étape 1/2 : 1re capture (bloque jusqu'au doigt posé ou timeout R307).
+            if ($userId <=0) { echo json_encode(['ok'=>false,'message'=>'Identifiant employé invalide.']); exit; }
+            $empStmt = $pdo->prepare('SELECT prenom, nom, statut FROM employes WHERE id_employe=?');
+            $empStmt->execute([$userId]);
+            $emp = $empStmt->fetch();
+            if (!$emp) { echo json_encode(['ok'=>false,'message'=>'Employé introuvable.']); exit; }
+            if (($emp['statut']??'actif')!=='actif') { echo json_encode(['ok'=>false,'message'=>'Employé non actif.']); exit; }
+            $reader = SdkReader::fromConfig();
+            $slot = $reader->enrollStep1($userId);
+            auditLog($pdo,'enrolement_etape1',$userId,$slot,null,$reader->getDeviceId(),'capture 1 ok');
+            echo json_encode(['ok'=>true,'step'=>1,'slot'=>$slot,'message'=>"Capture 1 validée pour {$emp['prenom']} {$emp['nom']} — retirez puis reposez le doigt."]);
+            exit;
+
+        } else if ($action === 'enroll_step2') {
+            // Étape 2/2 : retrait + 2e capture + fusion + stockage + upsert BDD.
+            $slot = (int)($input['slot'] ?? 0);
+            if ($userId <=0 || $slot <=0) { echo json_encode(['ok'=>false,'message'=>'Étape 2 : employé/slot manquants (reprends à l’étape 1).']); exit; }
+            $reader = SdkReader::fromConfig();
+            $pdo->beginTransaction();
+            try {
+                $gabarit = $reader->enrollStep2($userId, $slot);
+                $chk = $pdo->prepare("SELECT id_biometrie FROM donnees_biometriques WHERE id_employe=? AND type_biometrie='empreinte' LIMIT 1");
+                $chk->execute([$userId]);
+                $ex = $chk->fetch();
+                if ($ex) $pdo->prepare("UPDATE donnees_biometriques SET gabarit_chiffre=?, date_enregistrement=NOW(), statut='actif' WHERE id_biometrie=?")->execute([$gabarit,$ex['id_biometrie']]);
+                else $pdo->prepare("INSERT INTO donnees_biometriques (id_employe, type_biometrie, gabarit_chiffre, date_enregistrement, statut) VALUES (?,'empreinte',?,NOW(),'actif')")->execute([$userId,$gabarit]);
+                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),'enroll 2 captures ok');
+                $pdo->commit();
+                echo json_encode(['ok'=>true,'step'=>2,'slot'=>$slot,'message'=>"Empreinte enrôlée (slot $slot) — 2 captures validées.",'gabarit'=>substr($gabarit,0,14).'…']);
+            } catch(Throwable $e) { $pdo->rollBack(); throw $e; }
+            exit;
+
         } else if ($action === 'scan') {
             // Scan avec création pointage atomique (super_admin uniquement ici; borne utilise borne_pointage.php)
             $reader = SdkReader::fromConfig();

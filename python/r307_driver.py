@@ -209,13 +209,23 @@ class R307:
         return struct.unpack('>H', resp[0:2])[0]
 
     def enroll(self, page_id, timeout=None):
+        # Enrôlement complet (compat : utilisé en un appel).
+        self.enroll_capture1(timeout=timeout)
+        self.enroll_capture2(page_id, timeout=timeout)
+        return page_id
+
+    def enroll_capture1(self, timeout=None):
+        # Étape 1/2 : 1re pose du doigt -> gabarit en CharBuffer1.
+        # Le buffer survit dans la RAM du capteur entre deux appels CLI.
         if timeout is None: timeout = self.timeout
-        # capture 1
         self.gen_img(timeout=timeout)
         self.img2tz(1)
-        # attend retrait doigt (au lieu de sleep 0.5)
+        return True
+
+    def enroll_capture2(self, page_id, timeout=None):
+        # Étape 2/2 : retrait doigt + 2e pose -> fusion + stockage page.
+        if timeout is None: timeout = self.timeout
         self.wait_finger_removed(timeout=timeout)
-        # capture 2
         self.gen_img(timeout=timeout)
         self.img2tz(2)
         self.reg_model()
