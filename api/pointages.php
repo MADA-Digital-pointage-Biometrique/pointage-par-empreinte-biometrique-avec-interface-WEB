@@ -35,8 +35,19 @@ if ($method === 'GET') {
         exit;
     }
     try {
-        $stmt = $pdo->query("
-            SELECT 
+        // PERF : ?today=1 restreint au jour (plage indexée) au lieu d'agréger
+        // tout l'historique — utilisé par la table "derniers pointages" du dashboard.
+        $todayOnly = isset($_GET['today']) && $_GET['today'] !== '0' && $_GET['today'] !== '';
+        $where = '';
+        $params = [];
+        if ($todayOnly) {
+            $d1 = date('Y-m-d') . ' 00:00:00';
+            $d2 = date('Y-m-d', strtotime('+1 day')) . ' 00:00:00';
+            $where = 'WHERE p.date_heure >= ? AND p.date_heure < ?';
+            $params = [$d1, $d2];
+        }
+        $stmt = $pdo->prepare("
+            SELECT
                 MIN(p.id_pointage) AS id,
                 p.id_employe AS user_id,
                 (p.date_heure::date) AS date,
@@ -49,10 +60,12 @@ if ($method === 'GET') {
             FROM pointages p
             LEFT JOIN employes e ON p.id_employe = e.id_employe
             LEFT JOIN departements d ON e.id_departement = d.id_departement
+            $where
             GROUP BY p.id_employe, p.date_heure::date
             ORDER BY date DESC, entree DESC
             LIMIT 200
         ");
+        $stmt->execute($params);
         $rows = $stmt->fetchAll();
         $pointages = [];
         foreach ($rows as $r) {

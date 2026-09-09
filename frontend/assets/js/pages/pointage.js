@@ -155,7 +155,7 @@ async function renderHistoryTable(forceFetch = false) {
     if (forceFetch || !cachedPointagesDb) {
         const [users, pointages] = await Promise.all([
             api.getUsers(),
-            api.getTodayPointages()
+            api.getAllPointages()
         ]);
         cachedPointagesDb = { users, pointages };
     }

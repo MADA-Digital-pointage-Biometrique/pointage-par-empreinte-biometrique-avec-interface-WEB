@@ -9,57 +9,48 @@ if (!isset($_SESSION['user_id'])) {
 
 $pdo = getDB();
 $today = date('Y-m-d');
+$dayStart = $today . ' 00:00:00';
+$dayEnd = date('Y-m-d', strtotime($today . ' +1 day')) . ' 00:00:00';
 
 try {
-    // Total employes
-    $totalStmt = $pdo->query("SELECT COUNT(*) FROM employes WHERE statut = 'actif'");
-    $total = (int) $totalStmt->fetchColumn();
-
-    // Today pointages
-    $ptsStmt = $pdo->prepare("
-        SELECT 
-            p.id_pointage,
-            p.id_employe,
-            p.type_pointage,
-            TO_CHAR(p.date_heure, 'HH24:MI:SS') as heure
-        FROM pointages p
-        WHERE p.date_heure::date = ?
+    // PERF : 1 seul aller-retour pour tous les agrégats (plages >= / < sur
+    // idx_pointages_date au lieu de date_heure::date qui tuait l'index).
+    $agg = $pdo->prepare("
+        SELECT
+            (SELECT COUNT(*) FROM employes WHERE statut = 'actif') AS total,
+            (SELECT COUNT(*) FROM pointages
+              WHERE date_heure >= ? AND date_heure < ? AND type_pointage = 'entree') AS entrees,
+            (SELECT COUNT(*) FROM pointages
+              WHERE date_heure >= ? AND date_heure < ? AND type_pointage = 'sortie') AS sorties,
+            (SELECT COUNT(DISTINCT id_employe) FROM pointages
+              WHERE date_heure >= ? AND date_heure < ? AND type_pointage = 'entree') AS presents,
+            (SELECT COUNT(*) FROM (
+                SELECT id_employe FROM pointages
+                WHERE date_heure >= ? AND date_heure < ? AND type_pointage = 'entree'
+                GROUP BY id_employe
+                HAVING MIN(TO_CHAR(date_heure, 'HH24:MI:SS')) > '08:30:00'
+            ) r) AS retards
     ");
-    $ptsStmt->execute([$today]);
-    $pointages = $ptsStmt->fetchAll();
-
-    $entrees = 0;
-    $sorties = 0;
-    $retards = 0;
-    $heureDebut = '08:30:00';
-
-    $userEntrees = [];
-    foreach ($pointages as $p) {
-        if ($p['type_pointage'] === 'entree') {
-            $entrees++;
-            if (!isset($userEntrees[$p['id_employe']])) {
-                $userEntrees[$p['id_employe']] = $p['heure'];
-                if ($p['heure'] > $heureDebut) {
-                    $retards++;
-                }
-            }
-        } elseif ($p['type_pointage'] === 'sortie') {
-            $sorties++;
-        }
-    }
+    $agg->execute([$dayStart, $dayEnd, $dayStart, $dayEnd, $dayStart, $dayEnd, $dayStart, $dayEnd]);
+    $a = $agg->fetch() ?: [];
+    $total = (int)($a['total'] ?? 0);
+    $entrees = (int)($a['entrees'] ?? 0);
+    $sorties = (int)($a['sorties'] ?? 0);
+    $presents = (int)($a['presents'] ?? 0);
+    $retards = (int)($a['retards'] ?? 0);
 
     $isSunday = (date('N', strtotime($today)) == 7);
-    $absents = $isSunday ? 0 : max(0, $total - count($userEntrees));
+    $absents = $isSunday ? 0 : max(0, $total - $presents);
 
-    // Hourly activity (PG compatible)
+    // Activité horaire (2e et dernier aller-retour)
     $activityStmt = $pdo->prepare("
         SELECT EXTRACT(HOUR FROM date_heure)::int as h, COUNT(*) as count
         FROM pointages
-        WHERE date_heure::date = ?
+        WHERE date_heure >= ? AND date_heure < ?
         GROUP BY EXTRACT(HOUR FROM date_heure)
         ORDER BY h ASC
     ");
-    $activityStmt->execute([$today]);
+    $activityStmt->execute([$dayStart, $dayEnd]);
     $actRows = $activityStmt->fetchAll();
 
     $actMap = [];

@@ -142,25 +142,28 @@ const api = {
         }
     },
 
-    // --- Tableau de bord (cache 15s Supabase) ---
+    // --- Tableau de bord (1 seul fetch dashboard.php / 15s, partagé stats+activité) ---
+    async _getDashboardBundle() {
+        const c = _getCache('dashAll', 15000); if (c) return c;
+        const res = await fetch(getApiEndpoint('dashboard.php'), { credentials: 'include' });
+        if (res.status === 401) handleUnauthorized(res);
+        const data = await res.json();
+        if (data.ok) { _setCache('dashAll', data); return data; }
+        throw new Error(data.message || 'Dashboard indisponible');
+    },
+
     async getDashboardStats() {
-        const c = _getCache('dashStats', 15000); if (c) return c;
         try {
-            const res = await fetch(getApiEndpoint('dashboard.php'), { credentials: 'include' });
-            if (res.status === 401) handleUnauthorized(res);
-            const data = await res.json();
-            if (data.ok && data.stats) { _setCache('dashStats', data.stats); return data.stats; }
+            const data = await this._getDashboardBundle();
+            if (data.stats) return data.stats;
         } catch (e) { if (e.message==='Session expirée') throw e; }
         return { total: 0, entrees: 0, sorties: 0, retards: 0, absents: 0, evenements: 0 };
     },
 
     async getActivity() {
-        const c = _getCache('dashAct', 15000); if (c) return c;
         try {
-            const res = await fetch(getApiEndpoint('dashboard.php'), { credentials: 'include' });
-            if (res.status === 401) handleUnauthorized(res);
-            const data = await res.json();
-            if (data.ok && data.activite) { _setCache('dashAct', data.activite); return data.activite; }
+            const data = await this._getDashboardBundle();
+            if (data.activite) return data.activite;
         } catch (e) { if (e.message==='Session expirée') throw e; }
         return [
             { heure: '06h', count: 0, height: 0 },
@@ -174,10 +177,23 @@ const api = {
     async getTodayPointages() {
         const c = _getCache('pointages', 10000); if (c) return c;
         try {
-            const res = await fetch(getApiEndpoint('pointages.php'), { credentials: 'include' });
+            // today=1 : seul le jour courant, pas tout l'historique (PERF dashboard)
+            const res = await fetch(getApiEndpoint('pointages.php?today=1'), { credentials: 'include' });
             if (res.status === 401) handleUnauthorized(res);
             const data = await res.json();
             if (data.ok && data.pointages) { _setCache('pointages', data.pointages); return data.pointages; }
+        } catch (e) { if (e.message==='Session expirée') throw e; }
+        return [];
+    },
+
+    // Historique complet (historique.js, pointage.js) — cache 30s, liste entière.
+    async getAllPointages() {
+        const c = _getCache('pointagesAll', 30000); if (c) return c;
+        try {
+            const res = await fetch(getApiEndpoint('pointages.php'), { credentials: 'include' });
+            if (res.status === 401) handleUnauthorized(res);
+            const data = await res.json();
+            if (data.ok && data.pointages) { _setCache('pointagesAll', data.pointages); return data.pointages; }
         } catch (e) { if (e.message==='Session expirée') throw e; }
         return [];
     },
@@ -191,7 +207,7 @@ const api = {
                 body: JSON.stringify(data),
                 credentials: 'include'
             });
-            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('dashStats'); }
+            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('pointagesAll'); _clearCache('dashAll'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de l\'ajout du pointage.' };
@@ -207,7 +223,7 @@ const api = {
                 body: JSON.stringify({ id, ...data }),
                 credentials: 'include'
             });
-            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('dashStats'); }
+            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('pointagesAll'); _clearCache('dashAll'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de la mise à jour du pointage.' };
@@ -223,7 +239,7 @@ const api = {
                 body: JSON.stringify({ id }),
                 credentials: 'include'
             });
-            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('dashStats'); }
+            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('pointagesAll'); _clearCache('dashAll'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de la suppression du pointage.' };
@@ -281,7 +297,7 @@ const api = {
             const headers = {};
             if (csrf) headers['X-CSRF-Token'] = csrf;
             const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd, credentials: 'include' });
-            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashStats'); }
+            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashAll'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de l\'ajout de l\'employé.' };
@@ -312,7 +328,7 @@ const api = {
                 });
                 j = await res.json();
             }
-            if (j && j.ok) { _clearCache('users'); _clearCache('dashStats'); }
+            if (j && j.ok) { _clearCache('users'); _clearCache('dashAll'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur de mise à jour.' };
@@ -328,7 +344,7 @@ const api = {
                 body: JSON.stringify({ id }),
                 credentials: 'include'
             });
-            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashStats'); _clearCache('pointages'); }
+            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashAll'); _clearCache('pointages'); _clearCache('pointagesAll'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de la suppression.' };

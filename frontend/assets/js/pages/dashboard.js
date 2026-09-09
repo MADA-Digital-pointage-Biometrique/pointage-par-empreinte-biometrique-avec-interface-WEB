@@ -8,17 +8,9 @@ let trendChartInstance = null;
 let hoursChartInstance = null;
 
 function loadChartJS() {
-    return new Promise((resolve) => {
-        if (window.Chart) {
-            resolve();
-            return;
-        }
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-        script.onload = () => resolve();
-        script.onerror = () => resolve();
-        document.head.appendChild(script);
-    });
+    // Chart.js est vendu en local (assets/js/vendor/chart.umd.min.js, chargé
+    // par dashboard.php). Pas de fallback CDN : bloqué par script-src 'self'.
+    return Promise.resolve();
 }
 
 function initials(user) {
@@ -264,38 +256,38 @@ async function initPage() {
         todayEl.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1) + ' — Analytics de présence en direct';
     }
 
-    // Load Stats, Pointages, Activity & Chart.js in PARALLEL
-    const [stats, todayList, bars] = await Promise.all([
-        api.getDashboardStats(),
-        api.getTodayPointages(),
-        api.getActivity(),
-        loadChartJS()
-    ]);
+    // PERF : rendu PROGRESSIF — chaque bloc s'affiche dès que ses données
+    // arrivent (pas d'attente globale). Les graphiques statiques partent
+    // dès Chart.js prêt (~200ms), KPIs/table/bars suivent au fil de l'API.
+    const pCharts = loadChartJS().then(() => {
+        renderTrendChart('7d');
+        renderHoursWorkedChart();
+    });
 
-    const totalEl = document.getElementById('kpi-total');
-    const presentsEl = document.getElementById('kpi-presents');
-    const absentsEl = document.getElementById('kpi-absents');
-    const retardsEl = document.getElementById('kpi-retards');
-    const pctEl = document.getElementById('kpi-pct');
-    const donutCenterPct = document.getElementById('donut-center-pct');
+    const pStats = api.getDashboardStats().then((stats) => {
+        const totalEl = document.getElementById('kpi-total');
+        const presentsEl = document.getElementById('kpi-presents');
+        const absentsEl = document.getElementById('kpi-absents');
+        const retardsEl = document.getElementById('kpi-retards');
+        const pctEl = document.getElementById('kpi-pct');
+        const donutCenterPct = document.getElementById('donut-center-pct');
 
-    const pct = stats && stats.total > 0 ? Math.round((stats.entrees / stats.total) * 100) : 0;
+        const pct = stats && stats.total > 0 ? Math.round((stats.entrees / stats.total) * 100) : 0;
 
-    if (totalEl) totalEl.textContent = stats ? stats.total : 0;
-    if (presentsEl) presentsEl.textContent = stats ? stats.entrees : 0;
-    if (absentsEl) absentsEl.textContent = stats ? stats.absents : 0;
-    if (retardsEl) retardsEl.textContent = stats ? stats.retards : 0;
-    if (pctEl) pctEl.textContent = pct + '%';
-    if (donutCenterPct) donutCenterPct.textContent = pct + '%';
+        if (totalEl) totalEl.textContent = stats ? stats.total : 0;
+        if (presentsEl) presentsEl.textContent = stats ? stats.entrees : 0;
+        if (absentsEl) absentsEl.textContent = stats ? stats.absents : 0;
+        if (retardsEl) retardsEl.textContent = stats ? stats.retards : 0;
+        if (pctEl) pctEl.textContent = pct + '%';
+        if (donutCenterPct) donutCenterPct.textContent = pct + '%';
 
-    // Sidebar counter badge
-    const badgeEmp = document.getElementById('badge-count-emp');
-    if (badgeEmp && stats) badgeEmp.textContent = stats.total;
+        // Sidebar counter badge
+        const badgeEmp = document.getElementById('badge-count-emp');
+        if (badgeEmp && stats) badgeEmp.textContent = stats.total;
 
-    // Render Charts
-    if (stats) renderDonutChart(stats.entrees, stats.retards, stats.absents);
-    renderTrendChart('7d');
-    renderHoursWorkedChart();
+        // Render Charts
+        if (stats) renderDonutChart(stats.entrees, stats.retards, stats.absents);
+    });
 
     // Trend Chart Filter buttons
     document.querySelectorAll('#chart-trend-selector .trend-btn').forEach(btn => {
@@ -311,11 +303,13 @@ async function initPage() {
     });
 
     // Render Recent Pointages Table
-    const tbody = document.getElementById('today-table-body');
-    if (tbody) {
-        tbody.innerHTML = (todayList || []).map(rowHTML).join('')
-            || '<tr><td colspan="5" class="py-lg px-md text-center text-slate-400">Aucun pointage pour le moment aujourd\'hui.</td></tr>';
-    }
+    const pList = api.getTodayPointages().then((todayList) => {
+        const tbody = document.getElementById('today-table-body');
+        if (tbody) {
+            tbody.innerHTML = (todayList || []).map(rowHTML).join('')
+                || '<tr><td colspan="5" class="py-lg px-md text-center text-slate-400">Aucun pointage pour le moment aujourd\'hui.</td></tr>';
+        }
+    });
 
     // Period Menu Buttons Interaction
     document.querySelectorAll('#dashboard-period-menu .filter-pill').forEach(btn => {
@@ -327,6 +321,7 @@ async function initPage() {
     });
 
     // Render Activity Chart Bars (Hourly Peak)
+    const pBars = api.getActivity().then((bars) => {
     try {
         if (Array.isArray(bars) && bars.length > 0) {
             const maxCount = Math.max(...bars.map(b => (b && b.count) ? b.count : 0), 1);
@@ -349,6 +344,9 @@ async function initPage() {
     } catch (errAct) {
         console.warn('Activity chart error:', errAct);
     }
+    });
+
+    await Promise.allSettled([pCharts, pStats, pList, pBars]);
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};

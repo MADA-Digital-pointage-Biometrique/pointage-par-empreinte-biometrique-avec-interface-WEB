@@ -151,7 +151,7 @@ async function renderHistory(forceFetch = false) {
     if (forceFetch || !cachedHistoriqueDb) {
         const [users, pointages] = await Promise.all([
             api.getUsers(),
-            api.getTodayPointages()
+            api.getAllPointages()
         ]);
         cachedHistoriqueDb = { users, pointages };
     }
@@ -229,7 +229,7 @@ async function exportCSV() {
     const currentUser = api.getCurrentUser() || { prenom: 'Admin', nom: 'Système' };
     const [users, pointages] = await Promise.all([
         api.getUsers(),
-        api.getTodayPointages()
+        api.getAllPointages()
     ]);
     const db = { users, pointages };
     const records = filterRecords(db);
