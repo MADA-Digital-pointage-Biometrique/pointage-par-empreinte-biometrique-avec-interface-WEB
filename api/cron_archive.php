@@ -9,13 +9,12 @@ $key = $_GET['key'] ?? $_POST['key'] ?? '';
 // C2 : fail-closed — sans CRON_SECRET configuré, refus (pas de fallback devinable).
 $expected = getenv('CRON_SECRET') ?: '';
 
-// Autorise appel sans clé si cli ou si depuis localhost + super_admin
-$isLocal = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1','::1']);
+// H1 : la clé est TOUJOURS exigée en HTTP (même localhost, même session admin) —
+// l'ancien code laissait passer 127.0.0.1 sans clé et toute session sans clé.
+// Seul le CLI (tâche planifiée serveur) en est dispensé. Comparaison constante.
 $isCli = php_sapi_name() === 'cli';
-
-if (!$isCli && !$isLocal && $key !== $expected && !isset($_SESSION['user_id'])) {
-    // Si appel HTTP sans clé et sans session, on exige la clé
-    if ($key !== $expected) {
+if (!$isCli) {
+    if ($expected === '' || !hash_equals($expected, (string)$key)) {
         http_response_code(403);
         echo json_encode(['ok'=>false,'message'=>'Clé cron invalide']);
         exit;
