@@ -1,11 +1,12 @@
 <?php
 // Route borne dédiée : POST sans session admin, auth par X-Device-Token (env BORNE_TOKEN) ou IP allowlist
 require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
+// SdkReader chargé APRÈS les gates auth/anti-rejeu (évite fatal + paths leak avant 401).
 use App\Core\Biometric\SdkReader;
 
-// CSRF exempt pour borne (ajouté à api/db.php)
-$token = $_SERVER['HTTP_X_DEVICE_TOKEN'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? getJsonInput()['device_token'] ?? '';
+// CSRF exempt pour borne (ajouté à api/db.php) — token par header UNIQUEMENT
+// (jamais dans le body JSON : loggable/cachable par proxies).
+$token = $_SERVER['HTTP_X_DEVICE_TOKEN'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
 // C2 : fail-closed — sans BORNE_TOKEN configuré, TOUT est refusé (pas de fallback devinable).
 $expected = getenv('BORNE_TOKEN') ?: '';
 if ($expected === '') {
@@ -14,15 +15,39 @@ if ($expected === '') {
 if (!hash_equals($expected, trim(str_replace('Bearer ','',$token)))) {
     http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Borne non authentifiée (X-Device-Token)']); exit;
 }
-// Rate limit simple par IP (1 req/s)
+// H4 : anti-rejeu (ts ±120s + nonce usage unique) + rate-limit (0.8s min + 20 req/min/IP).
+$input0 = getJsonInput();
+$ts = (int)($input0['ts'] ?? 0);
+if ($ts <= 0 || abs(time() - $ts) > 120) {
+    http_response_code(400); echo json_encode(['ok'=>false,'message'=>'Requête expirée (ts hors fenêtre ±120s)']); exit;
+}
+$nonce = (string)($input0['nonce'] ?? '');
+if ($nonce === '' || strlen($nonce) > 128) {
+    http_response_code(400); echo json_encode(['ok'=>false,'message'=>'Nonce manquant']); exit;
+}
+$nonceFile = sys_get_temp_dir().'/borne_nonce_'.sha1($nonce).'.json';
+if (file_exists($nonceFile)) {
+    $nd = json_decode(@file_get_contents($nonceFile), true);
+    if (is_array($nd) && ($nd['exp'] ?? 0) > time()) {
+        http_response_code(409); echo json_encode(['ok'=>false,'message'=>'Requête déjà traitée (rejeu)']); exit;
+    }
+}
+@file_put_contents($nonceFile, json_encode(['exp' => time() + 300]), LOCK_EX);
+// Rate limit par IP : écart min 0.8s + fenêtre glissante 20 req/min
 $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 $rlFile = sys_get_temp_dir().'/borne_rl_'.md5($ip).'.json';
-$now=microtime(true); $last=0; if(file_exists($rlFile)) $last=(float)@json_decode(@file_get_contents($rlFile),true)['t']??0;
-if($now-$last < 0.8){ http_response_code(429); echo json_encode(['ok'=>false,'message'=>'Trop de requêtes']); exit; }
-@file_put_contents($rlFile, json_encode(['t'=>$now]));
+$now=microtime(true); $hits=[];
+if (file_exists($rlFile)) { $hits = json_decode(@file_get_contents($rlFile), true) ?: []; if (!is_array($hits)) $hits = [$hits]; }
+$hits = array_values(array_filter($hits, fn($t) => ($now - (float)$t) < 60));
+$last = empty($hits) ? 0 : max(array_map('floatval', $hits));
+if ($now - $last < 0.8 || count($hits) >= 20) { http_response_code(429); echo json_encode(['ok'=>false,'message'=>'Trop de requêtes']); exit; }
+$hits[] = $now;
+@file_put_contents($rlFile, json_encode($hits), LOCK_EX);
 
 $pdo=getDB();
 try {
+    require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
+    require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
     $reader = SdkReader::fromConfig();
     $res = $reader->scanWithScore();
     if (!$res) { http_response_code(404); echo json_encode(['ok'=>false,'message'=>'Aucune empreinte']); exit; }
