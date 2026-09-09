@@ -34,13 +34,6 @@ const NAV_SECTIONS = [
     }
 ];
 
-// Sample System Notifications
-let notificationsList = [
-    { id: 1, title: 'Pointage à l\'heure', time: 'Il y a 5 min', text: 'EMP001 (Marc Dubois) a pointé à 08:02', read: false, icon: 'check_circle', color: 'text-[#F46A21]' },
-    { id: 2, title: 'Nouvel enrôlement', time: 'Il y a 25 min', text: 'Empreinte enregistrée pour ADM001', read: false, icon: 'fingerprint', color: 'text-[#F46A21]' },
-    { id: 3, title: 'Retard détecté', time: 'Hier à 08:45', text: 'EMP002 (Sophie Martin) a pointé en retard', read: true, icon: 'warning', color: 'text-amber-500' }
-];
-
 // ----------------------------------------------------
 // SIDEBAR RÉDUCTIBLE (bureau uniquement, md+)
 // ----------------------------------------------------
@@ -394,35 +387,7 @@ function renderTopbarSlot(pageName) {
                     <span id="topbar-clock">--:--:--</span>
                 </div>
 
-                <!-- 1. NOTIFICATIONS DROPDOWN MENU -->
-                <div class="relative" id="menu-notifications-container">
-                    <button class="text-slate-600 dark:text-slate-300 hover:text-[#F46A21] hover:bg-slate-100 dark:hover:bg-stone-800 transition-colors cursor-pointer relative p-2 rounded-xl" id="btn-toggle-notifs" title="Notifications">
-                        ${icon('notifications', 22)}
-                        <span id="notif-badge-dot" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#F46A21] border-2 border-white dark:border-stone-900 rounded-full"></span>
-                    </button>
-
-                    <!-- Notification Dropdown Panel -->
-                    <div id="dropdown-notifs" class="hidden absolute right-0 top-full mt-2 w-80 md:w-96 bg-white dark:bg-stone-900 text-[#303030] dark:text-slate-100 rounded-2xl menu-dropdown-panel z-50 overflow-hidden">
-                        <div class="relative px-md py-sm border-b border-slate-100 dark:border-stone-800 flex items-center justify-between bg-gradient-to-r from-[#FFF1E8] via-white to-white dark:from-stone-800 dark:via-stone-900 dark:to-stone-900">
-                            <div class="flex items-center gap-xs font-semibold text-[14px]">
-                                <div class="w-8 h-8 rounded-xl bg-white dark:bg-stone-900 text-[#F46A21] dark:text-[#F9AE3F] flex items-center justify-center shadow-sm">
-                                    ${icon('notifications', 18)}
-                                </div>
-                                <span>Notifications</span>
-                                <span id="notif-count-pill" class="bg-[#F46A21] text-white dark:bg-orange-950/60 dark:text-[#F9AE3F] text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">3</span>
-                            </div>
-                            <button id="btn-clear-notifs" class="text-[11px] text-[#F46A21] hover:text-[#EA580C] font-semibold hover:underline cursor-pointer transition-colors">Tout marquer lu</button>
-                        </div>
-                        <div id="notif-list-body" class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800/60">
-                            <!-- Populated dynamically -->
-                        </div>
-                        <div class="p-2 border-t border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-800/30">
-                            <a href="pointage.php" class="block w-full text-center py-2 rounded-xl text-[12px] font-semibold text-[#F46A21] hover:bg-[#FFF1E8] dark:hover:bg-orange-950/40 transition-colors">Voir l'historique complet</a>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2. USER PROFILE DROPDOWN MENU -->
+                <!-- 1. USER PROFILE DROPDOWN MENU -->
                 <div class="relative ml-xs border-l border-slate-200 dark:border-stone-800 pl-md" id="menu-user-container">
                     <button class="flex items-center gap-2 group cursor-pointer focus:outline-none" id="btn-toggle-user-menu">
                         <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[13px] border-2 border-white dark:border-stone-800 shadow-md group-hover:scale-105 transition-transform" id="top-avatar">
@@ -498,34 +463,14 @@ function startLiveClock() {
     }, 1000);
 }
 function setupDropdownMenus() {
-    const notifBtn = document.getElementById('btn-toggle-notifs');
-    const notifDropdown = document.getElementById('dropdown-notifs');
-
     const userMenuBtn = document.getElementById('btn-toggle-user-menu');
     const userMenuDropdown = document.getElementById('dropdown-user-menu');
 
-    const allDropdowns = [notifDropdown, userMenuDropdown];
+    const allDropdowns = [userMenuDropdown];
 
     function hideAllDropdownsExcept(except) {
         allDropdowns.forEach(d => {
             if (d && d !== except) d.classList.add('hidden');
-        });
-    }
-
-    if (notifBtn && notifDropdown) {
-        renderNotificationItems();
-        notifBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isHidden = notifDropdown.classList.contains('hidden');
-            hideAllDropdownsExcept(notifDropdown);
-            notifDropdown.classList.toggle('hidden', !isHidden);
-        });
-
-        document.getElementById('btn-clear-notifs')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            notificationsList.forEach(n => n.read = true);
-            renderNotificationItems();
-            flash('Toutes les notifications ont été marquées comme lues.', 'info');
         });
     }
 
@@ -546,33 +491,6 @@ document.getElementById('btn-menu-logout')?.addEventListener('click', performLog
             hideAllDropdownsExcept(null);
         }
     });
-}
-
-function renderNotificationItems() {
-    const body = document.getElementById('notif-list-body');
-    const badgeDot = document.getElementById('notif-badge-dot');
-    const countPill = document.getElementById('notif-count-pill');
-    if (!body) return;
-
-    const unreadCount = notificationsList.filter(n => !n.read).length;
-    if (badgeDot) badgeDot.style.display = unreadCount > 0 ? 'block' : 'none';
-    if (countPill) countPill.textContent = unreadCount;
-
-    body.innerHTML = notificationsList.map(n => `
-        <div class="relative flex items-start gap-sm p-md transition-colors hover:bg-slate-50 dark:hover:bg-stone-800/50 ${n.read ? 'opacity-55' : 'bg-[#FFF1E8]/60 dark:bg-orange-950/20'}">
-            ${!n.read ? '<span class="absolute left-0 top-3 bottom-3 w-1 rounded-r bg-[#F46A21]"></span>' : ''}
-            <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-stone-800 flex items-center justify-center flex-shrink-0 ${n.color}">
-                ${icon(n.icon, 20)}
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between gap-sm">
-                    <span class="font-semibold text-[13px] text-slate-800 dark:text-slate-100 truncate">${n.title}</span>
-                    <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">${n.time}</span>
-                </div>
-                <p class="text-[12px] text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">${n.text}</p>
-            </div>
-        </div>
-    `).join('');
 }
 
 // Live Quick Search Dropdown
