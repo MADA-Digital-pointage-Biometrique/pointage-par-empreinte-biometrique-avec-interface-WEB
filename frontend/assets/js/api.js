@@ -82,8 +82,16 @@ const api = {
 
     async logout() {
         try {
-            await fetch(getApiEndpoint('logout.php'), { method: 'POST', credentials: 'include', cache: 'no-store' });
+            // M3 : logout protégé CSRF comme les autres POST (plus d'exemption).
+            // M4 : _csrfToken purgé (aucun token d'ancienne session ne survit).
+            const csrf = await this.getCsrfToken();
+            await fetch(getApiEndpoint('logout.php'), {
+                method: 'POST', credentials: 'include', cache: 'no-store',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({})
+            });
         } catch (e) {}
+        _csrfToken = null;
         try { sessionStorage.clear(); } catch {}
         try { localStorage.removeItem('mada_user_session'); } catch {}
         storage.remove(SESSION_KEY);

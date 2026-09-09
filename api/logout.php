@@ -20,5 +20,11 @@ if (ini_get("session.use_cookies")) {
     ]);
 }
 session_destroy();
+// M3 : repart sur une session vierge à ID neuf (l'ancien PHPSESSID ne ressuscite jamais).
+session_start();
+session_regenerate_id(true);
+$_SESSION['session_created'] = time();
+$_SESSION['last_activity'] = time();
+$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
 echo json_encode(['ok' => true, 'message' => 'Déconnexion réussie.']);

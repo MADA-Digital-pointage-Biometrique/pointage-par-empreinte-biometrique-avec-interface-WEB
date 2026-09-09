@@ -125,7 +125,8 @@ function getJsonInput(): array {
 // sensor_status : GET uniquement, le contrôle ne s'applique pas.
 // H2 : sensor_mode.php N'EST PLUS exempté (POST admin) — le JS envoie X-CSRF-Token.
 $__method = $_SERVER['REQUEST_METHOD'] ?? '';
-$__csrfExempt = ['/api/login.php', '/api/logout.php', '/api/csrf.php', '/api/me.php', '/api/sensor_status.php', '/api/borne_pointage.php', '/api/sync_offline.php'];
+// M3 : logout.php N'EST PLUS exempté (le JS envoie X-CSRF-Token, anti-déconnexion forcée).
+$__csrfExempt = ['/api/login.php', '/api/csrf.php', '/api/me.php', '/api/sensor_status.php', '/api/borne_pointage.php', '/api/sync_offline.php'];
 $__requestUri = $_SERVER['REQUEST_URI'] ?? '';
 $__scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
 $__isExempt = false;
