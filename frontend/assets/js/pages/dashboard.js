@@ -76,13 +76,19 @@ function renderDonutChart(presents, retards, absents) {
     if (legR) legR.textContent = retards;
     if (legA) legA.textContent = absents;
 
+    // Données vides (0,0,0) : Chart.js ne dessine RIEN → anneau gris de
+    // substitution pour que le donut reste visible (avec son animation).
+    const values = [Math.max(0, presents - retards), retards, absents];
+    const isEmpty = values.every(v => !v || v <= 0);
     donutChartInstance = new Chart(canvas, {
         type: 'doughnut',
         data: {
-            labels: ["À l'heure", 'En retard', 'Absents'],
+            labels: isEmpty ? ['Aucune donnée'] : ["À l'heure", 'En retard', 'Absents'],
             datasets: [{
-                data: [Math.max(0, presents - retards), retards, absents],
-                backgroundColor: ['#10B981', '#F59E0B', '#F43F5E'],
+                data: isEmpty ? [1] : values,
+                backgroundColor: isEmpty
+                    ? [isDark ? '#374151' : '#E5E7EB']
+                    : ['#10B981', '#F59E0B', '#F43F5E'],
                 borderWidth: 3,
                 borderColor: isDark ? '#1F2937' : '#FFFFFF',
                 hoverOffset: 4
