@@ -61,23 +61,20 @@ try {
     $stmt->execute(['mat1' => $matricule, 'mat2' => $matricule]);
     $user = $stmt->fetch();
 
-    if (!$user || empty($user['id_utilisateur'])) {
-        $attempts['count']++; @file_put_contents($attemptFile, json_encode($attempts), LOCK_EX);
-        http_response_code(401);
-        echo json_encode(['ok' => false, 'message' => 'Matricule ou mot de passe incorrect.']);
-        exit;
-    }
+    // C3 : anti-énumération — TOUS les échecs (inconnu, MDP faux, inactif,
+    // rôle non autorisé) retournent le MÊME code + message. Le verify tourne
+    // toujours (hash factice si inconnu) pour un timing comparable.
+    $userExists = ($user && !empty($user['id_utilisateur']));
+    $dummyHash = '$2y$10$usesomesillystringfore7hnbRJHxXVLeLyQ6F9GB5Q7e9M9u';
+    $hash = $userExists ? $user['mot_de_passe_hash'] : $dummyHash;
+    $validPassword = @password_verify($password, $hash);
 
-    if (isset($user['user_statut']) && $user['user_statut'] !== 'actif') {
-        http_response_code(403);
-        echo json_encode(['ok' => false, 'message' => 'Ce compte est inactif ou suspendu.']);
-        exit;
-    }
+    $allowedRoles = ['admin_systeme', 'admin', 'super_admin'];
+    $loginOk = $userExists && $validPassword
+        && (!isset($user['user_statut']) || $user['user_statut'] === 'actif')
+        && in_array($user['role'], $allowedRoles);
 
-    $hash = $user['mot_de_passe_hash'];
-    $validPassword = password_verify($password, $hash);
-
-    if (!$validPassword) {
+    if (!$loginOk) {
         $attempts['count']++; @file_put_contents($attemptFile, json_encode($attempts), LOCK_EX);
         http_response_code(401);
         echo json_encode(['ok' => false, 'message' => 'Matricule ou mot de passe incorrect.']);
@@ -85,13 +82,6 @@ try {
     }
     // Succès : reset compteur
     if (file_exists($attemptFile)) @unlink($attemptFile);
-
-    $allowedRoles = ['admin_systeme', 'admin', 'super_admin'];
-    if (!in_array($user['role'], $allowedRoles)) {
-        http_response_code(403);
-        echo json_encode(['ok' => false, 'message' => "Accès réservé. Les employés n'ont pas de compte d'accès au tableau de bord."]);
-        exit;
-    }
 
     // Update derniere_connexion timestamp in database
     try {
