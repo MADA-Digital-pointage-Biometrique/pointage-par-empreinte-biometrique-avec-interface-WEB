@@ -866,6 +866,8 @@ function toggleDarkMode() {
     // force reflow puis retire le flag → pas d'animation lourde sur 300+ éléments
     void html.offsetHeight;
     requestAnimationFrame(() => html.classList.remove('theme-switching'));
+    // Les canvas Chart.js ne suivent pas le thème seuls → les pages réécoutent.
+    document.dispatchEvent(new CustomEvent('mada:themeChanged', { detail: { dark: isDark } }));
 
     // Re-render Charts instantanément avec les bonnes couleurs
     try {

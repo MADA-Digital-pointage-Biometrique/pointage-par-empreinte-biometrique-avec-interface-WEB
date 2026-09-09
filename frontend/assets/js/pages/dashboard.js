@@ -6,6 +6,15 @@
 let donutChartInstance = null;
 let trendChartInstance = null;
 let hoursChartInstance = null;
+let lastDashStats = null;
+let currentTrendView = '7d';
+
+function _onThemeChanged() {
+    // Re-rend les canvas avec la palette du thème courant (anneau donut, axes).
+    if (lastDashStats) renderDonutChart(lastDashStats.entrees, lastDashStats.retards, lastDashStats.absents);
+    renderTrendChart(currentTrendView);
+    renderHoursWorkedChart();
+}
 
 function loadChartJS() {
     // Chart.js est vendu en local (assets/js/vendor/chart.umd.min.js, chargé
@@ -270,7 +279,11 @@ async function initPage() {
         renderHoursWorkedChart();
     });
 
+    document.removeEventListener('mada:themeChanged', _onThemeChanged);
+    document.addEventListener('mada:themeChanged', _onThemeChanged);
+
     const pStats = api.getDashboardStats().then((stats) => {
+        lastDashStats = stats;
         const totalEl = document.getElementById('kpi-total');
         const presentsEl = document.getElementById('kpi-presents');
         const absentsEl = document.getElementById('kpi-absents');
@@ -304,7 +317,8 @@ async function initPage() {
             });
             btn.classList.add('active', 'bg-[#F46A21]', 'text-white');
             btn.classList.remove('text-slate-600', 'dark:text-stone-400');
-            renderTrendChart(btn.dataset.view);
+            currentTrendView = btn.dataset.view;
+            renderTrendChart(currentTrendView);
         });
     });
 
