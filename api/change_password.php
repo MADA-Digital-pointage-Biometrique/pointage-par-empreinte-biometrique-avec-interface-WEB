@@ -20,9 +20,10 @@ if (empty($current) || empty($new)) {
     echo json_encode(['ok' => false, 'message' => 'Mot de passe actuel et nouveau requis.']);
     exit;
 }
-if (strlen($new) < 6) {
+$policyErr = passwordPolicyCheck($new);
+if ($policyErr !== null) {
     http_response_code(400);
-    echo json_encode(['ok' => false, 'message' => 'Le nouveau mot de passe doit contenir au moins 6 caractères.']);
+    echo json_encode(['ok' => false, 'message' => $policyErr]);
     exit;
 }
 try {
@@ -43,7 +44,7 @@ try {
         echo json_encode(['ok' => false, 'message' => 'Mot de passe actuel incorrect.']);
         exit;
     }
-    $newHash = password_hash($new, PASSWORD_BCRYPT);
+    $newHash = hashPassword($new);
     $pdo->prepare('UPDATE utilisateurs_systeme SET mot_de_passe_hash = ? WHERE id_utilisateur = ?')->execute([$newHash, $uid]);
     echo json_encode(['ok' => true, 'message' => 'Mot de passe mis à jour avec succès.']);
 } catch (Throwable $e) {

@@ -16,7 +16,7 @@ try {
     if ($count === 0) {
         // C2 : mot de passe jamais en dur — via arg/env, sinon généré aléatoirement (affiché UNE fois).
         $plain = $argv[1] ?? getenv('SEED_ADMIN_PASSWORD') ?: bin2hex(random_bytes(12));
-        $hash = password_hash($plain, PASSWORD_BCRYPT);
+        $hash = password_hash($plain, PASSWORD_BCRYPT, ['cost' => 12]);
         
         // Résoudre ou créer le département Direction Générale
         $deptStmt = $pdo->query("SELECT id_departement FROM departements WHERE nom_departement = 'Direction Générale' LIMIT 1");

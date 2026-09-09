@@ -25,20 +25,33 @@ if (!preg_match('/^[A-Za-z0-9@._+\-]{3,100}$/', $matricule)) {
 try {
     $pdo = getDB();
 
-    // ── Rate limiting : 5 essais / 15 min par IP ──
+    // ── Rate limiting : 5 essais / 15 min par IP + 10 essais / 15 min par compte ──
+    // (le compteur par compte résiste à la rotation d'IP ; même message 429 sinon oracle)
+    $throttleFail = function() {
+        http_response_code(429);
+        header('Retry-After: 900');
+        echo json_encode(['ok' => false, 'message' => 'Trop de tentatives. Réessayez dans 15 minutes.']);
+        exit;
+    };
+    $throttleRead = function(string $file): array {
+        $a = ['count' => 0, 'first' => time()];
+        if (file_exists($file)) {
+            $a = json_decode(@file_get_contents($file), true) ?: $a;
+            if (time() - $a['first'] > 900) { $a = ['count' => 0, 'first' => time()]; }
+        }
+        return $a;
+    };
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     $attemptFile = sys_get_temp_dir() . '/mada_login_' . md5($ip) . '.json';
-    $attempts = ['count' => 0, 'first' => time()];
-    if (file_exists($attemptFile)) {
-        $attempts = json_decode(@file_get_contents($attemptFile), true) ?: $attempts;
-        if (time() - $attempts['first'] > 900) { $attempts = ['count' => 0, 'first' => time()]; }
-        if ($attempts['count'] >= 5) {
-            http_response_code(429);
-            header('Retry-After: 900');
-            echo json_encode(['ok' => false, 'message' => 'Trop de tentatives. Réessayez dans 15 minutes.']);
-            exit;
-        }
-    }
+    $attempts = $throttleRead($attemptFile);
+    if ($attempts['count'] >= 5) { $throttleFail(); }
+    $acctFile = sys_get_temp_dir() . '/mada_login_acct_' . md5(strtolower($matricule)) . '.json';
+    $acctAttempts = $throttleRead($acctFile);
+    if ($acctAttempts['count'] >= 10) { $throttleFail(); }
+    $throttleBump = function() use ($attemptFile, &$attempts, $acctFile, &$acctAttempts) {
+        $attempts['count']++; @file_put_contents($attemptFile, json_encode($attempts), LOCK_EX);
+        $acctAttempts['count']++; @file_put_contents($acctFile, json_encode($acctAttempts), LOCK_EX);
+    };
 
     $stmt = $pdo->prepare('
         SELECT 
@@ -75,13 +88,17 @@ try {
         && in_array($user['role'], $allowedRoles);
 
     if (!$loginOk) {
-        $attempts['count']++; @file_put_contents($attemptFile, json_encode($attempts), LOCK_EX);
+        $throttleBump();
         http_response_code(401);
         echo json_encode(['ok' => false, 'message' => 'Matricule ou mot de passe incorrect.']);
         exit;
     }
-    // Succès : reset compteur
+    // Succès : reset compteurs + rehash transparent si ancien cost
     if (file_exists($attemptFile)) @unlink($attemptFile);
+    if (file_exists($acctFile)) @unlink($acctFile);
+    if (password_needs_rehash($hash, PASSWORD_BCRYPT, ['cost' => PASSWORD_BCRYPT_COST])) {
+        try { $pdo->prepare('UPDATE utilisateurs_systeme SET mot_de_passe_hash = ? WHERE id_utilisateur = ?')->execute([hashPassword($password), $user['id_utilisateur']]); } catch (Throwable $e) {}
+    }
 
     // Update derniere_connexion timestamp in database
     try {

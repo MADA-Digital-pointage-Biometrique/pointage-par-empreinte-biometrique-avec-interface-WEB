@@ -51,6 +51,20 @@ function verifyCsrf(?string $token): bool {
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token ?? '');
 }
 
+// H3 : politique mot de passe centralisée — 12 car. min, majuscule, minuscule, chiffre.
+// Retourne null si OK, sinon le message d'erreur à afficher.
+const PASSWORD_BCRYPT_COST = 12;
+function passwordPolicyCheck(string $pwd): ?string {
+    if (strlen($pwd) < 12) return 'Le mot de passe doit contenir au moins 12 caractères.';
+    if (!preg_match('/[A-Z]/', $pwd) || !preg_match('/[a-z]/', $pwd) || !preg_match('/[0-9]/', $pwd)) {
+        return 'Le mot de passe doit contenir majuscule, minuscule et chiffre.';
+    }
+    return null;
+}
+function hashPassword(string $pwd): string {
+    return password_hash($pwd, PASSWORD_BCRYPT, ['cost' => PASSWORD_BCRYPT_COST]);
+}
+
 function getDB(): PDO {
     static $pdo = null;
     if ($pdo === null) {

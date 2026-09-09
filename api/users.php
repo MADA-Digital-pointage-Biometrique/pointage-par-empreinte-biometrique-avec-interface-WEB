@@ -141,8 +141,12 @@ if ($method === 'POST') {
                 $updateFields = 'matricule=?, nom=?, prenom=?, email=?, telephone=?, id_departement=?';
                 $params = [$matricule, $nom, $prenom, $email ?: null, $telephone ?: null, $id_dept > 0 ? $id_dept : null];
                 if (!empty($_POST['password'])) {
+                    if (($policyErr = passwordPolicyCheck($_POST['password'])) !== null) {
+                        echo json_encode(['ok' => false, 'message' => $policyErr]);
+                        exit;
+                    }
                     $updateFields .= ', mot_de_passe_hash=?';
-                    $params[] = password_hash($_POST['password'], PASSWORD_BCRYPT);
+                    $params[] = hashPassword($_POST['password']);
                 }
                 $dbRole = ($role === 'super_admin') ? 'admin_systeme' : 'admin';
                 $updateFields .= ', role=?';
@@ -335,8 +339,12 @@ if ($method === 'POST') {
                 echo json_encode(['ok' => false, 'message' => 'Le mot de passe est requis pour un administrateur.']);
                 exit;
             }
+            if (($policyErr = passwordPolicyCheck($password)) !== null) {
+                echo json_encode(['ok' => false, 'message' => $policyErr]);
+                exit;
+            }
             $pdo->beginTransaction();
-            $hash = password_hash($password, PASSWORD_BCRYPT);
+            $hash = hashPassword($password);
             $dbRole = ($role === 'super_admin') ? 'admin_systeme' : 'admin';
             $userEmail = $email ?: $matricule . '@mada-digital.mg';
             $insertUser = $pdo->prepare('INSERT INTO utilisateurs_systeme (matricule, nom, prenom, email, telephone, id_departement, mot_de_passe_hash, role, statut) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'actif\')');
