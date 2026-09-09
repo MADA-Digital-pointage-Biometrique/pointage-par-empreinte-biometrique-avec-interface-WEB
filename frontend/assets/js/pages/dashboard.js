@@ -282,14 +282,37 @@ async function initPage() {
     document.removeEventListener('mada:themeChanged', _onThemeChanged);
     document.addEventListener('mada:themeChanged', _onThemeChanged);
 
-    const pStats = api.getDashboardStats().then((stats) => {
+    // Charge les stats avec 1 retry : un échec réseau ne doit jamais se
+    // déguiser en "0 employé" (anneau gris trompeur).
+    const loadStats = async () => {
+        let stats = await api.getDashboardStats();
+        if ((!stats || stats.total <= 0) && !lastDashStats) {
+            await new Promise(r => setTimeout(r, 2000));
+            stats = await api.getDashboardStats();
+        }
+        return stats;
+    };
+    const pStats = loadStats().then((stats) => {
+        const donutCenterPct = document.getElementById('donut-center-pct');
+        if (!stats || stats.total <= 0) {
+            // Vrai échec (jamais 0 employé en pratique) : anneau gris + "…"
+            // au lieu de "0 %", et on garde l'ancien graphique s'il existe.
+            if (!lastDashStats) {
+                renderDonutChart(0, 0, 0);
+                if (donutCenterPct) donutCenterPct.textContent = '…';
+                ['legend-presents', 'legend-retards', 'legend-absents'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = '…';
+                });
+            }
+            return;
+        }
         lastDashStats = stats;
         const totalEl = document.getElementById('kpi-total');
         const presentsEl = document.getElementById('kpi-presents');
         const absentsEl = document.getElementById('kpi-absents');
         const retardsEl = document.getElementById('kpi-retards');
         const pctEl = document.getElementById('kpi-pct');
-        const donutCenterPct = document.getElementById('donut-center-pct');
 
         const pct = stats && stats.total > 0 ? Math.round((stats.entrees / stats.total) * 100) : 0;
 
