@@ -620,12 +620,14 @@ html.dark .dark\:hidden { display: none !important; }
     color: #ffffff;
     box-shadow: 0 2px 8px rgba(255, 122, 0, 0.32);
 }
-/* Spécificité maximale : l'actif reste blanc sur orange dans tous les thèmes,
-   même face aux utilitaires dark:text-* (conflit constaté en mode sombre) */
+/* Spécificité maximale : l'actif reste blanc sur orange dans tous les thèmes.
+   Le !important est requis : le bloc "Harmonisation des textes" remappe
+   .dark .dark\:text-stone-400 en gris avec !important (sinon texte sombre
+   sur pilule orange en mode sombre). */
 #dashboard-period-menu .filter-pill.active,
 .dark #dashboard-period-menu .filter-pill.active {
-    background-color: var(--primary);
-    color: #ffffff;
+    background-color: var(--primary) !important;
+    color: #ffffff !important;
 }
 
 /* Card Hover Elevation */
