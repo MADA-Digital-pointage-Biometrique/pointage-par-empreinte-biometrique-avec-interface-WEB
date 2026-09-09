@@ -29,7 +29,7 @@ def main():
     p.add_argument('--baud', type=int, default=57600)
     p.add_argument('--timeout', type=int, default=15)
     p.add_argument('--password', default='00000000')
-    p.add_argument('--action', choices=['enroll','search','verify','delete','empty','status','count'], default='status')
+    p.add_argument('--action', choices=['enroll','search','verify','delete','empty','status','count','template'], default='status')
     p.add_argument('--id', type=int, default=0, dest='page_id')
     p.add_argument('--list-ports', action='store_true')
     p.add_argument('--auto-port', action='store_true')
@@ -45,6 +45,8 @@ def main():
             print(json.dumps({"ok": True, "mock": True}))
         elif args.action == 'status':
             print(json.dumps({"ok": True, "mock": True, "count": 0}))
+        elif args.action == 'template':
+            print(json.dumps({"ok": True, "mock": True, "page_id": args.page_id, "size": 512, "template": "ab" * 256}))
         else:
             print(json.dumps({"ok": True, "mock": True}))
         return
@@ -77,9 +79,10 @@ def main():
             if args.action == 'enroll' and (mmode != 'enrolement' or not mtarget):
                 print(json.dumps({"ok": False, "message": "R307 en attente : mode Pointage ou enrolement sans employé (sélectionne cible)", "mode": mmode}))
                 sys.exit(0)
-            if args.action == 'enroll' and int(mtarget) != int(args.page_id):
-                # aligne le slot sur la cible du terminal
-                args.page_id = int(mtarget)
+            # F3 : le slot (--id) alloué par PHP/SdkReader fait foi. L'ancien code
+            # l'écrasait par target_id (id_employe), corrompant le mapping dès que
+            # slot != id_employe (ex. id > 999 → échec injustifié). Garde seule :
+            # un enrôlement exige le mode enrolement + une cible (vérifié ci-dessus).
     except Exception:
         pass
 
@@ -116,6 +119,14 @@ def main():
         elif args.action in ('status','count'):
             cnt = r.template_num()
             print(json.dumps({"ok": True, "count": cnt, "port": port}))
+        elif args.action == 'template':
+            # F5 : télécharge le gabarit stocké (LOAD page -> UP_CHAR buffer)
+            if args.page_id < 1 or args.page_id > 999:
+                print(json.dumps({"ok": False, "message": f"slot invalide {args.page_id} (1..999)"}))
+                sys.exit(0)
+            r.load(int(args.page_id), 1)
+            blob = r.up_char(1)
+            print(json.dumps({"ok": True, "page_id": int(args.page_id), "size": len(blob), "template": blob.hex()}))
         else:
             print(json.dumps({"ok": False, "message": "Action inconnue"}))
     except Exception as e:

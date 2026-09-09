@@ -16,8 +16,9 @@ try {
     // Vérifie R307 via Python (status = template_num / verify)
     $reader = SdkReader::fromConfig();
     $name = $reader->name();
-    // On tente un appel Python status avec timeout court (fallback py/python)
-    $candidates = array_unique([$conf['python'] ?? 'py', 'py', 'python', 'C:\\Users\\ADOLPHE\\AppData\\Local\\Programs\\Python\\Python311\\python.exe']);
+    // F6 : interprète depuis la config (R307_PYTHON_PATH) + fallbacks standards.
+    // Plus de chemin absolu en dur (machine-dépendant).
+    $candidates = array_unique([$conf['python'] ?? 'py', getenv('R307_PYTHON_PATH') ?: 'py', 'py', 'python']);
     $cli = $conf['cli'] ?? __DIR__ . '/../python/r307_cli.py';
     $baud = $conf['baud'] ?? 57600;
     $timeout = $conf['timeout'] ?? 15;

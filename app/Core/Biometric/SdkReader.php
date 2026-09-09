@@ -31,15 +31,24 @@ class SdkReader implements FingerprintReader
         if (isset($config['sdk_path'])) $this->cli = $config['cli'] ?? $this->cli;
     }
 
+    /** Quote compatible Windows (escapeshellarg = quotes simples, invalides sous cmd.exe). */
+    private function q(string $s): string
+    {
+        if (DIRECTORY_SEPARATOR === '\\') {
+            return '"' . str_replace('"', '', $s) . '"';
+        }
+        return escapeshellarg($s);
+    }
+
     private function callPython(string $action, int $pageId = 0): array
     {
-        $py = escapeshellarg($this->python);
-        $cli = escapeshellarg($this->cli);
-        $port = escapeshellarg($this->port);
-        $baud = (int)$this->baud;
-        $timeout = (int)$this->timeout;
-        $pwd = escapeshellarg($this->password);
-        $cmd = "$py $cli --port $port --baud $baud --timeout $timeout --password $pwd --action " . escapeshellarg($action);
+        // F7 : quoting Windows en doubles quotes (chemin python avec espaces).
+        $cmd = $this->q($this->python) . ' ' . $this->q($this->cli)
+            . ' --port ' . $this->q($this->port)
+            . ' --baud ' . (int)$this->baud
+            . ' --timeout ' . (int)$this->timeout
+            . ' --password ' . $this->q($this->password)
+            . ' --action ' . $this->q($action);
         if ($pageId > 0) $cmd .= " --id " . (int)$pageId;
         $cmd .= " 2>&1";
         $out = [];
@@ -47,21 +56,39 @@ class SdkReader implements FingerprintReader
         exec($cmd, $out, $code);
         $json = implode("\n", $out);
         $data = json_decode($json, true);
+        // F1 : le message remonte au client via biometric.php — JAMAIS le password.
+        $safeCmd = preg_replace("/--password\s+\S+/", '--password ***', $cmd);
         if (!is_array($data)) {
-            throw new \RuntimeException("R307 réponse invalide: $json (code $code) cmd: $cmd");
+            throw new \RuntimeException("R307 réponse invalide (code $code) cmd: $safeCmd. Détail: " . substr($json, 0, 300));
         }
         if (empty($data['ok'])) {
-            throw new \RuntimeException($data['message'] ?? 'Erreur R307');
+            // F2 : aucun match = code 404 (scanWithScore → null, message propre, pas de 500).
+            $isNoMatch = ($action === 'search' || $action === 'verify')
+                && isset($data['message']) && stripos($data['message'], 'correspondance') !== false;
+            throw new \RuntimeException($data['message'] ?? 'Erreur R307', $isNoMatch ? 404 : 500);
         }
         return $data;
     }
 
-    /** Retourne [page_id, score] ou null */
+    /** Retourne [page_id, score] ou null (F2 : aucun match = null, pas d'exception/500) */
     public function scanWithScore(): ?array
     {
-        $data = $this->callPython('search');
+        try {
+            $data = $this->callPython('search');
+        } catch (\RuntimeException $e) {
+            if ($e->getCode() === 404) return null;
+            throw $e;
+        }
         if (!isset($data['page_id'])) return null;
         return ['page_id' => (int)$data['page_id'], 'score' => (int)($data['score'] ?? 0)];
+    }
+
+    /** Télécharge le gabarit réel du slot (UP_CHAR) — hex 512 octets. */
+    public function downloadTemplate(int $slot): string
+    {
+        $data = $this->callPython('template', $slot);
+        if (empty($data['template'])) throw new \RuntimeException('Gabarit vide (UP_CHAR)');
+        return (string)$data['template'];
     }
 
     public function scan(): ?int
@@ -122,8 +149,16 @@ class SdkReader implements FingerprintReader
     {
         if ($userId < 1 || $userId > 9999) throw new \InvalidArgumentException("userId invalide $userId");
         $slot = $this->allocateSlot($userId);
-        $data = $this->callPython('enroll', $slot);
-        return 'R307:' . $slot . ':' . bin2hex(random_bytes(16));
+        $this->callPython('enroll', $slot);
+        // F5 : gabarit RÉEL via UP_CHAR (sauvegarde/audit). Si le dump échoue,
+        // l'enrôlement reste valide côté capteur (marqueur de repli).
+        try {
+            $hex = $this->downloadTemplate($slot);
+            return 'R307:' . $slot . ':' . $hex;
+        } catch (\Throwable $e) {
+            error_log("SdkReader enroll slot $slot: UP_CHAR impossible (" . $e->getMessage() . ")");
+            return 'R307:' . $slot . ':nodump';
+        }
     }
 
     public function delete(int $userId): void

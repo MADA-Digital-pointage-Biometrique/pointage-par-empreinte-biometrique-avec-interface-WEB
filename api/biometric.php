@@ -16,6 +16,8 @@ function auditLog(PDO $pdo, string $action, ?int $empId, ?int $slot, ?int $score
 }
 
 if ($method === 'POST') {
+    // F4 : enrôlement = 2 captures + retraits doigt (jusqu'à ~60s) — ne pas tuer le script.
+    @set_time_limit(120);
     $input = getJsonInput();
     $action = $input['action'] ?? '';
     $userId = (int)($input['userId'] ?? 0);

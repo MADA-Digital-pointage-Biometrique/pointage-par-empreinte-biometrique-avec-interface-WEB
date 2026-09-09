@@ -149,6 +149,41 @@ class R307:
         if confirm != CONFIRM_OK:
             raise RuntimeError(f'Store page {page_id} erreur 0x{confirm:02X}')
 
+    def load(self, page_id, buf=1):
+        confirm, _ = self._cmd(CMD_LOAD, struct.pack('B', buf) + struct.pack('>H', page_id))
+        if confirm != CONFIRM_OK:
+            raise RuntimeError(f'Load page {page_id} erreur 0x{confirm:02X}')
+
+    def up_char(self, buf=1, expected=512, timeout=8):
+        # F5 : téléverse le gabarit du buffer vers l'hôte (paquets DATA 128 o).
+        confirm, _ = self._cmd(CMD_UP_CHAR, struct.pack('B', buf))
+        if confirm != CONFIRM_OK:
+            raise RuntimeError(f'UpChar buf={buf} erreur 0x{confirm:02X}')
+        out = bytearray()
+        self.ser.timeout = 2
+        t0 = time.time()
+        while len(out) < expected and time.time() - t0 < timeout:
+            hdr = self.ser.read(9)
+            if len(hdr) < 9 or hdr[0:2] != HEADER:
+                raise RuntimeError('UpChar paquet invalide (header)')
+            pid = hdr[6]
+            if pid != PID_DATA:
+                raise RuntimeError(f'UpChar PID DATA attendu, reçu 0x{pid:02X}')
+            length = struct.unpack('>H', hdr[7:9])[0]
+            if length < 3 or length > 258:
+                raise RuntimeError(f'UpChar taille invalide {length}')
+            data = self.ser.read(length)
+            if len(data) < length:
+                raise RuntimeError('UpChar paquet incomplet')
+            calc = pid + (length >> 8) + (length & 0xFF) + sum(data[:-2])
+            recv = struct.unpack('>H', data[-2:])[0]
+            if (calc & 0xFFFF) != recv:
+                raise RuntimeError('UpChar checksum invalide')
+            out.extend(data[:-2])
+        if len(out) < expected:
+            raise RuntimeError(f'UpChar incomplet ({len(out)}/{expected} octets)')
+        return bytes(out[:expected])
+
     def search(self, buf=1, start=0, count=1000):
         confirm, resp = self._cmd(CMD_SEARCH, struct.pack('B', buf) + struct.pack('>H', start) + struct.pack('>H', count))
         if confirm == CONFIRM_OK:

@@ -45,6 +45,8 @@ $hits[] = $now;
 @file_put_contents($rlFile, json_encode($hits), LOCK_EX);
 
 $pdo=getDB();
+// F4 : scan = attente du doigt (timeout R307) — ne pas tuer le script.
+@set_time_limit(120);
 try {
     require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
     require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
