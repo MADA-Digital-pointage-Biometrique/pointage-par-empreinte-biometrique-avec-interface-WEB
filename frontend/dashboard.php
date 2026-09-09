@@ -40,7 +40,7 @@ if (!isset($_SESSION['user_id'])) {
 
             <!-- Time Filter Menu Pills -->
             <div class="flex items-center gap-1 bg-slate-100 dark:bg-stone-800 p-1 rounded-xl border border-slate-200 dark:border-stone-700/60 text-[12px] font-medium" id="dashboard-period-menu">
-                <button class="filter-pill active px-3 py-1.5 rounded-lg transition-colors cursor-pointer" data-period="today">Aujourd'hui</button>
+                <button class="filter-pill active text-slate-600 dark:text-stone-400 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer" data-period="today">Aujourd'hui</button>
                 <button class="filter-pill text-slate-600 dark:text-stone-400 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer" data-period="7d">Cette semaine</button>
                 <button class="filter-pill text-slate-600 dark:text-stone-400 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer" data-period="30d">Ce mois</button>
             </div>
