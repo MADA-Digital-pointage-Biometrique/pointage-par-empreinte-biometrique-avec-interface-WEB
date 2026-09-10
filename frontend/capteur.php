@@ -165,6 +165,42 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                 </div>
             </div>
 
+            <!-- Card : État du capteur -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-lg shadow-sm mb-lg" id="card-sensor-state">
+                <div class="flex flex-wrap items-center justify-between gap-sm mb-md">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#F46A21] text-[20px]">memory</span>
+                        <h3 class="font-bold text-[15px] text-slate-900 dark:text-white">État du capteur</h3>
+                    </div>
+                    <span id="sensor-state-pill" class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                        <span class="material-symbols-outlined text-[14px]">hourglass_empty</span> Vérification…
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-md items-end">
+                    <div>
+                        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Empreintes stockées (R307)</div>
+                        <div class="font-extrabold text-2xl text-slate-900 dark:text-white"><span id="sensor-slots-count">–</span><span class="text-sm font-semibold text-slate-400"> / 999</span></div>
+                        <div class="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2 max-w-[220px]">
+                            <div id="sensor-slots-bar" class="h-full w-0 bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] transition-all duration-500"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Port série</div>
+                        <div class="font-mono font-bold text-[15px] text-slate-900 dark:text-white" id="sensor-state-port">–</div>
+                        <div class="text-[11px] text-slate-400 mt-1">Dernière vérif : <span id="sensor-state-updated" class="font-mono">–</span></div>
+                    </div>
+                    <div class="sm:text-right">
+                        <button id="btn-reconcile" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-md py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-60 disabled:pointer-events-none">
+                            <span class="material-symbols-outlined text-[16px]">sync_problem</span>
+                            Réconcilier slots
+                        </button>
+                        <p class="text-[11px] text-slate-400 mt-1">Compare base ↔ capteur</p>
+                    </div>
+                </div>
+                <p class="text-[12px] text-slate-500 dark:text-slate-400 mt-md" id="sensor-state-detail">Interrogation du capteur…</p>
+                <div id="reconcile-result" class="hidden mt-md text-[12px]"></div>
+            </div>
+
 
             <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-md rounded-2xl shadow-sm mb-lg flex flex-wrap items-center justify-between gap-md w-full max-w-full overflow-hidden">
                 <div class="flex flex-wrap items-center gap-sm flex-1">
@@ -201,6 +237,43 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60" id="users-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Card : Journal d'audit biométrique -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden w-full max-w-full mt-lg" id="card-audit">
+                <div class="p-md border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#F46A21] text-[20px]">receipt_long</span>
+                        <h3 class="font-bold text-[15px] text-slate-900 dark:text-white">Journal d'audit</h3>
+                    </div>
+                    <div class="flex items-center gap-sm">
+                        <select id="filter-audit-action" class="bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-md py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer">
+                            <option value="">Toutes actions</option>
+                            <option value="enrolement">Enrôlements</option>
+                            <option value="delete">Suppressions</option>
+                            <option value="scan">Scans</option>
+                            <option value="borne">Borne</option>
+                        </select>
+                        <button id="btn-refresh-audit" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-md py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-[16px]">refresh</span>
+                            Actualiser
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto w-full max-w-full">
+                    <table class="w-full min-w-[560px] text-left border-collapse text-[12px]">
+                        <thead>
+                            <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[10px] tracking-wider bg-slate-50/50 dark:bg-slate-900">
+                                <th class="py-sm px-md">Heure</th>
+                                <th class="py-sm px-md">Action</th>
+                                <th class="py-sm px-md">Détail</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60" id="audit-body">
+                            <tr><td colspan="3" class="py-md px-md text-center text-slate-400">Chargement…</td></tr>
+                        </tbody>
                     </table>
                 </div>
             </div>

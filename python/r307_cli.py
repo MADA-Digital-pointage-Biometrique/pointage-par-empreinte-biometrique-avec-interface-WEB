@@ -29,7 +29,7 @@ def main():
     p.add_argument('--baud', type=int, default=57600)
     p.add_argument('--timeout', type=int, default=15)
     p.add_argument('--password', default='00000000')
-    p.add_argument('--action', choices=['enroll','search','verify','delete','empty','status','count','template','enroll1','enroll2'], default='status')
+    p.add_argument('--action', choices=['enroll','search','verify','delete','empty','status','count','template','enroll1','enroll2','probe'], default='status')
     p.add_argument('--id', type=int, default=0, dest='page_id')
     p.add_argument('--list-ports', action='store_true')
     p.add_argument('--auto-port', action='store_true')
@@ -41,6 +41,8 @@ def main():
             print(json.dumps({"ok": True, "page_id": args.page_id, "mock": True, "message": f"Enrôlement simulé page {args.page_id}"}))
         elif args.action in ('enroll1', 'enroll2'):
             print(json.dumps({"ok": True, "mock": True, "step": 1 if args.action == 'enroll1' else 2, "page_id": args.page_id, "message": "Capture simulée"}))
+        elif args.action == 'probe':
+            print(json.dumps({"ok": True, "mock": True, "page_id": args.page_id, "present": args.page_id % 2 == 0}))
         elif args.action in ('search','verify'):
             print(json.dumps({"ok": False, "message": "Aucune empreinte (mock)", "mock": True}))
         elif args.action == 'delete':
@@ -133,6 +135,16 @@ def main():
             # Étape 1/2 : 1re capture -> CharBuffer1 (le buffer survit entre appels)
             r.enroll_capture1()
             print(json.dumps({"ok": True, "step": 1, "message": "Capture 1 validée — retirez puis reposez le doigt"}))
+        elif args.action == 'probe':
+            # B3 : vérifie qu'une page est occupée (LOAD) sans rien télécharger.
+            if args.page_id < 0 or args.page_id > 999:
+                print(json.dumps({"ok": False, "message": f"slot invalide {args.page_id} (0..999)"}))
+                sys.exit(0)
+            try:
+                r.load(int(args.page_id), 1)
+                print(json.dumps({"ok": True, "page_id": int(args.page_id), "present": True}))
+            except Exception as e:
+                print(json.dumps({"ok": True, "page_id": int(args.page_id), "present": False, "message": str(e)}))
         elif args.action == 'enroll2':
             # Étape 2/2 : retrait + 2e capture + fusion + stockage page
             if args.page_id < 1 or args.page_id > 999:

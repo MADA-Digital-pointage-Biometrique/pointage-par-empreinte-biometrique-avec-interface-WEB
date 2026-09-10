@@ -91,6 +91,25 @@ class SdkReader implements FingerprintReader
         return (string)$data['template'];
     }
 
+    /** B3 : true si la page est occupée côté capteur (LOAD, sans téléchargement). */
+    public function probeSlot(int $slot): bool
+    {
+        if ($slot < 0 || $slot > 999) return false;
+        try {
+            $data = $this->callPython('probe', $slot);
+        } catch (\Throwable $e) {
+            return false;
+        }
+        return !empty($data['present']);
+    }
+
+    /** B3 : nombre de gabarits stockés côté capteur (TEMPLATE_NUM). */
+    public function sensorCount(): int
+    {
+        $data = $this->callPython('status');
+        return (int)($data['count'] ?? 0);
+    }
+
     public function scan(): ?int
     {
         $r = $this->scanWithScore();

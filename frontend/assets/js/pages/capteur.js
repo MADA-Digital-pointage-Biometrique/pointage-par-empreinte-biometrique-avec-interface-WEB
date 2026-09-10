@@ -153,14 +153,41 @@ function setModeButtonsDisabled(hs, detail) {
         const ic=notice.querySelector('.material-symbols-outlined'); if(ic) ic.textContent = hs ? 'sensor_occupied' : 'sensors';
     }
 }
+function updateSensorCard(data) {
+    // Carte « État du capteur » : statut + N/999 + port + détail (poll 5 s).
+    const pill = document.getElementById('sensor-state-pill');
+    const countEl = document.getElementById('sensor-slots-count');
+    const bar = document.getElementById('sensor-slots-bar');
+    const portEl = document.getElementById('sensor-state-port');
+    const detailEl = document.getElementById('sensor-state-detail');
+    const updatedEl = document.getElementById('sensor-state-updated');
+    if (!pill) return;
+    const hs = !data || data.status === 'hs';
+    const base = 'inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ';
+    if (hs) {
+        pill.className = base + 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+        pill.innerHTML = '<span class="material-symbols-outlined text-[14px]">sensor_occupied</span> HS';
+        if (countEl) countEl.textContent = '–';
+        if (bar) bar.style.width = '0%';
+    } else {
+        const count = Math.max(0, parseInt(data.count ?? 0, 10) || 0);
+        pill.className = base + 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+        pill.innerHTML = '<span class="material-symbols-outlined text-[14px]">sensors</span> En service';
+        if (countEl) countEl.textContent = String(count);
+        if (bar) bar.style.width = Math.min(100, Math.max(count > 0 ? 2 : 0, Math.round(count / 999 * 100))) + '%';
+    }
+    if (portEl) portEl.textContent = (data && data.port) || '–';
+    if (detailEl) detailEl.textContent = (data && (data.detail || data.message)) || 'Capteur non joignable';
+    if (updatedEl) updatedEl.textContent = new Date().toLocaleTimeString('fr-FR');
+}
 async function syncModeButtonsWithCapteur(){
     try{
         const r=await fetch(getApiEndpoint('sensor_status.php'),{credentials:'include',cache:'no-store'});
-        if(r.status===401){ setModeButtonsDisabled(true,'Non authentifié'); return; }
+        if(r.status===401){ setModeButtonsDisabled(true,'Non authentifié'); updateSensorCard(null); return; }
         const j=await r.json();
-        if(j.ok) setModeButtonsDisabled(j.status==='hs', j.detail);
-        else setModeButtonsDisabled(true, j.message||'Capteur HS');
-    }catch(e){ setModeButtonsDisabled(true,'Capteur non joignable'); }
+        if(j.ok) { setModeButtonsDisabled(j.status==='hs', j.detail); updateSensorCard(j); }
+        else { setModeButtonsDisabled(true, j.message||'Capteur HS'); updateSensorCard({status:'hs', detail:j.message}); }
+    }catch(e){ setModeButtonsDisabled(true,'Capteur non joignable'); updateSensorCard(null); }
 }
 
 async function applyMode(mode) {
@@ -197,6 +224,114 @@ async function applyMode(mode) {
         document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode: realMode } }));
         flash((e && e.message) || 'Erreur mode R307 — retour au mode précédent.', 'danger');
     }
+}
+
+// B3 : réconciliation slots DB ↔ capteur (diagnostic + purge orphelins).
+function renderReconcileResult(j) {
+    const box = document.getElementById('reconcile-result');
+    if (!box) return;
+    box.classList.remove('hidden');
+    if (!j.ok) {
+        box.innerHTML = `<div class="border rounded-xl px-md py-sm bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800">Capteur injoignable : ${j.message || ''} — réconciliation impossible.</div>`;
+        return;
+    }
+    const okCls = 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+    const warnCls = 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+    const rows = (j.missing_on_sensor || []).map(m =>
+        `<div class="flex items-center justify-between gap-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+            <span class="font-mono">slot ${m.slot}</span>
+            <span class="truncate">${m.nom || ''} <span class="font-mono text-slate-400">(${m.matricule || ''})</span></span>
+            <span class="text-rose-600 dark:text-rose-400 font-semibold">absent capteur</span>
+        </div>`).join('');
+    box.innerHTML = `
+        <div class="border rounded-xl px-md py-sm ${(!j.missing_on_sensor?.length && !j.orphans_suspected) ? okCls : warnCls} border">
+            <div class="font-semibold mb-1">${j.message || ''}</div>
+            <div class="font-mono text-[11px] opacity-80">Base : ${j.db_slots} mapping(s) · Capteur : ${j.sensor_count} page(s)${j.repaired ? ` · ${j.repaired} purgé(s)` : ''}</div>
+            ${rows ? `<div class="mt-2">${rows}</div>` : ''}
+            ${(j.missing_on_sensor?.length && !j.repaired) ? `<button id="btn-reconcile-repair" class="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold px-md py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md transition-all cursor-pointer"><span class="material-symbols-outlined text-[15px]">delete_sweep</span> Purger ${j.missing_on_sensor.length} mapping(s) orphelin(s)</button>` : ''}
+        </div>`;
+    const repairBtn = document.getElementById('btn-reconcile-repair');
+    if (repairBtn) repairBtn.addEventListener('click', () => {
+        showConfirmModal({
+            title: 'Purger les mappings orphelins ?',
+            message: 'Les mappings base sans page capteur seront supprimés (gabarits désactivés). Les employés concernés devront être ré-enrôlés. Continuer ?',
+            type: 'warning',
+            confirmText: 'Oui, purger',
+            cancelText: 'Annuler',
+            onConfirm: () => runReconcile(true)
+        });
+    });
+}
+async function runReconcile(repair = false) {
+    const btn = document.getElementById('btn-reconcile');
+    const box = document.getElementById('reconcile-result');
+    if (btn) btn.disabled = true;
+    if (box) {
+        box.classList.remove('hidden');
+        box.innerHTML = '<div class="text-slate-400 text-[12px]">Sondage du capteur page par page… (peut durer ~1 s/slot)</div>';
+    }
+    try {
+        const r = await fetchCsrf('sensor_reconcile.php', repair ? { repair: 1 } : {});
+        const j = await r.json();
+        renderReconcileResult(j);
+        if (j.ok && j.repaired) renderCapteur(true);
+    } catch (e) {
+        if (box) box.innerHTML = '<div class="text-rose-600 text-[12px]">Erreur réseau pendant la réconciliation.</div>';
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+function initReconcile() {
+    document.getElementById('btn-reconcile')?.addEventListener('click', () => runReconcile(false));
+}
+
+// B11 : journal d'audit biométrique (50 dernières entrées, filtre par action).
+async function renderAudit() {
+    const body = document.getElementById('audit-body');
+    if (!body) return;
+    const filter = document.getElementById('filter-audit-action')?.value || '';
+    try {
+        const r = await fetch(getApiEndpoint('audit.php') + '?limit=50' + (filter ? '&action=' + encodeURIComponent(filter) : ''), { credentials: 'include', cache: 'no-store' });
+        const j = await r.json();
+        if (!j.ok) { body.innerHTML = '<tr><td colspan="3" class="py-md px-md text-center text-rose-500">Accès refusé.</td></tr>'; return; }
+        if (j.missing) { body.innerHTML = '<tr><td colspan="3" class="py-md px-md text-center text-amber-600 dark:text-amber-400">Table journal_audit absente — applique database/migration_journal_audit.sql sur Supabase.</td></tr>'; return; }
+        const rows = j.entries || [];
+        if (!rows.length) { body.innerHTML = '<tr><td colspan="3" class="py-md px-md text-center text-slate-400">Aucune entrée.</td></tr>'; return; }
+        const badgeFor = (a) => {
+            const danger = /delete|refus|echec/i.test(a || '');
+            const warn = /borne|scan/i.test(a || '');
+            const cls = danger
+                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                : warn
+                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+            return `<span class="inline-flex items-center font-mono font-semibold text-[11px] px-2 py-0.5 rounded-full border ${cls}">${a || '–'}</span>`;
+        };
+        body.innerHTML = rows.map(e => {
+            let detail = '';
+            try {
+                const d = typeof e.details === 'string' ? JSON.parse(e.details) : (e.details || {});
+                const bits = [];
+                if (d.slot !== undefined && d.slot !== null) bits.push('slot ' + d.slot);
+                if (d.score !== undefined && d.score !== null) bits.push('score ' + d.score);
+                if (d.motif) bits.push(d.motif);
+                if (e.id_enregistrement_concerne) bits.push('#' + e.id_enregistrement_concerne);
+                detail = bits.join(' · ') || '–';
+            } catch { detail = '–'; }
+            return `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+                <td class="py-sm px-md font-mono text-[11px] text-slate-500 whitespace-nowrap">${e.date_heure || ''}</td>
+                <td class="py-sm px-md">${badgeFor(e.action)}</td>
+                <td class="py-sm px-md text-slate-600 dark:text-slate-300">${detail}</td>
+            </tr>`;
+        }).join('');
+    } catch {
+        body.innerHTML = '<tr><td colspan="3" class="py-md px-md text-center text-slate-400">Erreur de chargement.</td></tr>';
+    }
+}
+function initAudit() {
+    renderAudit();
+    document.getElementById('btn-refresh-audit')?.addEventListener('click', renderAudit);
+    document.getElementById('filter-audit-action')?.addEventListener('change', renderAudit);
 }
 
 function updateSidebarModeBadge(mode) {
@@ -651,6 +786,8 @@ async function initPage() {
     syncModeButtonsWithCapteur();
     setInterval(syncModeButtonsWithCapteur, 5000);
     document.addEventListener('capteurStatusChanged', e=> setModeButtonsDisabled(e.detail?.status==='hs', e.detail?.detail));
+    initReconcile();
+    initAudit();
 
     // Panneau sélection employé
     initEnrollTargetPanel();

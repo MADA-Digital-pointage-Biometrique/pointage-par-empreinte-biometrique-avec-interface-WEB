@@ -41,17 +41,17 @@ try {
             $pdo = getDB();
             $pdo->prepare("UPDATE appareils_pointage SET derniere_connexion=NOW() WHERE type_capteur='empreinte'")->execute();
         } catch (Throwable $e) {}
-        echo json_encode(['ok'=>true,'status'=>'en_service','label'=>'En service','detail'=>"R307 $port OK ($count empreintes)",'count'=>$count,'reader'=>$name]);
+        echo json_encode(['ok'=>true,'status'=>'en_service','label'=>'En service','detail'=>"R307 $port OK ($count empreintes)",'count'=>$count,'port'=>$port,'reader'=>$name]);
     } else {
         $msg = $data['message'] ?? $json ?: 'Capteur non joignable';
         // Cas mock sans matériel : on considère En service simulé, mais on signale HS si vrai capteur attendu
         if (strpos($msg,'could not open port')!==false || strpos($msg,'FileNotFound')!==false) {
-            echo json_encode(['ok'=>true,'status'=>'hs','label'=>'HS','detail'=>"Port $port introuvable — R307 débranché",'reader'=>$name]);
+            echo json_encode(['ok'=>true,'status'=>'hs','label'=>'HS','detail'=>"Port $port introuvable — R307 débranché",'port'=>$port,'reader'=>$name]);
         } else {
-            echo json_encode(['ok'=>true,'status'=>'hs','label'=>'HS','detail'=>$msg,'reader'=>$name]);
+            echo json_encode(['ok'=>true,'status'=>'hs','label'=>'HS','detail'=>$msg,'port'=>$port,'reader'=>$name]);
         }
     }
 } catch(Throwable $e){
     error_log('sensor_status: '.$e->getMessage());
-    echo json_encode(['ok'=>true,'status'=>'hs','label'=>'HS','detail'=>$e->getMessage()]);
+    echo json_encode(['ok'=>true,'status'=>'hs','label'=>'HS','detail'=>$e->getMessage(),'port'=>($port ?? null)]);
 }
