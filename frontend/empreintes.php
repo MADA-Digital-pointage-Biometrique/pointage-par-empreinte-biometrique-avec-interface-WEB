@@ -241,10 +241,16 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                 <div id="enroll-progress" class="hidden w-full max-w-[260px] h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-3">
                     <div id="enroll-progress-bar" class="h-full w-0 bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] transition-all duration-500"></div>
                 </div>
-                <button class="mt-lg bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] hover:from-[#EA580C] hover:to-[#F59E0B] text-white font-semibold text-xs py-2.5 px-xl rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-2 cursor-pointer active:scale-98" id="btn-enroll">
-                    <span class="material-symbols-outlined text-[18px]">touch_app</span>
-                    Poser le doigt sur le lecteur
-                </button>
+                <div class="mt-lg flex items-center justify-center gap-sm">
+                    <button class="bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] hover:from-[#EA580C] hover:to-[#F59E0B] text-white font-semibold text-xs py-2.5 px-xl rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-2 cursor-pointer active:scale-98 disabled:opacity-60 disabled:pointer-events-none" id="btn-enroll">
+                        <span class="material-symbols-outlined text-[18px]">touch_app</span>
+                        Poser le doigt sur le lecteur
+                    </button>
+                    <button class="hidden text-xs font-semibold py-2.5 px-md rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all items-center gap-1.5 cursor-pointer" id="btn-enroll-cancel">
+                        <span class="material-symbols-outlined text-[16px]">close</span>
+                        Annuler
+                    </button>
+                </div>
                 <p class="text-[11px] text-slate-400 mt-sm" id="enroll-hint">Placez votre doigt sur le lecteur biométrique.</p>
             </div>
         </div>

@@ -369,33 +369,38 @@ const api = {
     },
 
     // --- Enrôlement 2 étapes (temps réel : capture 1 puis capture 2) ---
-    async enrollStep1(userId) {
+    // signal (AbortController) : annulation depuis le bouton Annuler du modal.
+    async enrollStep1(userId, signal) {
         try {
             const csrf = await this.getCsrfToken();
             const res = await fetch(getApiEndpoint('biometric.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
                 body: JSON.stringify({ action: 'enroll_step1', userId }),
-                credentials: 'include'
+                credentials: 'include',
+                ...(signal ? { signal } : {})
             });
             return await res.json();
         } catch (e) {
+            if (e && e.name === 'AbortError') return { ok: false, aborted: true };
             return { ok: false, message: 'Erreur capture 1.' };
         }
     },
 
-    async enrollStep2(userId, slot) {
+    async enrollStep2(userId, slot, signal) {
         try {
             const csrf = await this.getCsrfToken();
             const res = await fetch(getApiEndpoint('biometric.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
                 body: JSON.stringify({ action: 'enroll_step2', userId, slot }),
-                credentials: 'include'
+                credentials: 'include',
+                ...(signal ? { signal } : {})
             });
             const j = await res.json(); if (j.ok) { _clearCache('users'); }
             return j;
         } catch (e) {
+            if (e && e.name === 'AbortError') return { ok: false, aborted: true };
             return { ok: false, message: 'Erreur capture 2.' };
         }
     },

@@ -25,7 +25,7 @@ function empRow(u) {
     const isSuper = (() => { try { const cu = api.getCurrentUser(); return cu && (cu.role === 'super_admin' || cu.role === 'admin_systeme'); } catch(e){ return false; } })();
     const hasFp = u.empreinte === true || u.empreinte === 1;
     const action = !isSuper ? '' : (hasFp
-        ? `<button class="text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Supprimer l'empreinte" data-delete-fp="${u.id}"><span class="material-symbols-outlined text-[16px]">fingerprint</span></button>`
+        ? `<button class="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Supprimer l'empreinte" data-delete-fp="${u.id}"><span class="material-symbols-outlined text-[16px]">delete</span></button>`
         : `<button class="bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] hover:bg-orange-100 font-semibold text-[11px] px-2.5 py-1 rounded-lg border border-[#F46A21]/25 dark:border-orange-900 transition-colors inline-flex items-center gap-1 cursor-pointer" data-enroll="${u.id}"><span class="material-symbols-outlined text-[14px]">fingerprint</span> Enrôler</button>`);
 
     return `
@@ -163,7 +163,7 @@ async function syncModeButtonsWithCapteur(){
     }catch(e){ setModeButtonsDisabled(true,'Capteur non joignable'); }
 }
 
-function applyMode(mode) {
+async function applyMode(mode) {
     if (capteurHs) { flash('Capteur HS — changement de mode désactivé.', 'warning'); return; }
     // Enrôlement sans employé = reste en pointage côté R307 (en attente d'employé)
     if (mode === 'enrolement' && !storage.get(ENROLL_TARGET_KEY)) {
@@ -174,17 +174,29 @@ function applyMode(mode) {
         flash('Mode Enrôlement : sélectionne un employé — R307 reste en Pointage (en attente).', 'info');
         return;
     }
+    const prevMode = storage.get(MODE_KEY);
     storage.set(MODE_KEY, mode);
     if (mode !== 'enrolement') storage.remove(ENROLL_TARGET_KEY);
-    // Sync PHP→Python R307 (sensor_mode.php → python/mode.json)
+    // Sync PHP→Python R307 (sensor_mode.php → python/mode.json).
+    // Le succès n'est affiché qu'APRÈS confirmation serveur ; en cas d'échec,
+    // l'UI revient à l'état réel du terminal (pas de divergence).
     const targetRaw = storage.get(ENROLL_TARGET_KEY);
     let targetId = null; try { const t = targetRaw ? JSON.parse(targetRaw) : null; if (t && t.id) targetId = t.id; } catch {}
-    fetchCsrf('sensor_mode.php', {mode, target_id: targetId})
-        .then(r=>r.json()).then(j=>{ if(!j.ok) flash(j.message||'Erreur mode R307','danger'); }).catch(()=>{});
     refreshModeUI(mode);
     document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode } }));
     const labels = { enrolement: 'Enrôlement', pointage: 'Pointage' };
-    flash(`Mode "${labels[mode]}" activé avec succès.`, 'success');
+    try {
+        const r = await fetchCsrf('sensor_mode.php', {mode, target_id: targetId});
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.message || 'Erreur mode R307');
+        flash(`Mode "${labels[mode]}" activé avec succès.`, 'success');
+    } catch (e) {
+        if (prevMode) storage.set(MODE_KEY, prevMode); else storage.remove(MODE_KEY);
+        const realMode = getCurrentMode();
+        refreshModeUI(realMode);
+        document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode: realMode } }));
+        flash((e && e.message) || 'Erreur mode R307 — retour au mode précédent.', 'danger');
+    }
 }
 
 function updateSidebarModeBadge(mode) {
@@ -377,6 +389,7 @@ function openEnrollModal(target) {
         const icon = document.getElementById('enroll-icon');
         const step = document.getElementById('enroll-step');
         const btn = document.getElementById('btn-enroll');
+        const cancelBtn = document.getElementById('btn-enroll-cancel');
         document.getElementById('enroll-person').textContent = `${target.prenom} ${target.nom} (${target.matricule})`;
         if (icon) {
             icon.className = 'w-24 h-24 rounded-full bg-[#FFF1E8] dark:bg-orange-950 text-[#F46A21] flex items-center justify-center mb-lg transition-colors duration-300 shadow-inner';
@@ -386,9 +399,38 @@ function openEnrollModal(target) {
         setEnrollStep(1, 'idle'); setEnrollStep(2, 'idle');
         setEnrollProgress(0); setEnrollHint("En attente — cliquez pour démarrer la capture 1.");
         if (btn) btn.disabled = false;
+        const showCancel = (show) => {
+            if (!cancelBtn) return;
+            cancelBtn.classList.toggle('hidden', !show);
+            cancelBtn.classList.toggle('flex', show);
+        };
+        showCancel(false);
+        let enrollAbort = null;
+        if (cancelBtn) {
+            cancelBtn.onclick = () => {
+                // Annule la capture en cours (la requête Python côté serveur
+                // termine son timeout seule ; le slot sera réutilisé).
+                if (enrollAbort) enrollAbort.abort();
+                setEnrollHint('Enrôlement annulé.');
+                if (step) step.textContent = 'Enrôlement annulé — cliquez pour recommencer.';
+                setEnrollStep(1, 'idle'); setEnrollStep(2, 'idle');
+                showCancel(false);
+                if (btn) btn.disabled = false;
+                flash('Enrôlement annulé.', 'info');
+            };
+        }
         if (btn) {
             btn.onclick = async () => {
                 btn.disabled = true;
+                enrollAbort = new AbortController();
+                const signal = enrollAbort.signal;
+                showCancel(true);
+                const wasAborted = (r) => r && r.aborted;
+                const showAbort = () => {
+                    // La fin effective est déjà gérée par le bouton Annuler.
+                    showCancel(false);
+                    if (btn) btn.disabled = false;
+                };
                 // ── CAPTURE 1 ──
                 setEnrollStep(1, 'active');
                 if (icon) {
@@ -397,7 +439,8 @@ function openEnrollModal(target) {
                 }
                 if (step) step.textContent = 'Capture 1/2 : posez le doigt sur le capteur…';
                 setEnrollHint('En attente du doigt (capture 1)…');
-                const r1 = await api.enrollStep1(target.id);
+                const r1 = await api.enrollStep1(target.id, signal);
+                if (wasAborted(r1)) { showAbort(); return; }
                 if (!r1.ok) {
                     if (icon) {
                         icon.className = 'w-24 h-24 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-lg transition-colors duration-300';
@@ -405,6 +448,7 @@ function openEnrollModal(target) {
                     }
                     if (step) step.textContent = r1.message;
                     setEnrollStep(1, 'idle'); setEnrollHint('Échec capture 1 — réessaie.');
+                    showCancel(false);
                     btn.disabled = false;
                     return;
                 }
@@ -415,7 +459,9 @@ function openEnrollModal(target) {
                 setEnrollHint('En attente du doigt (capture 2)…');
                 flash('Capture 1 validée.', 'success');
                 // ── CAPTURE 2 ──
-                const r2 = await api.enrollStep2(target.id, r1.slot);
+                const r2 = await api.enrollStep2(target.id, r1.slot, signal);
+                if (wasAborted(r2)) { showAbort(); return; }
+                showCancel(false);
                 if (!r2.ok) {
                     if (icon) {
                         icon.className = 'w-24 h-24 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-lg transition-colors duration-300';
