@@ -1,6 +1,6 @@
 (function () {
 // ============================================================
-// Page : Empreintes Biométriques
+// Page : Capteur (terminal biométrique)
 // ============================================================
 
 const MODE_KEY          = 'mada-mode';          // 'enrolement' | 'pointage' | null
@@ -48,7 +48,7 @@ function empRow(u) {
 
 let allUsers = [];
 
-async function renderEmpreintes(forceFetch = false) {
+async function renderCapteur(forceFetch = false) {
     if (forceFetch || !allUsers || allUsers.length === 0) {
         const raw = await api.getUsers();
         allUsers = raw.filter(u => u.role === 'employe');
@@ -488,7 +488,7 @@ function openEnrollModal(target) {
 
                 setTimeout(() => {
                     closeModal('modal-enroll');
-                    renderEmpreintes(true);
+                    renderCapteur(true);
                 }, 1200);
             };
         }
@@ -572,10 +572,10 @@ function initEnrollTargetPanel() {
 }
 
 // Global click event delegation
-if (!window._empreintesGlobalClickAttached) {
-    window._empreintesGlobalClickAttached = true;
+if (!window._capteurGlobalClickAttached) {
+    window._capteurGlobalClickAttached = true;
     document.addEventListener('click', (e) => {
-        if (document.body.getAttribute('data-page') !== 'empreintes') return;
+        if (document.body.getAttribute('data-page') !== 'capteur') return;
         const enrollBtn = e.target.closest('[data-enroll]');
         if (enrollBtn) {
             const id = parseInt(enrollBtn.dataset.enroll, 10);
@@ -606,7 +606,7 @@ if (!window._empreintesGlobalClickAttached) {
                                     if (cur.id === target.id) selectEnrollTarget({ ...target, empreinte: false });
                                 } catch(e){}
                             }
-                            await renderEmpreintes(true);
+                            await renderCapteur(true);
                         } else {
                             flash(res.message || 'Échec de la suppression.', 'danger');
                         }
@@ -619,7 +619,7 @@ if (!window._empreintesGlobalClickAttached) {
 }
 
 async function initPage() {
-    window._lastInitializedModule = 'empreintes';
+    window._lastInitializedModule = 'capteur';
     const user = api.getCurrentUser();
     if (!user) return;
     if (user.role !== 'admin' && user.role !== 'super_admin') {
@@ -629,7 +629,7 @@ async function initPage() {
     }
 
     const [, depts] = await Promise.all([
-        renderEmpreintes(true),
+        renderCapteur(true),
         api.getDepartements()
     ]);
 
@@ -656,11 +656,11 @@ async function initPage() {
     initEnrollTargetPanel();
 
     const searchInput = document.getElementById('top-search');
-    if (searchInput) searchInput.oninput = () => renderEmpreintes(false);
+    if (searchInput) searchInput.oninput = () => renderCapteur(false);
     const filterDept = document.getElementById('filter-dept');
-    if (filterDept) filterDept.onchange = () => renderEmpreintes(false);
+    if (filterDept) filterDept.onchange = () => renderCapteur(false);
     const filterEmp = document.getElementById('filter-emp');
-    if (filterEmp) filterEmp.onchange = () => renderEmpreintes(false);
+    if (filterEmp) filterEmp.onchange = () => renderCapteur(false);
 
     // Remplir départements
     const sel = document.getElementById('filter-dept');
@@ -671,7 +671,7 @@ async function initPage() {
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};
-window.PAGE_MODULES['empreintes'] = initPage;
+window.PAGE_MODULES['capteur'] = initPage;
 window.initPage = initPage;
 
 if (document.readyState === 'loading') {

@@ -14,12 +14,12 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
 <head>
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>Empreintes Biométriques - P.Biometrique</title>
+    <title>Capteur - P.Biometrique</title>
     <script src="assets/js/theme-init.js"></script>
     <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= asset_ver('assets/css/tailwind.css') ?>">
     <link rel="stylesheet" href="assets/css/app.css?v=<?= asset_ver('assets/css/app.css') ?>">
 </head>
-<body class="bg-[#F7F8FA] dark:bg-stone-950 text-[#303030] dark:text-slate-100 antialiased flex" data-page="empreintes" data-search="1">
+<body class="bg-[#F7F8FA] dark:bg-stone-950 text-[#303030] dark:text-slate-100 antialiased flex" data-page="capteur" data-search="1">
     <div id="app-shell"></div>
     <div id="topbar-slot"></div>
 
@@ -31,9 +31,9 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                 <div>
                     <h2 class="font-bold text-2xl tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                         <span class="material-symbols-outlined text-[#F46A21]">fingerprint</span>
-                        Empreintes Biométriques
+                        Capteur
                     </h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-[13px] mt-0.5">Enrôlement et gestion des empreintes digitales</p>
+                    <p class="text-slate-500 dark:text-slate-400 text-[13px] mt-0.5">Terminal biométrique : modes, enrôlement et empreintes</p>
                 </div>
             </div>
 
@@ -260,6 +260,6 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
     <script src="assets/js/api.js?v=<?= asset_ver('assets/js/api.js') ?>"></script>
     <script src="assets/js/templates.js?v=<?= asset_ver('assets/js/templates.js') ?>"></script>
     <script src="assets/js/app.js?v=<?= asset_ver('assets/js/app.js') ?>"></script>
-    <script src="assets/js/pages/empreintes.js?v=<?= asset_ver('assets/js/pages/empreintes.js') ?>"></script>
+    <script src="assets/js/pages/capteur.js?v=<?= asset_ver('assets/js/pages/capteur.js') ?>"></script>
 </body>
 </html>

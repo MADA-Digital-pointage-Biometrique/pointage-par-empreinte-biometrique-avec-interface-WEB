@@ -423,7 +423,7 @@ const api = {
 };
 
 // H2 : POST JSON avec jeton CSRF (pour les fetch directs hors api.*,
-// ex. sensor_mode.php). Utilisé par empreintes.js et app.js.
+// ex. sensor_mode.php). Utilisé par capteur.js et app.js.
 async function fetchCsrf(endpoint, body) {
     let csrf = null;
     try { csrf = await api.getCsrfToken(); } catch {}

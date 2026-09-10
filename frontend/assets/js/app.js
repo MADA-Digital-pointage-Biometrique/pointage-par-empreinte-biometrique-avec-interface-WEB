@@ -27,7 +27,7 @@ const NAV_SECTIONS = [
         title: 'GESTION DE L\'EFFECTIF',
         items: [
             { page: 'employes', link: 'employes.php', icon: 'badge', label: 'Employés', adminOnly: true, badgeId: 'badge-count-emp' },
-            { page: 'empreintes', link: 'empreintes.php', icon: 'fingerprint', label: 'Empreintes', adminOnly: true },
+            { page: 'capteur', link: 'capteur.php', icon: 'fingerprint', label: 'Capteur', adminOnly: true },
             { page: 'administrateurs', link: 'administrateurs.php', icon: 'admin_panel_settings', label: 'Administrateurs', superAdminOnly: true },
             { page: 'historique', link: 'historique.php', icon: 'history', label: 'Historique des Pointages' },
         ]
@@ -860,7 +860,7 @@ function setupSPARouting() {
     async function loadPageSPA(href) {
         const cleanHref = href.replace('./', '');
         const pageName = cleanHref.replace(/\.(html|php)$/, '');
-        const pages = ['dashboard', 'employes', 'empreintes', 'administrateurs', 'historique', 'pointage', 'parametres'];
+        const pages = ['dashboard', 'employes', 'capteur', 'administrateurs', 'historique', 'pointage', 'parametres'];
         if (!pages.includes(pageName)) return;
 
         const currentMain = document.querySelector('main');
@@ -964,8 +964,8 @@ function setupSPARouting() {
 
         const cleanHref = href.replace('./', '');
         const pages = [
-            'dashboard.html', 'employes.html', 'empreintes.html', 'administrateurs.html', 'historique.html', 'pointage.html', 'parametres.html',
-            'dashboard.php', 'employes.php', 'empreintes.php', 'administrateurs.php', 'historique.php', 'pointage.php', 'parametres.php'
+            'dashboard.html', 'employes.html', 'capteur.html', 'administrateurs.html', 'historique.html', 'pointage.html', 'parametres.html',
+            'dashboard.php', 'employes.php', 'capteur.php', 'administrateurs.php', 'historique.php', 'pointage.php', 'parametres.php'
         ];
         if (!pages.includes(cleanHref)) return;
 
@@ -992,7 +992,7 @@ function setupSPARouting() {
 // reste dans la page, sans fetch ni rechargement.
 // ============================================================
 const SINGLE_FILE_MODE = (window.location.pathname.split('/').pop() || 'index.html') === 'index.html';
-const SPA_PAGES = ['login', 'dashboard', 'employes', 'empreintes', 'administrateurs', 'historique', 'pointage', 'parametres'];
+const SPA_PAGES = ['login', 'dashboard', 'employes', 'capteur', 'administrateurs', 'historique', 'pointage', 'parametres'];
 
 function performLogout() {
     api.logout();

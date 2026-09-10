@@ -1,6 +1,6 @@
 (function () {
 // ============================================================
-// Page : Gestion des employés & Empreintes
+// Page : Gestion des employés (& enrôlement via page Capteur)
 // ============================================================
 
 function initials(u) {
