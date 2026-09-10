@@ -145,9 +145,9 @@ class SdkReader implements FingerprintReader
         return $row ? (int)$row['slot_number'] : null;
     }
 
-    public function enroll(int $userId): string
+    /** Enrôlement complet en un appel (compat) = étape 1 + étape 2. */
+    public function enroll(int $userId): array
     {
-        // Enrôlement complet en un appel (compat) = étape 1 + étape 2.
         $slot = $this->enrollStep1($userId);
         return $this->enrollStep2($userId, $slot);
     }
@@ -161,8 +161,12 @@ class SdkReader implements FingerprintReader
         return $slot;
     }
 
-    /** Étape 2/2 : retrait + 2e capture + fusion + stockage + gabarit réel. */
-    public function enrollStep2(int $userId, int $slot): string
+    /**
+     * Étape 2/2 : retrait + 2e capture + fusion + stockage.
+     * Retourne ['slot'=>N, 'hex'=>?string] — hex brut UP_CHAR (512 o) ou null
+     * si le dump est impossible (bytea réel : pas de marqueur texte possible).
+     */
+    public function enrollStep2(int $userId, int $slot): array
     {
         if ($slot < 1 || $slot > 999) throw new \InvalidArgumentException("slot invalide $slot");
         // Le slot doit appartenir à cet employé (anti-confusion inter-utilisateurs).
@@ -170,14 +174,15 @@ class SdkReader implements FingerprintReader
             throw new \RuntimeException("Slot $slot non alloué à l'employé $userId (reprends à l'étape 1)");
         }
         $this->callPython('enroll2', $slot);
-        // F5 : gabarit RÉEL via UP_CHAR (sauvegarde/audit). Si le dump échoue,
-        // l'enrôlement reste valide côté capteur (marqueur de repli).
         try {
             $hex = $this->downloadTemplate($slot);
-            return 'R307:' . $slot . ':' . $hex;
+            if (!preg_match('/^[0-9a-fA-F]+$/', $hex) || (strlen($hex) % 2) !== 0) {
+                throw new \RuntimeException('Gabarit non-hexadécimal');
+            }
+            return ['slot' => $slot, 'hex' => strtolower($hex)];
         } catch (\Throwable $e) {
             error_log("SdkReader enroll slot $slot: UP_CHAR impossible (" . $e->getMessage() . ")");
-            return 'R307:' . $slot . ':nodump';
+            return ['slot' => $slot, 'hex' => null];
         }
     }
 

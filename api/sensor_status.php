@@ -35,8 +35,12 @@ try {
     }
 
     if (is_array($data) && !empty($data['ok'])) {
-        // Capteur répond
+        // Capteur répond — alimente derniere_connexion de l'appareil si la table existe.
         $count = $data['count'] ?? 0;
+        try {
+            $pdo = getDB();
+            $pdo->prepare("UPDATE appareils_pointage SET derniere_connexion=NOW() WHERE type_capteur='empreinte'")->execute();
+        } catch (Throwable $e) {}
         echo json_encode(['ok'=>true,'status'=>'en_service','label'=>'En service','detail'=>"R307 $port OK ($count empreintes)",'count'=>$count,'reader'=>$name]);
     } else {
         $msg = $data['message'] ?? $json ?: 'Capteur non joignable';

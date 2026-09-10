@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS donnees_biometriques (
     id_biometrie SERIAL PRIMARY KEY,
     id_employe INT NOT NULL REFERENCES employes(id_employe) ON DELETE CASCADE ON UPDATE CASCADE,
     type_biometrie VARCHAR(20) NOT NULL DEFAULT 'empreinte' CHECK (type_biometrie IN ('empreinte', 'visage')),
-    gabarit_chiffre TEXT NOT NULL,
+    gabarit_chiffre BYTEA NOT NULL, -- aligné schéma réel (gabarit UP_CHAR via decode(?,'hex'))
     algorithme VARCHAR(50) DEFAULT 'R307',
     id_appareil_enrolement INT REFERENCES appareils_pointage(id_appareil) ON DELETE SET NULL ON UPDATE CASCADE,
     date_enregistrement TIMESTAMPTZ NOT NULL DEFAULT NOW(),

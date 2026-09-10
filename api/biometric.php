@@ -15,6 +15,24 @@ function auditLog(PDO $pdo, string $action, ?int $empId, ?int $slot, ?int $score
         ->execute([$_SESSION['user_id']??null, $action, 'biometrie', $empId, json_encode(['slot'=>$slot,'score'=>$score,'device'=>$device,'motif'=>$motif], JSON_UNESCAPED_UNICODE)]); } catch(Throwable $e){}
 }
 
+// gabarit_chiffre est bytea (schéma réel) : on stocke decode(hex) — jamais de
+// texte préfixé. Option (a) validée : dump impossible -> bytea vide + actif
+// (l'empreinte fonctionne côté capteur, seule la sauvegarde manque).
+const GABARIT_ALGO = 'R307_ZFM_UPCHAR_512';
+function resolveAppareilId(PDO $pdo): ?int {
+    try { $a = $pdo->query("SELECT id_appareil FROM appareils_pointage WHERE type_capteur='empreinte' LIMIT 1")->fetch(); return $a ? (int)$a['id_appareil'] : null; }
+    catch (Throwable $e) { return null; }
+}
+function saveGabarit(PDO $pdo, int $userId, ?string $hex, ?int $appId): bool {
+    $dumped = $hex !== null;
+    $chk = $pdo->prepare("SELECT id_biometrie FROM donnees_biometriques WHERE id_employe=? AND type_biometrie='empreinte' LIMIT 1");
+    $chk->execute([$userId]);
+    $ex = $chk->fetch();
+    if ($ex) $pdo->prepare("UPDATE donnees_biometriques SET gabarit_chiffre=decode(?,'hex'), algorithme=?, id_appareil_enrolement=?, date_enregistrement=NOW(), statut='actif' WHERE id_biometrie=?")->execute([$hex ?? '', GABARIT_ALGO, $appId, $ex['id_biometrie']]);
+    else $pdo->prepare("INSERT INTO donnees_biometriques (id_employe, type_biometrie, gabarit_chiffre, algorithme, id_appareil_enrolement, date_enregistrement, statut) VALUES (?,'empreinte',decode(?,'hex'),?,?,NOW(),'actif')")->execute([$userId, $hex ?? '', GABARIT_ALGO, $appId]);
+    return $dumped;
+}
+
 if ($method === 'POST') {
     // F4 : enrôlement = 2 captures + retraits doigt (jusqu'à ~60s) — ne pas tuer le script.
     @set_time_limit(120);
@@ -34,18 +52,13 @@ if ($method === 'POST') {
             $pdo->beginTransaction();
             try {
                 $reader = SdkReader::fromConfig();
-                $gabarit = $reader->enroll($userId);
+                $res = $reader->enroll($userId);
                 $waMsg = ' ('.$reader->name().')';
-                $slot = $reader->getSlotForUser($userId);
-                // upsert donnees_biometriques
-                $chk = $pdo->prepare("SELECT id_biometrie FROM donnees_biometriques WHERE id_employe=? AND type_biometrie='empreinte' LIMIT 1");
-                $chk->execute([$userId]);
-                $ex = $chk->fetch();
-                if ($ex) $pdo->prepare("UPDATE donnees_biometriques SET gabarit_chiffre=?, date_enregistrement=NOW(), statut='actif' WHERE id_biometrie=?")->execute([$gabarit,$ex['id_biometrie']]);
-                else $pdo->prepare("INSERT INTO donnees_biometriques (id_employe, type_biometrie, gabarit_chiffre, date_enregistrement, statut) VALUES (?,'empreinte',?,NOW(),'actif')")->execute([$userId,$gabarit]);
-                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),'enroll ok');
+                $slot = $res['slot'];
+                $dumped = saveGabarit($pdo, $userId, $res['hex'], resolveAppareilId($pdo));
+                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),$dumped?'enroll ok':'enroll ok, UP_CHAR impossible (nodump)');
                 $pdo->commit();
-                echo json_encode(['ok'=>true,'message'=>"Empreinte enrôlée pour {$emp['prenom']} {$emp['nom']} (slot $slot).$waMsg",'slot'=>$slot]);
+                echo json_encode(['ok'=>true,'message'=>"Empreinte enrôlée pour {$emp['prenom']} {$emp['nom']} (slot $slot).$waMsg",'slot'=>$slot,'dumped'=>$dumped]);
             } catch(Throwable $e) { $pdo->rollBack(); throw $e; }
             exit;
 
@@ -70,15 +83,13 @@ if ($method === 'POST') {
             $reader = SdkReader::fromConfig();
             $pdo->beginTransaction();
             try {
-                $gabarit = $reader->enrollStep2($userId, $slot);
-                $chk = $pdo->prepare("SELECT id_biometrie FROM donnees_biometriques WHERE id_employe=? AND type_biometrie='empreinte' LIMIT 1");
-                $chk->execute([$userId]);
-                $ex = $chk->fetch();
-                if ($ex) $pdo->prepare("UPDATE donnees_biometriques SET gabarit_chiffre=?, date_enregistrement=NOW(), statut='actif' WHERE id_biometrie=?")->execute([$gabarit,$ex['id_biometrie']]);
-                else $pdo->prepare("INSERT INTO donnees_biometriques (id_employe, type_biometrie, gabarit_chiffre, date_enregistrement, statut) VALUES (?,'empreinte',?,NOW(),'actif')")->execute([$userId,$gabarit]);
-                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),'enroll 2 captures ok');
+                $res = $reader->enrollStep2($userId, $slot);
+                $dumped = saveGabarit($pdo, $userId, $res['hex'], resolveAppareilId($pdo));
+                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),$dumped?'enroll 2 captures ok':'enroll ok, UP_CHAR impossible (nodump)');
                 $pdo->commit();
-                echo json_encode(['ok'=>true,'step'=>2,'slot'=>$slot,'message'=>"Empreinte enrôlée (slot $slot) — 2 captures validées.",'gabarit'=>substr($gabarit,0,14).'…']);
+                $msg = "Empreinte enrôlée (slot $slot) — 2 captures validées."
+                    . ($dumped ? '' : ' (gabarit non sauvegardé — capteur seul)');
+                echo json_encode(['ok'=>true,'step'=>2,'slot'=>$slot,'message'=>$msg,'dumped'=>$dumped]);
             } catch(Throwable $e) { $pdo->rollBack(); throw $e; }
             exit;
 

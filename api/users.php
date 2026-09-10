@@ -499,10 +499,15 @@ if ($method === 'DELETE') {
             $pdo->beginTransaction();
             try {
                 $pdo->prepare('DELETE FROM pointages WHERE id_employe = ?')->execute([$id]);
-                // les autres tables sont en CASCADE mais on purge explicitement par sécurité
+                // les autres tables sont en CASCADE mais on purge explicitement par sécurité.
+                // Tables optionnelles (congés/horaires) : seulement si elles existent.
                 $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe = ?')->execute([$id]);
-                $pdo->prepare('DELETE FROM affectations_horaire WHERE id_employe = ?')->execute([$id]);
-                $pdo->prepare('DELETE FROM absences_conges WHERE id_employe = ?')->execute([$id]);
+                foreach (['affectations_horaire', 'absences_conges'] as $optTable) {
+                    try {
+                        $exists = $pdo->query("SELECT to_regclass('public.$optTable')")->fetchColumn();
+                        if ($exists) $pdo->prepare("DELETE FROM $optTable WHERE id_employe = ?")->execute([$id]);
+                    } catch (Throwable $e) { error_log("users delete $optTable: " . $e->getMessage()); }
+                }
                 $stmt = $pdo->prepare('DELETE FROM employes WHERE id_employe = ?');
                 $stmt->execute([$id]);
                 $pdo->commit();

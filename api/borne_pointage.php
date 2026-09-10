@@ -67,7 +67,9 @@ try {
     $uuid=sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0x0fff)|0x4000,mt_rand(0,0x3fff)|0x8000,mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff));
     $appId=null; try{ $a=$pdo->query("SELECT id_appareil FROM appareils_pointage WHERE type_capteur='empreinte' LIMIT 1")->fetch(); if($a) $appId=$a['id_appareil']; }catch(Throwable $e){}
     $pdo->prepare("INSERT INTO pointages (id_uuid_local, id_employe, id_appareil, type_pointage, date_heure, methode_verification, score_correspondance, source_donnee, synchronise, statut) VALUES (?,?,?,?,NOW(),'empreinte',?,'serveur',true,'valide')")->execute([$uuid,$empId,$appId,$type,$score]);
-    $pdo->prepare("INSERT INTO journal_audit (id_utilisateur, action, table_concernee, id_enregistrement_concerne, details, date_heure) VALUES (NULL,?,?,?,?,NOW())")->execute(['borne_'.$type,'pointages',$empId,json_encode(['slot'=>$foundId,'score'=>$score,'ip'=>$ip])]);
+    // L'audit ne doit jamais faire échouer un pointage (table absente = log seul).
+    try { $pdo->prepare("INSERT INTO journal_audit (id_utilisateur, action, table_concernee, id_enregistrement_concerne, details, date_heure) VALUES (NULL,?,?,?,?,NOW())")->execute(['borne_'.$type,'pointages',$empId,json_encode(['slot'=>$foundId,'score'=>$score,'ip'=>$ip])]); }
+    catch (Throwable $e) { error_log('borne audit: ' . $e->getMessage()); }
     $pdo->commit();
     echo json_encode(['ok'=>true,'user_id'=>$empId,'nom'=>$er['prenom'].' '.$er['nom'],'type'=>$type,'score'=>$score,'heure'=>date('H:i:s')]);
 } catch(Throwable $e){ if($pdo->inTransaction()) $pdo->rollBack(); http_response_code(500); echo json_encode(['ok'=>false,'message'=>$e->getMessage()]); }
