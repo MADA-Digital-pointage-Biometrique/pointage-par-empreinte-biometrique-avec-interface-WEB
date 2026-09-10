@@ -13,7 +13,7 @@ return [
             'baud'       => (int)(getenv('R307_BAUD') ?: 57600),
             'python'     => getenv('R307_PYTHON_PATH') ?: 'python',
             'cli'        => __DIR__ . '/../python/r307_cli.py',
-            'timeout'    => 15,
+            'timeout'    => (int)(getenv('R307_TIMEOUT') ?: 15),
             'threshold'  => 60, // score minimal R307 (0..100) pour accepter pointage
             'device_id'  => 'r307_main',
             'anti_double_seconds' => 45,

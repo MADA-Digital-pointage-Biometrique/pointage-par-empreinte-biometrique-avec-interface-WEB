@@ -71,9 +71,10 @@ if ($method === 'POST') {
             if (!$emp) { echo json_encode(['ok'=>false,'message'=>'Employé introuvable.']); exit; }
             if (($emp['statut']??'actif')!=='actif') { echo json_encode(['ok'=>false,'message'=>'Employé non actif.']); exit; }
             $reader = SdkReader::fromConfig();
+            $cfg = require __DIR__ . '/../config/biometric.php';
             $slot = $reader->enrollStep1($userId);
             auditLog($pdo,'enrolement_etape1',$userId,$slot,null,$reader->getDeviceId(),'capture 1 ok');
-            echo json_encode(['ok'=>true,'step'=>1,'slot'=>$slot,'message'=>"Capture 1 validée pour {$emp['prenom']} {$emp['nom']} — retirez puis reposez le doigt."]);
+            echo json_encode(['ok'=>true,'step'=>1,'slot'=>$slot,'timeout'=>$cfg['timeout'],'message'=>"Capture 1 validée pour {$emp['prenom']} {$emp['nom']} — retirez puis reposez le doigt."]);
             exit;
 
         } else if ($action === 'enroll_step2') {

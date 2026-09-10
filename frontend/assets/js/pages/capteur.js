@@ -524,8 +524,18 @@ function openEnrollModal(target) {
                     icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>';
                 }
                 if (step) step.textContent = 'Capture 1/2 : posez le doigt sur le capteur…';
-                setEnrollHint('En attente du doigt (capture 1)…');
+                let timeout1 = r1.timeout || 15;
+                let countdown1 = timeout1;
+                const countdownInterval1 = setInterval(() => {
+                    countdown1--;
+                    if (countdown1 >= 0) {
+                        setEnrollHint(`En attente du doigt (capture 1)… ${countdown1}s`);
+                    } else {
+                        clearInterval(countdownInterval1);
+                    }
+                }, 1000);
                 const r1 = await api.enrollStep1(target.id, signal);
+                clearInterval(countdownInterval1);
                 if (wasAborted(r1)) { showAbort(); return; }
                 if (!r1.ok) {
                     if (icon) {
@@ -545,7 +555,18 @@ function openEnrollModal(target) {
                 setEnrollHint('En attente du doigt (capture 2)…');
                 flash('Capture 1 validée.', 'success');
                 // ── CAPTURE 2 ──
+                let timeout2 = r1.timeout || 15;
+                let countdown2 = timeout2;
+                const countdownInterval2 = setInterval(() => {
+                    countdown2--;
+                    if (countdown2 >= 0) {
+                        setEnrollHint(`En attente du doigt (capture 2)… ${countdown2}s`);
+                    } else {
+                        clearInterval(countdownInterval2);
+                    }
+                }, 1000);
                 const r2 = await api.enrollStep2(target.id, r1.slot, signal);
+                clearInterval(countdownInterval2);
                 if (wasAborted(r2)) { showAbort(); return; }
                 showCancel(false);
                 if (!r2.ok) {
