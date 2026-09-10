@@ -6,3 +6,5 @@ config/database.php
 Thumbs.db
 node_modules/
 python/__pycache__/
+python/mode.json
+python/.mode_trigger
