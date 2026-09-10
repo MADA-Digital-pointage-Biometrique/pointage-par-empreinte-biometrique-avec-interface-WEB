@@ -30,7 +30,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-lg">
                 <div>
                     <h2 class="font-bold text-2xl tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[#F46A21]">fingerprint</span>
+                        <span class="material-symbols-outlined text-[#F46A21]">sensors</span>
                         Capteur
                     </h2>
                     <p class="text-slate-500 dark:text-slate-400 text-[13px] mt-0.5">Terminal biométrique : modes, enrôlement et empreintes</p>

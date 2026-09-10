@@ -27,7 +27,7 @@ const NAV_SECTIONS = [
         title: 'GESTION DE L\'EFFECTIF',
         items: [
             { page: 'employes', link: 'employes.php', icon: 'badge', label: 'Employés', adminOnly: true, badgeId: 'badge-count-emp' },
-            { page: 'capteur', link: 'capteur.php', icon: 'fingerprint', label: 'Capteur', adminOnly: true },
+            { page: 'capteur', link: 'capteur.php', icon: 'sensors', label: 'Capteur', adminOnly: true },
             { page: 'administrateurs', link: 'administrateurs.php', icon: 'admin_panel_settings', label: 'Administrateurs', superAdminOnly: true },
             { page: 'historique', link: 'historique.php', icon: 'history', label: 'Historique des Pointages' },
         ]
