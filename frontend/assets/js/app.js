@@ -20,14 +20,14 @@ const NAV_SECTIONS = [
         title: 'VUE GÉNÉRALE',
         items: [
             { page: 'dashboard', link: 'dashboard.php', icon: 'dashboard', label: 'Tableau de bord' },
-            { page: 'pointage', link: 'pointage.php', icon: 'fingerprint', label: 'Pointage', badgeId: 'sidebar-capteur-badge' },
+            { page: 'pointage', link: 'pointage.php', icon: 'fingerprint', label: 'Pointage' },
         ]
     },
     {
         title: 'GESTION DE L\'EFFECTIF',
         items: [
             { page: 'employes', link: 'employes.php', icon: 'badge', label: 'Employés', adminOnly: true, badgeId: 'badge-count-emp' },
-            { page: 'capteur', link: 'capteur.php', icon: 'sensors', label: 'Capteur', adminOnly: true },
+            { page: 'capteur', link: 'capteur.php', icon: 'sensors', label: 'Capteur', adminOnly: true, badgeId: 'sidebar-capteur-badge' },
             { page: 'administrateurs', link: 'administrateurs.php', icon: 'admin_panel_settings', label: 'Administrateurs', superAdminOnly: true },
             { page: 'historique', link: 'historique.php', icon: 'history', label: 'Historique des Pointages' },
         ]
@@ -241,7 +241,7 @@ function buildShell() {
                                                     ${icon(i.icon, 20, isActive)}
                                                     <span>${i.label}</span>
                                                 </div>
-                                                ${i.badgeId ? `<span id="${i.badgeId}" class="${i.page==='pointage' ? 'nav-badge-service bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700' : 'nav-badge-count'} text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge || (i.page==='pointage' ? '…' : '')}</span>` : (i.badge ? `<span class="nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge}</span>` : '')}
+                                                ${i.badgeId ? `<span id="${i.badgeId}" class="${i.page==='capteur' ? 'nav-badge-service bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700' : 'nav-badge-count'} text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge || (i.page==='capteur' ? '…' : '')}</span>` : (i.badge ? `<span class="nav-badge-service text-[10px] font-semibold px-2 py-0.5 rounded-full">${i.badge}</span>` : '')}
                                             </a>
                                         </li>
                                         `;
