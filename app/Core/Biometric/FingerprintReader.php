@@ -13,9 +13,10 @@ interface FingerprintReader
     public function scan(): ?int;
 
     /**
-     * Enrôle un utilisateur et retourne le template de l'empreinte.
+     * Enrôle un utilisateur. Retourne ['slot'=>N, 'hex'=>?string] —
+     * hex brut UP_CHAR (512 o) ou null si dump impossible (bytea réel).
      */
-    public function enroll(int $userId): string;
+    public function enroll(int $userId): array;
 
     /**
      * Nom du lecteur pour l'affichage.
