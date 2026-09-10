@@ -285,55 +285,6 @@ function initReconcile() {
     document.getElementById('btn-reconcile')?.addEventListener('click', () => runReconcile(false));
 }
 
-// B11 : journal d'audit biométrique (50 dernières entrées, filtre par action).
-async function renderAudit() {
-    const body = document.getElementById('audit-body');
-    if (!body) return;
-    const filter = document.getElementById('filter-audit-action')?.value || '';
-    try {
-        const r = await fetch(getApiEndpoint('audit.php') + '?limit=50' + (filter ? '&action=' + encodeURIComponent(filter) : ''), { credentials: 'include', cache: 'no-store' });
-        const j = await r.json();
-        if (!j.ok) { body.innerHTML = '<tr><td colspan="3" class="py-md px-md text-center text-rose-500">Accès refusé.</td></tr>'; return; }
-        if (j.missing) { body.innerHTML = '<tr><td colspan="3" class="py-md px-md text-center text-amber-600 dark:text-amber-400">Table journal_audit absente — applique database/migration_journal_audit.sql sur Supabase.</td></tr>'; return; }
-        const rows = j.entries || [];
-        if (!rows.length) { body.innerHTML = '<tr><td colspan="3" class="py-md px-md text-center text-slate-400">Aucune entrée.</td></tr>'; return; }
-        const badgeFor = (a) => {
-            const danger = /delete|refus|echec/i.test(a || '');
-            const warn = /borne|scan/i.test(a || '');
-            const cls = danger
-                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800'
-                : warn
-                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-            return `<span class="inline-flex items-center font-mono font-semibold text-[11px] px-2 py-0.5 rounded-full border ${cls}">${a || '–'}</span>`;
-        };
-        body.innerHTML = rows.map(e => {
-            let detail = '';
-            try {
-                const d = typeof e.details === 'string' ? JSON.parse(e.details) : (e.details || {});
-                const bits = [];
-                if (d.slot !== undefined && d.slot !== null) bits.push('slot ' + d.slot);
-                if (d.score !== undefined && d.score !== null) bits.push('score ' + d.score);
-                if (d.motif) bits.push(d.motif);
-                if (e.id_enregistrement_concerne) bits.push('#' + e.id_enregistrement_concerne);
-                detail = bits.join(' · ') || '–';
-            } catch { detail = '–'; }
-            return `<tr class="border-b border-slate-100 dark:border-slate-800/60">
-                <td class="py-sm px-md font-mono text-[11px] text-slate-500 whitespace-nowrap">${e.date_heure || ''}</td>
-                <td class="py-sm px-md">${badgeFor(e.action)}</td>
-                <td class="py-sm px-md text-slate-600 dark:text-slate-300">${detail}</td>
-            </tr>`;
-        }).join('');
-    } catch {
-        body.innerHTML = '<tr><td colspan="3" class="py-md px-md text-center text-slate-400">Erreur de chargement.</td></tr>';
-    }
-}
-function initAudit() {
-    renderAudit();
-    document.getElementById('btn-refresh-audit')?.addEventListener('click', renderAudit);
-    document.getElementById('filter-audit-action')?.addEventListener('change', renderAudit);
-}
-
 function updateSidebarModeBadge(mode) {
     const badge = document.getElementById('sidebar-mode-badge');
     if (!badge) return;
@@ -787,7 +738,6 @@ async function initPage() {
     setInterval(syncModeButtonsWithCapteur, 5000);
     document.addEventListener('capteurStatusChanged', e=> setModeButtonsDisabled(e.detail?.status==='hs', e.detail?.detail));
     initReconcile();
-    initAudit();
 
     // Panneau sélection employé
     initEnrollTargetPanel();

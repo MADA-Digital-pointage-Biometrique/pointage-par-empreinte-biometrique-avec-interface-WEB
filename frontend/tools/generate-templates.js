@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const pages = ['dashboard', 'employes', 'capteur', 'administrateurs', 'historique', 'pointage', 'parametres'];
+const pages = ['dashboard', 'employes', 'capteur', 'audit', 'administrateurs', 'historique', 'pointage', 'parametres'];
 const out = {};
 
 function read(name) {

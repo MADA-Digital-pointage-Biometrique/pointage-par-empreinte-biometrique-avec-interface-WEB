@@ -31,6 +31,7 @@ RewriteRule ^administrateurs/?$ frontend/administrateurs.php [L]
 RewriteRule ^historique/?$ frontend/historique.php [L]
 RewriteRule ^pointage/?$ frontend/pointage.php [L]
 RewriteRule ^parametres/?$ frontend/parametres.php [L]
+RewriteRule ^audit/?$ frontend/audit.php [L]
 
 # Bloquer l'accès direct aux fichiers sensibles
 <FilesMatch "^\.env">

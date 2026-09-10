@@ -4,7 +4,7 @@
 require_once __DIR__ . '/db.php';
 
 if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Non authentifié.']); exit; }
-if (!in_array($_SESSION['role'] ?? '', ['super_admin','admin_systeme','admin'])) { http_response_code(403); echo json_encode(['ok'=>false,'message'=>'Accès refusé.']); exit; }
+if (!in_array($_SESSION['role'] ?? '', ['super_admin','admin_systeme'])) { http_response_code(403); echo json_encode(['ok'=>false,'message'=>'Accès refusé.']); exit; }
 
 $limit = min(200, max(1, (int)($_GET['limit'] ?? 50)));
 $action = trim($_GET['action'] ?? '');

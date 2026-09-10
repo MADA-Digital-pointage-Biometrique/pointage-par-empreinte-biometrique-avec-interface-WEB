@@ -30,6 +30,7 @@ const NAV_SECTIONS = [
             { page: 'capteur', link: 'capteur.php', icon: 'sensors', label: 'Capteur', adminOnly: true, badgeId: 'sidebar-capteur-badge' },
             { page: 'administrateurs', link: 'administrateurs.php', icon: 'admin_panel_settings', label: 'Administrateurs', superAdminOnly: true },
             { page: 'historique', link: 'historique.php', icon: 'history', label: 'Historique des Pointages' },
+            { page: 'audit', link: 'audit.php', icon: 'receipt_long', label: "Journal d'audit", superAdminOnly: true },
         ]
     }
 ];
@@ -860,7 +861,7 @@ function setupSPARouting() {
     async function loadPageSPA(href) {
         const cleanHref = href.replace('./', '');
         const pageName = cleanHref.replace(/\.(html|php)$/, '');
-        const pages = ['dashboard', 'employes', 'capteur', 'administrateurs', 'historique', 'pointage', 'parametres'];
+        const pages = ['dashboard', 'employes', 'capteur', 'administrateurs', 'historique', 'pointage', 'parametres', 'audit'];
         if (!pages.includes(pageName)) return;
 
         const currentMain = document.querySelector('main');
@@ -964,8 +965,8 @@ function setupSPARouting() {
 
         const cleanHref = href.replace('./', '');
         const pages = [
-            'dashboard.html', 'employes.html', 'capteur.html', 'administrateurs.html', 'historique.html', 'pointage.html', 'parametres.html',
-            'dashboard.php', 'employes.php', 'capteur.php', 'administrateurs.php', 'historique.php', 'pointage.php', 'parametres.php'
+            'dashboard.html', 'employes.html', 'capteur.html', 'administrateurs.html', 'historique.html', 'pointage.html', 'parametres.html', 'audit.html',
+            'dashboard.php', 'employes.php', 'capteur.php', 'administrateurs.php', 'historique.php', 'pointage.php', 'parametres.php', 'audit.php'
         ];
         if (!pages.includes(cleanHref)) return;
 
@@ -992,7 +993,7 @@ function setupSPARouting() {
 // reste dans la page, sans fetch ni rechargement.
 // ============================================================
 const SINGLE_FILE_MODE = (window.location.pathname.split('/').pop() || 'index.html') === 'index.html';
-const SPA_PAGES = ['login', 'dashboard', 'employes', 'capteur', 'administrateurs', 'historique', 'pointage', 'parametres'];
+const SPA_PAGES = ['login', 'dashboard', 'employes', 'capteur', 'administrateurs', 'historique', 'pointage', 'parametres', 'audit'];
 
 function performLogout() {
     api.logout();
