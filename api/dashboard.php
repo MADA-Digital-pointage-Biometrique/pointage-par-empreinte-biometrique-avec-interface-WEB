@@ -7,8 +7,18 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$pdo = getDB();
 $today = date('Y-m-d');
+// PERF : cache serveur 30s (clé par jour) — un aller-retour Supabase coûte
+// ~1s depuis MG ; les visites répétées et les 2 appels JS partagés tombent à ~ms.
+$cacheKey = 'dash_' . $today;
+$cached = cacheGet($cacheKey, 30);
+if (is_array($cached)) {
+    $cached['cached'] = true;
+    echo json_encode($cached);
+    exit;
+}
+
+$pdo = getDB();
 $dayStart = $today . ' 00:00:00';
 $dayEnd = date('Y-m-d', strtotime($today . ' +1 day')) . ' 00:00:00';
 
@@ -72,7 +82,7 @@ try {
         $a['height'] = (int) round(($a['count'] / $maxCount) * 100);
     }
 
-    echo json_encode([
+    $payload = [
         'ok' => true,
         'stats' => [
             'total' => $total,
@@ -83,7 +93,9 @@ try {
             'evenements' => $entrees + $sorties
         ],
         'activite' => $activite
-    ]);
+    ];
+    cacheSet($cacheKey, $payload);
+    echo json_encode($payload);
 
 } catch (Throwable $e) {
     http_response_code(500);

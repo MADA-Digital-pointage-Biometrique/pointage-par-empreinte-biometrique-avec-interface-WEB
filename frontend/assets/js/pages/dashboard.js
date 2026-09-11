@@ -16,10 +16,48 @@ function _onThemeChanged() {
     renderHoursWorkedChart();
 }
 
+let chartLoadAttempted = false;
 function loadChartJS() {
-    // Chart.js est vendu en local (assets/js/vendor/chart.umd.min.js, chargé
-    // par dashboard.php). Pas de fallback CDN : bloqué par script-src 'self'.
-    return Promise.resolve();
+    // Chart.js est vendu en local. Si la balise <script> de dashboard.php a
+    // échoué (cache, bloqueur), on réinjecte le fichier local UNE fois.
+    // Jamais de CDN : bloqué par script-src 'self'. Timeout 5s : ne bloque
+    // jamais le rendu (les graphiques afficheront un message d'erreur).
+    if (window.Chart) return Promise.resolve();
+    if (chartLoadAttempted) return Promise.resolve();
+    chartLoadAttempted = true;
+    return new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
+        try {
+            const s = document.createElement('script');
+            s.src = 'assets/js/vendor/chart.umd.min.js';
+            s.onload = finish;
+            s.onerror = finish;
+            document.head.appendChild(s);
+        } catch { finish(); }
+        setTimeout(finish, 5000);
+    });
+}
+
+// Message d'erreur à la place d'un canvas vide (jamais de graphique
+// invisible sans explication). classes Tailwind déjà présentes dans le build.
+function chartError(canvas, msg) {
+    if (!canvas || !canvas.parentElement) return;
+    canvas.style.display = 'none';
+    let el = canvas.parentElement.querySelector('[data-chart-err]');
+    if (!el) {
+        el = document.createElement('div');
+        el.setAttribute('data-chart-err', '1');
+        el.className = 'flex items-center justify-center h-36 text-[12px] text-slate-400 text-center px-md';
+        canvas.parentElement.appendChild(el);
+    }
+    el.textContent = msg;
+}
+function chartOk(canvas) {
+    if (!canvas || !canvas.parentElement) return;
+    canvas.style.display = '';
+    const el = canvas.parentElement.querySelector('[data-chart-err]');
+    if (el) el.remove();
 }
 
 function initials(user) {
@@ -70,11 +108,12 @@ function rowHTML(p) {
 // ----------------------------------------------------
 function renderDonutChart(presents, retards, absents) {
     const canvas = document.getElementById('chart-presence-donut');
-    if (!canvas || !window.Chart) return;
+    if (!canvas) return;
+    if (!window.Chart) { chartError(canvas, 'Librairie graphique indisponible — rechargez la page.'); return; }
+    chartOk(canvas);
 
-    if (donutChartInstance) {
-        donutChartInstance.destroy();
-    }
+    const old = donutChartInstance; donutChartInstance = null;
+    try { if (old) old.destroy(); } catch {}
 
     const isDark = document.documentElement.classList.contains('dark');
 
@@ -89,6 +128,7 @@ function renderDonutChart(presents, retards, absents) {
     // substitution pour que le donut reste visible (avec son animation).
     const values = [Math.max(0, presents - retards), retards, absents];
     const isEmpty = values.every(v => !v || v <= 0);
+    try {
     donutChartInstance = new Chart(canvas, {
         type: 'doughnut',
         data: {
@@ -119,15 +159,17 @@ function renderDonutChart(presents, retards, absents) {
             }
         }
     });
+    } catch (e) { donutChartInstance = null; chartError(canvas, 'Échec du rendu du graphique.'); }
 }
 
 function renderTrendChart(view = '7d') {
     const canvas = document.getElementById('chart-attendance-trend');
-    if (!canvas || !window.Chart) return;
+    if (!canvas) return;
+    if (!window.Chart) { chartError(canvas, 'Librairie graphique indisponible — rechargez la page.'); return; }
+    chartOk(canvas);
 
-    if (trendChartInstance) {
-        trendChartInstance.destroy();
-    }
+    const oldT = trendChartInstance; trendChartInstance = null;
+    try { if (oldT) oldT.destroy(); } catch {}
 
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#9CA3AF' : '#4B5563';
@@ -150,6 +192,7 @@ function renderTrendChart(view = '7d') {
         absentsData = [3, 2, 4, 1];
     }
 
+    try {
     trendChartInstance = new Chart(canvas, {
         type: 'bar',
         data: {
@@ -196,15 +239,17 @@ function renderTrendChart(view = '7d') {
             }
         }
     });
+    } catch (e) { trendChartInstance = null; chartError(canvas, 'Échec du rendu du graphique.'); }
 }
 
 function renderHoursWorkedChart() {
     const canvas = document.getElementById('chart-hours-worked');
-    if (!canvas || !window.Chart) return;
+    if (!canvas) return;
+    if (!window.Chart) { chartError(canvas, 'Librairie graphique indisponible — rechargez la page.'); return; }
+    chartOk(canvas);
 
-    if (hoursChartInstance) {
-        hoursChartInstance.destroy();
-    }
+    const oldH = hoursChartInstance; hoursChartInstance = null;
+    try { if (oldH) oldH.destroy(); } catch {}
 
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#9CA3AF' : '#4B5563';
@@ -213,6 +258,7 @@ function renderHoursWorkedChart() {
     const depts = ['Web & mobile', 'Infogérance', 'ERP', 'IA & data', 'Sécurité', 'Réseaux'];
     const hours = [8.2, 7.9, 8.0, 7.5, 8.4, 7.8];
 
+    try {
     hoursChartInstance = new Chart(canvas, {
         type: 'bar',
         data: {
@@ -251,6 +297,7 @@ function renderHoursWorkedChart() {
             }
         }
     });
+    } catch (e) { hoursChartInstance = null; chartError(canvas, 'Échec du rendu du graphique.'); }
 }
 
 

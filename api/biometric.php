@@ -131,6 +131,7 @@ if ($method === 'POST') {
                 ->execute([$uuid,$empId,$appId,$type,$score]);
             auditLog($pdo,'scan_'.$type,$empId,$foundId,$score,$reader->getDeviceId(),$type);
             $pdo->commit();
+            cacheClear('dash_' . date('Y-m-d'));
             echo json_encode(['ok'=>true,'user_id'=>$empId,'page_id'=>$foundId,'score'=>$score,'type'=>$type,'nom'=>$empRow['prenom'].' '.$empRow['nom'],'heure'=>date('H:i:s'),'message'=>"Pointage $type enregistré"]);
             exit;
 

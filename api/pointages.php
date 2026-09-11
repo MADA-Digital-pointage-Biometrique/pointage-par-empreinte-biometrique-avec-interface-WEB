@@ -153,6 +153,7 @@ if ($method === 'POST') {
         $stmt->execute([$userId, $date]);
         $row = $stmt->fetch();
 
+        cacheClear('dash_' . date('Y-m-d'));
         echo json_encode([
             'ok' => true,
             'message' => 'Pointage créé avec succès.',
@@ -233,6 +234,7 @@ if ($method === 'PUT') {
         $stmt->execute([$userId, $date]);
         $row = $stmt->fetch();
 
+        cacheClear('dash_' . date('Y-m-d'));
         echo json_encode([
             'ok' => true,
             'message' => 'Pointage mis à jour avec succès.',
@@ -277,6 +279,7 @@ if ($method === 'DELETE') {
         $del = $pdo->prepare('DELETE FROM pointages WHERE id_employe = ? AND (date_heure::date) = ?');
         $del->execute([(int)$orig['id_employe'], $orig['date']]);
 
+        cacheClear('dash_' . date('Y-m-d'));
         echo json_encode(['ok' => true, 'message' => 'Pointage supprimé avec succès.']);
     } catch (Throwable $e) {
         http_response_code(500);

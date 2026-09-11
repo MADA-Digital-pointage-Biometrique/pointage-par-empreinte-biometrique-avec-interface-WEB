@@ -71,5 +71,6 @@ try {
     try { $pdo->prepare("INSERT INTO journal_audit (id_utilisateur, action, table_concernee, id_enregistrement_concerne, details, date_heure) VALUES (NULL,?,?,?,?,NOW())")->execute(['borne_'.$type,'pointages',$empId,json_encode(['slot'=>$foundId,'score'=>$score,'ip'=>$ip])]); }
     catch (Throwable $e) { error_log('borne audit: ' . $e->getMessage()); }
     $pdo->commit();
+    cacheClear('dash_' . date('Y-m-d'));
     echo json_encode(['ok'=>true,'user_id'=>$empId,'nom'=>$er['prenom'].' '.$er['nom'],'type'=>$type,'score'=>$score,'heure'=>date('H:i:s')]);
 } catch(Throwable $e){ if($pdo->inTransaction()) $pdo->rollBack(); http_response_code(500); echo json_encode(['ok'=>false,'message'=>$e->getMessage()]); }

@@ -120,6 +120,24 @@ function getJsonInput(): array {
     return $_POST;
 }
 
+// Cache serveur fichier (TTL secondes) — absorbe la latence Supabase (~1s/requête
+// depuis MG) sur les lectures agrégées très demandées (dashboard). Pas de
+// stampede : écriture atomique via LOCK_EX, lecture tolérante aux expirations.
+function cacheGet(string $key, int $ttl) {
+    $f = sys_get_temp_dir() . '/mada_cache_' . preg_replace('/[^a-z0-9_]/i', '_', $key) . '.json';
+    if (!is_file($f) || (time() - @filemtime($f) > $ttl)) return null;
+    $j = json_decode(@file_get_contents($f), true);
+    return is_array($j) ? $j : null;
+}
+function cacheSet(string $key, $value): void {
+    $f = sys_get_temp_dir() . '/mada_cache_' . preg_replace('/[^a-z0-9_]/i', '_', $key) . '.json';
+    @file_put_contents($f, json_encode($value), LOCK_EX);
+}
+function cacheClear(string $key): void {
+    $f = sys_get_temp_dir() . '/mada_cache_' . preg_replace('/[^a-z0-9_]/i', '_', $key) . '.json';
+    @unlink($f);
+}
+
 // CSRF central : vérifie automatiquement POST/PUT/DELETE sauf login/logout/csrf/me.
 // bornes (borne_pointage/sync_offline) : exemptées car auth par X-Device-Token.
 // sensor_status : GET uniquement, le contrôle ne s'applique pas.
