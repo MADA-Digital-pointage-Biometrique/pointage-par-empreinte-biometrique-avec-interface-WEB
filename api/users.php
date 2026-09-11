@@ -41,12 +41,14 @@ if ($method === 'GET') {
                 d.id_departement,
                 'employe' AS role,
                 CASE WHEN (
-                    SELECT COUNT(*) 
-                    FROM donnees_biometriques b 
+                    SELECT COUNT(*)
+                    FROM donnees_biometriques b
                     WHERE b.id_employe = e.id_employe AND b.statut = 'actif'
-                ) > 0 THEN 1 ELSE 0 END AS empreinte
+                ) > 0 THEN 1 ELSE 0 END AS empreinte,
+                s.slot_number
             FROM employes e
             LEFT JOIN departements d ON e.id_departement = d.id_departement
+            LEFT JOIN biometric_slots s ON s.id_employe = e.id_employe AND s.device_id = 'r307_main'
         ");
         $employes = $stmtEmp->fetchAll();
 
@@ -66,7 +68,8 @@ if ($method === 'GET') {
                 d.nom_departement AS departement,
                 u.id_departement,
                 u.role,
-                0 AS empreinte
+                0 AS empreinte,
+                NULL AS slot_number
             FROM utilisateurs_systeme u
             LEFT JOIN departements d ON u.id_departement = d.id_departement
         ");
@@ -79,6 +82,7 @@ if ($method === 'GET') {
             $u['id']             = (int) $u['id'];
             $u['empreinte']      = (bool) $u['empreinte'];
             $u['id_departement'] = $u['id_departement'] ? (int) $u['id_departement'] : null;
+            $u['slot_number'] = ($u['slot_number'] ?? null) !== null ? (int) $u['slot_number'] : null;
             $u['telephone']      = $u['telephone'] ?? '';
             $u['date_embauche']  = $u['date_embauche'] ?? date('Y-m-d');
             

@@ -205,9 +205,11 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
             <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-md rounded-2xl shadow-sm mb-lg flex flex-wrap items-center justify-between gap-md w-full max-w-full overflow-hidden">
                 <div class="flex flex-wrap items-center gap-sm flex-1">
                     <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-1.5 border border-slate-200 dark:border-slate-700">
-                        <span class="material-symbols-outlined text-slate-400 text-[18px]">domain</span>
-                        <select id="filter-dept" class="bg-transparent border-none text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-0">
-                            <option value="">Tous les Départements</option>
+                        <span class="material-symbols-outlined text-slate-400 text-[18px]">confirmation_number</span>
+                        <select id="filter-slot" class="bg-transparent border-none text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:ring-0">
+                            <option value="">Tous les Slots</option>
+                            <option value="used">Slots occupés</option>
+                            <option value="free">Sans slot</option>
                         </select>
                     </div>
                     <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-md py-1.5 border border-slate-200 dark:border-slate-700">
@@ -231,7 +233,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                             <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/50 dark:bg-slate-900">
                                 <th class="py-md px-md">Employé</th>
                                 <th class="py-md px-md hidden md:table-cell">Matricule</th>
-                                <th class="py-md px-md">Département</th>
+                                <th class="py-md px-md text-center">Slot</th>
                                 <th class="py-md px-md">Empreinte</th>
                                 <th class="py-md px-md text-right">Actions</th>
                             </tr>

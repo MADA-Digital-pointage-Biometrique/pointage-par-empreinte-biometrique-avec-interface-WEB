@@ -40,7 +40,7 @@ function empRow(u) {
                 </div>
             </td>
             <td class="py-sm px-md hidden md:table-cell font-mono text-[13px] text-slate-600 dark:text-slate-300">${u.matricule}</td>
-            <td class="py-sm px-md font-medium text-slate-700 dark:text-slate-300">${u.departement || 'Non assigné'}</td>
+            <td class="py-sm px-md text-center font-mono font-bold text-[14px] text-[#F46A21] dark:text-[#F9AE3F]">${(u.slot_number ?? null) !== null ? u.slot_number : '<span class="text-slate-300 dark:text-slate-600 font-medium">—</span>'}</td>
             <td class="py-sm px-md">${empBadge}</td>
             <td class="py-sm px-md text-right"><div class="inline-flex items-center gap-1">${action}</div></td>
         </tr>`;
@@ -54,13 +54,14 @@ async function renderCapteur(forceFetch = false) {
         allUsers = raw.filter(u => u.role === 'employe');
     }
     const search = (document.getElementById('top-search')?.value || '').trim().toLowerCase();
-    const filterDept = (document.getElementById('filter-dept')?.value || '').toLowerCase();
+    const filterSlot = (document.getElementById('filter-slot')?.value || '').toLowerCase();
     const filterEmp = (document.getElementById('filter-emp')?.value || '');
     const filtered = allUsers.filter(u => {
-        const matchesSearch = !search || u.nom.toLowerCase().includes(search) || u.prenom.toLowerCase().includes(search) || u.matricule.toLowerCase().includes(search) || (u.email||'').toLowerCase().includes(search) || (u.departement||'').toLowerCase().includes(search);
-        const matchesDept = !filterDept || (u.departement||'').toLowerCase() === filterDept;
+        const matchesSearch = !search || u.nom.toLowerCase().includes(search) || u.prenom.toLowerCase().includes(search) || u.matricule.toLowerCase().includes(search) || (u.email||'').toLowerCase().includes(search) || (u.departement||'').toLowerCase().includes(search) || String(u.slot_number ?? '').includes(search);
+        const hasSlot = (u.slot_number ?? null) !== null;
+        const matchesSlot = !filterSlot || (filterSlot === 'used' ? hasSlot : !hasSlot);
         const matchesEmp = !filterEmp || (filterEmp === 'yes' ? !!u.empreinte : !u.empreinte);
-        return matchesSearch && matchesDept && matchesEmp;
+        return matchesSearch && matchesSlot && matchesEmp;
     });
     const body = document.getElementById('users-body');
     if (body) body.innerHTML = filtered.map(empRow).join('') || '<tr><td colspan="5" class="py-lg px-md text-center text-slate-400">Aucun employé ne correspond aux critères.</td></tr>';
@@ -735,10 +736,7 @@ async function initPage() {
         return;
     }
 
-    const [, depts] = await Promise.all([
-        renderCapteur(true),
-        api.getDepartements()
-    ]);
+    await renderCapteur(true);
 
     // Mode opératoire
     const currentMode = getCurrentMode();
@@ -765,17 +763,10 @@ async function initPage() {
 
     const searchInput = document.getElementById('top-search');
     if (searchInput) searchInput.oninput = () => renderCapteur(false);
-    const filterDept = document.getElementById('filter-dept');
-    if (filterDept) filterDept.onchange = () => renderCapteur(false);
+    const filterSlot = document.getElementById('filter-slot');
+    if (filterSlot) filterSlot.onchange = () => renderCapteur(false);
     const filterEmp = document.getElementById('filter-emp');
     if (filterEmp) filterEmp.onchange = () => renderCapteur(false);
-
-    // Remplir départements
-    const sel = document.getElementById('filter-dept');
-    if (sel && depts && depts.length > 0) {
-        const cur = sel.value;
-        sel.innerHTML = '<option value="">Tous les Départements</option>' + depts.map(d=>`<option value="${d.nom}" ${d.nom===cur?'selected':''}>${d.nom}</option>`).join('');
-    }
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};
