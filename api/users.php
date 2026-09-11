@@ -45,6 +45,10 @@ if ($method === 'GET') {
                     FROM donnees_biometriques b
                     WHERE b.id_employe = e.id_employe AND b.statut = 'actif'
                 ) > 0 THEN 1 ELSE 0 END AS empreinte,
+                (SELECT MAX(b2.date_enregistrement)
+                    FROM donnees_biometriques b2
+                    WHERE b2.id_employe = e.id_employe AND b2.statut = 'actif'
+                ) AS date_enrolement,
                 s.slot_number
             FROM employes e
             LEFT JOIN departements d ON e.id_departement = d.id_departement

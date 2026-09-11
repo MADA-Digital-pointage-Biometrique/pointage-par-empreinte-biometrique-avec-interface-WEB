@@ -234,7 +234,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                                 <th class="py-md px-md">Employé</th>
                                 <th class="py-md px-md hidden md:table-cell">Matricule</th>
                                 <th class="py-md px-md text-center">Slot</th>
-                                <th class="py-md px-md">Empreinte</th>
+                                <th class="py-md px-md">Date d'enrôlement</th>
                                 <th class="py-md px-md text-right">Actions</th>
                             </tr>
                         </thead>

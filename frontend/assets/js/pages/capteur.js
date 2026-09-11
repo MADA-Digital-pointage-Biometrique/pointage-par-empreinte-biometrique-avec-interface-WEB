@@ -18,10 +18,13 @@ function avatar(u, size = 'w-9 h-9') {
     return `<div class="${size} rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[12px] shadow-sm flex-shrink-0">${initials(u)}</div>`;
 }
 
+function fmtDateEnrolement(iso) {
+    if (!iso) return '<span class="text-slate-300 dark:text-slate-600 font-medium">—</span>';
+    const d = String(iso).slice(0, 10).split('-');
+    if (d.length !== 3) return '<span class="text-slate-300 dark:text-slate-600 font-medium">—</span>';
+    return `${d[2]}/${d[1]}/${d[0]}`;
+}
 function empRow(u) {
-    const empBadge = u.empreinte
-        ? '<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800"><span class="material-symbols-outlined text-[13px]">verified</span> Enregistrée</span>'
-        : '<span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800"><span class="material-symbols-outlined text-[13px]">block</span> Aucune</span>';
     const isSuper = (() => { try { const cu = api.getCurrentUser(); return cu && (cu.role === 'super_admin' || cu.role === 'admin_systeme'); } catch(e){ return false; } })();
     const hasFp = u.empreinte === true || u.empreinte === 1;
     const action = !isSuper ? '' : (hasFp
@@ -41,7 +44,7 @@ function empRow(u) {
             </td>
             <td class="py-sm px-md hidden md:table-cell font-mono text-[13px] text-slate-600 dark:text-slate-300">${u.matricule}</td>
             <td class="py-sm px-md text-center font-mono font-bold text-[14px] text-[#F46A21] dark:text-[#F9AE3F]">${(u.slot_number ?? null) !== null ? u.slot_number : '<span class="text-slate-300 dark:text-slate-600 font-medium">—</span>'}</td>
-            <td class="py-sm px-md">${empBadge}</td>
+            <td class="py-sm px-md font-medium text-[13px] text-slate-600 dark:text-slate-300 whitespace-nowrap">${fmtDateEnrolement(u.date_enrolement)}</td>
             <td class="py-sm px-md text-right"><div class="inline-flex items-center gap-1">${action}</div></td>
         </tr>`;
 }
