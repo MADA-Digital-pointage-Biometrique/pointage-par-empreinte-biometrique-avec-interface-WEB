@@ -183,10 +183,30 @@ function setupNavTooltips() {
     });
 }
 
+// Coupe-circuit anti-boucle (ex: dashboard <-> login). Compte les redirects
+// des 10 dernières secondes ; au-delà de 3, on reste sur place avec un
+// message au lieu de rediriger. Retourne false si boucle détectée.
+function safeRedirect(url) {
+    const now = Date.now();
+    let hist = [];
+    try { hist = JSON.parse(sessionStorage.getItem('redirectHist') || '[]'); } catch {}
+    hist = hist.filter(t => now - t < 10000);
+    if (hist.length >= 3) {
+        document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;background:#111827;color:#F9FAFB;text-align:center;padding:24px;"><div><h1 style="font-size:20px;margin-bottom:8px;">Session instable détectée</h1><p style="color:#9CA3AF;font-size:14px;">Redirections en boucle interrompues.<br><a href="login.php" style="color:#F46A21;">Retour à la connexion</a></p></div></div>';
+        return false;
+    }
+    hist.push(now);
+    try { sessionStorage.setItem('redirectHist', JSON.stringify(hist)); } catch {}
+    window.location.replace(url);
+    return true;
+}
+
 function buildShell() {
     const user = api.getCurrentUser();
     if (!user) {
-        window.location.href = 'login.php';
+        // La garde DOMContentLoaded a déjà validé la session serveur ; ce cas
+        // ne survient que si le stockage local est vide/inaccessible.
+        safeRedirect('login.php?v=' + Date.now());
         return;
     }
 
@@ -1097,29 +1117,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Garde auth avec retry pour éviter le rebond dashboard->login juste après login
     const page = document.body.dataset.page;
     const isPublic = page === 'login' || document.body.dataset.noShell === '1';
+
     async function getServerUserWithRetry(tries=3) {
         for (let i=0;i<tries;i++) {
             const u = await api.verifyAuth();
             if (u) return u;
-            const local = api.getCurrentUser();
-            if (local && i < tries-1) { await new Promise(r=>setTimeout(r,400)); continue; }
-            return null;
+            // Attendre avant le retry, mais seulement si ce n'est pas le dernier essai
+            if (i < tries - 1) {
+                await new Promise(r => setTimeout(r, 500));
+            }
         }
         return null;
     }
     if (!isPublic) {
         const serverUser = await getServerUserWithRetry(3);
         if (!serverUser) {
-            const local = api.getCurrentUser();
-            if (!local) { window.location.replace('login.php?v=' + Date.now()); return; }
-            // local existe mais serveur dit non après 3 essais -> clear et redirect
+            // Pas d'utilisateur serveur valide -> on nettoie et on redirige
+            // (l'historique anti-boucle est préservé à travers le clear)
+            let hist = [];
+            try { hist = JSON.parse(sessionStorage.getItem('redirectHist') || '[]'); } catch {}
             try { sessionStorage.clear(); } catch {}
-            window.location.replace('login.php?v=' + Date.now());
+            try { sessionStorage.setItem('redirectHist', JSON.stringify(hist)); } catch {}
+            safeRedirect('login.php?v=' + Date.now());
             return;
+        }
+        // Session serveur OK mais stockage local vide (ex: stockage nettoyé) :
+        // on le réamorce pour que buildShell() ne redirige pas à tort.
+        if (serverUser && !api.getCurrentUser()) {
+            try { sessionStorage.setItem('mada_user_session', JSON.stringify(serverUser)); } catch {}
         }
     } else if (page === 'login') {
         const serverUser = await api.verifyAuth();
-        if (serverUser) { window.location.replace('dashboard.php?v=' + Date.now()); return; }
+        if (serverUser) {
+            safeRedirect('dashboard.php?v=' + Date.now());
+            return;
+        }
     }
     if (document.body.dataset.page && !document.body.dataset.noShell) buildShell();
     setupSPARouting();

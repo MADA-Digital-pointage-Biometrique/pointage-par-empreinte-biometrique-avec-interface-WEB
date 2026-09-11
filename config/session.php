@@ -43,10 +43,12 @@ if (session_status() === PHP_SESSION_NONE) {
         session_start();
         session_regenerate_id(true);
         $_SESSION['session_created'] = time();
-    } elseif (isset($_SESSION['user_id']) && empty($_SESSION['regenerated'])) {
-        session_regenerate_id(true);
-        $_SESSION['regenerated'] = true;
     }
+    // NOTE : pas de session_regenerate_id() ici volontairement. La régénération
+    // n'a lieu qu'au login (api/login.php) et au logout. Un regenerate concurrent
+    // (requêtes parallèles du dashboard) détruisait l'ancien fichier de session
+    // pendant que d'autres requêtes l'utilisaient encore → 401 aléatoires →
+    // boucle infinie dashboard <-> login.
     $_SESSION['last_activity'] = time();
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
