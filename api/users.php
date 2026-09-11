@@ -495,6 +495,27 @@ if ($method === 'DELETE') {
                 $photoPath = __DIR__ . '/../uploads/photos/' . $emp['photo_profil'];
                 if (file_exists($photoPath)) unlink($photoPath);
             }
+            // Capteur : purge l'empreinte physique + mapping slot AVANT la
+            // transaction DB (si la DB échoue après, Réconcilier détectera).
+            // Non-bloquant : capteur débranché = suppression RH quand même.
+            $capteurWarn = null;
+            try {
+                require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
+                require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
+                $slotChk = $pdo->prepare('SELECT slot_number FROM biometric_slots WHERE id_employe=? LIMIT 1');
+                $slotChk->execute([$id]);
+                if ($slotChk->fetch()) {
+                    \App\Core\Biometric\SdkReader::fromConfig()->delete($id);
+                }
+            } catch (Throwable $e) {
+                $capteurWarn = $e->getMessage();
+                error_log("users delete capteur emp $id: " . $capteurWarn);
+                // L'employé part de toute façon : on libère le mapping pour ne
+                // pas bloquer le slot à vie. La page capteur éventuellement
+                // restante sera visible via l'écart template_num (Réconcilier).
+                try { $pdo->prepare('DELETE FROM biometric_slots WHERE id_employe=?')->execute([$id]); }
+                catch (Throwable $e2) {}
+            }
             // CASCADE manuel : pointages est en RESTRICT, on doit purger les dépendances
             $pdo->beginTransaction();
             try {
@@ -515,7 +536,9 @@ if ($method === 'DELETE') {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 throw $e;
             }
-            echo json_encode(['ok' => true, 'message' => 'Employé supprimé avec succès.']);
+            $msg = 'Employé supprimé avec succès.';
+            if ($capteurWarn) $msg .= ' Attention : empreinte capteur non purgée (' . $capteurWarn . ') — à purger via Réconcilier.';
+            echo json_encode(['ok' => true, 'message' => $msg, 'capteur_purge' => $capteurWarn === null]);
         }
     } catch (Exception $e) {
         echo json_encode(['ok' => false, 'message' => 'Erreur de suppression: ' . $e->getMessage()]);

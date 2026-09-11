@@ -109,9 +109,9 @@ const api = {
             const data = await res.json();
             if (data.ok && data.user) return data.user;
         } catch (e) {
-            // Erreur réseau Supabase lente -> on garde l'utilisateur local pour éviter déconnexion brutale
-            const local = this.getCurrentUser();
-            if (local) return local;
+            // Erreur réseau -> on NE retourne PAS l'utilisateur local
+            // pour que le caller sache que la session n'est pas vérifiée
+            // (évite les boucles de redirection infinies)
         }
         return null;
     },

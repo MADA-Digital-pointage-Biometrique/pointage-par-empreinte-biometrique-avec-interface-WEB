@@ -337,14 +337,16 @@ function openDeleteModal(target) {
     if (!target) return;
     showConfirmModal({
         title:       'Supprimer cet employé ?',
-        message:     `Voulez-vous vraiment supprimer ${target.prenom} ${target.nom} (${target.matricule}) ? Cette action effacera également son historique de pointage.`,
+        message:     `Voulez-vous vraiment supprimer ${target.prenom} ${target.nom} (${target.matricule}) ? Cette action effacera également son historique de pointage et son empreinte capteur.`,
         type:        'danger',
         confirmText: 'Oui, Supprimer',
         cancelText:  'Annuler',
         onConfirm: async () => {
             const res = await api.deleteUser(target.id);
             if (res.ok) {
-                flash(`L'employé ${target.prenom} ${target.nom} a été supprimé.`, 'success');
+                // Message serveur (inclut l'avertissement si le capteur
+                // était injoignable pour purger l'empreinte).
+                flash(res.message || `L'employé ${target.prenom} ${target.nom} a été supprimé.`, res.capteur_purge === false ? 'warning' : 'success');
                 await renderUsers(true);
             } else {
                 flash(res.message || 'Échec de la suppression.', 'danger');

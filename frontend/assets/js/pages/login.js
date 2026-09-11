@@ -37,16 +37,28 @@ function initPage() {
             flash(`Bienvenue ${res.user.prenom} ${res.user.nom}`, 'success');
             // Vérifie que la session est bien active côté serveur avant de rediriger
             let ok = false;
-            for (let i = 0; i < 3; i++) {
-                await new Promise(r => setTimeout(r, 400));
+            for (let i = 0; i < 5; i++) {
+                await new Promise(r => setTimeout(r, 300));
                 try {
                     const v = await api.verifyAuth();
                     if (v) { ok = true; break; }
                 } catch {}
             }
             if (!ok) {
-                // Session pas encore prête, on force quand même le dashboard qui vérifiera
-                console.warn('verifyAuth non prêt, redirection dashboard quand même');
+                // Session pas encore prête -> on attend un peu plus et on réessaie
+                console.warn('Session non prête après login, attente supplémentaire...');
+                await new Promise(r => setTimeout(r, 1000));
+                try {
+                    const v = await api.verifyAuth();
+                    if (!v) {
+                        flash('Session non établie, veuillez réessayer.', 'warning');
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.classList.remove('opacity-70', 'pointer-events-none');
+                        }
+                        return;
+                    }
+                } catch {}
             }
             if (typeof SINGLE_FILE_MODE !== 'undefined' && SINGLE_FILE_MODE) {
                 buildShell();
