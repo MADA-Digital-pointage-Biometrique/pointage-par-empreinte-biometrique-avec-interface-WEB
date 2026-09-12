@@ -1,36 +1,31 @@
 <?php
 
+// Dispositif biométrique générique (HTTP / Wi-Fi).
+// Le Frontend et les API sont agnostiques du matériel : seul ce fichier
+// désigne le transport (ici HTTP vers le dispositif, ex. circuit Wi-Fi).
+// Variables : voir .env.example (DEVICE_*).
 return [
-    // Capteur cible : R307 + CP2102 (USB-UART). PHP -> Python -> capteur
-    'driver' => 'r307',
+    'driver' => 'device',
 
     'drivers' => [
-        // R307 + CP2102 — relié direct PC, piloté par python/r307_cli.py (PHP -> Python -> capteur)
-        // R307 + CP2102 — relié direct PC, piloté par python/r307_cli.py (PHP -> Python -> capteur)
-        'r307' => [
-            'class'      => \App\Core\Biometric\SdkReader::class,
-            'port'       => getenv('R307_PORT') ?: 'COM3', // à ajuster : COM3/COM4 (CP2102). Mets 'auto' pour détection CP2102
-            'baud'       => (int)(getenv('R307_BAUD') ?: 57600),
-            'python'     => getenv('R307_PYTHON_PATH') ?: 'python',
-            'cli'        => __DIR__ . '/../python/r307_cli.py',
-            'timeout'    => (int)(getenv('R307_TIMEOUT') ?: 15),
-            'threshold'  => 60, // score minimal R307 (0..100) pour accepter pointage
-            'device_id'  => 'r307_main',
+        'device' => [
+            'class'         => \App\Core\Biometric\HttpDeviceReader::class,
+            // URL de base du dispositif (sans préfixe d'API).
+            'base_url'      => getenv('DEVICE_BASE_URL') ?: '',
+            // Préfixe des routes côté firmware (ex. /api).
+            'api_prefix'    => getenv('DEVICE_API_PREFIX') ?: '/api',
+            // Jeton Bearer optionnel (Authorization: Bearer ...).
+            'token'         => getenv('DEVICE_TOKEN') ?: null,
+            // Attente doigt / captures (secondes).
+            'timeout'       => (int)(getenv('DEVICE_TIMEOUT') ?: 15),
+            // Requêtes rapides (état, comptage, sonde).
+            'quick_timeout' => (int)(getenv('DEVICE_QUICK_TIMEOUT') ?: 4),
+            // Score minimal (0..100) pour accepter un pointage.
+            'threshold'     => (int)(getenv('DEVICE_THRESHOLD') ?: 60),
+            // Identifiant logique du dispositif (colonne biometric_slots.device_id).
+            'device_id'     => getenv('DEVICE_ID') ?: 'device_main',
+            // Anti-double pointage (secondes).
             'anti_double_seconds' => 45,
-            'password'   => getenv('R307_PASSWORD') ?: '00000000', // remplace défaut 0x00000000
-        ],
-        // Fallback générique (legacy)
-        'wa28' => [
-            'class'     => \App\Core\Biometric\SdkReader::class,
-            'sdk_path'  => '',
-            'device_id' => 0,
-            'port'      => 'COM3',
-            'baud'      => 57600,
-        ],
-        'usb' => [
-            'class'     => \App\Core\Biometric\SdkReader::class,
-            'sdk_path'  => 'C:/Program Files/DigitalPersona/SDK/bin',
-            'device_id' => 0,
         ],
     ],
 ];

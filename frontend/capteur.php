@@ -178,7 +178,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-md items-end">
                     <div>
-                        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Empreintes stockées (R307)</div>
+                        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Empreintes stockées (dispositif)</div>
                         <div class="font-extrabold text-2xl text-slate-900 dark:text-white"><span id="sensor-slots-count">–</span><span class="text-sm font-semibold text-slate-400"> / 999</span></div>
                         <div class="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2 max-w-[220px]">
                             <div id="sensor-slots-bar" class="h-full w-0 bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] transition-all duration-500"></div>

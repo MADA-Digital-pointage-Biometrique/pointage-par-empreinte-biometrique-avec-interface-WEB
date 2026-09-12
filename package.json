@@ -1,7 +1,7 @@
 {
   "name": "projet_stage_mada-digital",
   "version": "1.0.0",
-  "description": "Application de pointage par **empreinte R307 + CP2102** (USB-UART) + interface WEB, **Supabase Postgres** (pooler) au lieu de MySQL XAMPP.",
+  "description": "Application de pointage par **empreinte (dispositif reseau / Wi-Fi)** + interface WEB, **Supabase Postgres** (pooler) au lieu de MySQL XAMPP.",
   "main": "index.js",
   "directories": {
     "doc": "docs"

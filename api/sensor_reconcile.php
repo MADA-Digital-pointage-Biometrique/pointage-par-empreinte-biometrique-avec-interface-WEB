@@ -1,12 +1,12 @@
 <?php
-// B3 : réconciliation slots DB <-> capteur R307.
-// Compare biometric_slots (device) avec les pages réellement occupées (LOAD sonde)
-// + template_num. Réparation optionnelle (repair=1) : purge les mappings orphelins
-// (page absente côté capteur) et désactive le gabarit associé.
+// B3 : réconciliation identifiants DB <-> dispositif.
+// Compare biometric_slots (device) avec les gabarits réellement présents
+// (sonde) + comptage. Réparation optionnelle (repair=1) : purge les mappings orphelins
+// (gabarit absent côté dispositif) et désactive le gabarit associé.
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
-require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
-use App\Core\Biometric\SdkReader;
+require_once __DIR__ . '/../app/Core/Biometric/HttpDeviceReader.php';
+use App\Core\Biometric\HttpDeviceReader;
 
 if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Non authentifié.']); exit; }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false,'message'=>'Méthode non autorisée.']); exit; }
@@ -15,7 +15,7 @@ if (!in_array($_SESSION['role'] ?? '', ['super_admin','admin_systeme'])) { http_
 @set_time_limit(300);
 
 $pdo = getDB();
-$reader = SdkReader::fromConfig();
+$reader = HttpDeviceReader::fromConfig();
 $device = $reader->getDeviceId();
 $input = getJsonInput();
 $repair = !empty($input['repair']);
@@ -31,7 +31,7 @@ try {
     $sensorCount = $reader->sensorCount();
     $sensorOk = true;
 } catch (Throwable $e) {
-    echo json_encode(['ok'=>false,'sensor_ok'=>false,'message'=>'Capteur injoignable : '.$e->getMessage(),'db_slots'=>$dbCount]);
+    echo json_encode(['ok'=>false,'sensor_ok'=>false,'message'=>'Dispositif injoignable : '.$e->getMessage(),'db_slots'=>$dbCount]);
     exit;
 }
 
@@ -49,8 +49,8 @@ foreach ($dbSlots as $row) {
     }
 }
 
-// Pages orphelines côté capteur (présentes mais sans mapping) : estimées par
-// différence (pas de balayage exhaustif 0..999, trop lent en série).
+// Gabarits orphelins côté dispositif (présents mais sans mapping) : estimés par
+// différence (pas de balayage exhaustif, trop lent en réseau).
 $orphansSuspected = max(0, $sensorCount - ($dbCount - count($missing)));
 
 $repaired = 0;
@@ -74,7 +74,7 @@ echo json_encode([
     'orphans_suspected' => $orphansSuspected,
     'repaired' => $repaired,
     'message' => empty($missing) && $orphansSuspected === 0
-        ? "Parfaitement synchronisé : $dbCount mapping(s), $sensorCount page(s) capteur."
-        : (count($missing).' mapping(s) orphelin(s), '.$orphansSuspected.' page(s) capteur sans mapping.'
+        ? "Parfaitement synchronisé : $dbCount mapping(s), $sensorCount gabarit(s) dispositif."
+        : (count($missing).' mapping(s) orphelin(s), '.$orphansSuspected.' gabarit(s) dispositif sans mapping.'
             . ($repair ? " $repaired purgé(s)." : ' Relance avec réparation pour purger.')),
 ]);

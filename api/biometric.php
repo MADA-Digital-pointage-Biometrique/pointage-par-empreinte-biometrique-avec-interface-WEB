@@ -1,8 +1,8 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
-require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
-use App\Core\Biometric\SdkReader;
+require_once __DIR__ . '/../app/Core/Biometric/HttpDeviceReader.php';
+use App\Core\Biometric\HttpDeviceReader;
 
 if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Non authentifié.']); exit; }
 $pdo = getDB();
@@ -16,9 +16,9 @@ function auditLog(PDO $pdo, string $action, ?int $empId, ?int $slot, ?int $score
 }
 
 // gabarit_chiffre est bytea (schéma réel) : on stocke decode(hex) — jamais de
-// texte préfixé. Option (a) validée : dump impossible -> bytea vide + actif
-// (l'empreinte fonctionne côté capteur, seule la sauvegarde manque).
-const GABARIT_ALGO = 'R307_ZFM_UPCHAR_512';
+// texte préfixé. Cas "dump impossible" : bytea vide + actif (le gabarit
+// fonctionne côté dispositif, seule la sauvegarde manque).
+const GABARIT_ALGO = 'DEVICE_HTTP_TEMPLATE_HEX';
 function resolveAppareilId(PDO $pdo): ?int {
     try { $a = $pdo->query("SELECT id_appareil FROM appareils_pointage WHERE type_capteur='empreinte' LIMIT 1")->fetch(); return $a ? (int)$a['id_appareil'] : null; }
     catch (Throwable $e) { return null; }
@@ -51,26 +51,26 @@ if ($method === 'POST') {
 
             $pdo->beginTransaction();
             try {
-                $reader = SdkReader::fromConfig();
+                $reader = HttpDeviceReader::fromConfig();
                 $res = $reader->enroll($userId);
                 $waMsg = ' ('.$reader->name().')';
                 $slot = $res['slot'];
                 $dumped = saveGabarit($pdo, $userId, $res['hex'], resolveAppareilId($pdo));
-                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),$dumped?'enroll ok':'enroll ok, UP_CHAR impossible (nodump)');
+                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),$dumped?'enroll ok':'enroll ok, dump gabarit impossible (nodump)');
                 $pdo->commit();
                 echo json_encode(['ok'=>true,'message'=>"Empreinte enrôlée pour {$emp['prenom']} {$emp['nom']} (slot $slot).$waMsg",'slot'=>$slot,'dumped'=>$dumped]);
             } catch(Throwable $e) { $pdo->rollBack(); throw $e; }
             exit;
 
         } else if ($action === 'enroll_step1') {
-            // Étape 1/2 : 1re capture (bloque jusqu'au doigt posé ou timeout R307).
+            // Étape 1/2 : 1re capture (bloque jusqu'au doigt posé ou timeout dispositif).
             if ($userId <=0) { echo json_encode(['ok'=>false,'message'=>'Identifiant employé invalide.']); exit; }
             $empStmt = $pdo->prepare('SELECT prenom, nom, statut FROM employes WHERE id_employe=?');
             $empStmt->execute([$userId]);
             $emp = $empStmt->fetch();
             if (!$emp) { echo json_encode(['ok'=>false,'message'=>'Employé introuvable.']); exit; }
             if (($emp['statut']??'actif')!=='actif') { echo json_encode(['ok'=>false,'message'=>'Employé non actif.']); exit; }
-            $reader = SdkReader::fromConfig();
+            $reader = HttpDeviceReader::fromConfig();
             $cfg = require __DIR__ . '/../config/biometric.php';
             $slot = $reader->enrollStep1($userId);
             auditLog($pdo,'enrolement_etape1',$userId,$slot,null,$reader->getDeviceId(),'capture 1 ok');
@@ -81,12 +81,12 @@ if ($method === 'POST') {
             // Étape 2/2 : retrait + 2e capture + fusion + stockage + upsert BDD.
             $slot = (int)($input['slot'] ?? 0);
             if ($userId <=0 || $slot <=0) { echo json_encode(['ok'=>false,'message'=>'Étape 2 : employé/slot manquants (reprends à l’étape 1).']); exit; }
-            $reader = SdkReader::fromConfig();
+            $reader = HttpDeviceReader::fromConfig();
             $pdo->beginTransaction();
             try {
                 $res = $reader->enrollStep2($userId, $slot);
                 $dumped = saveGabarit($pdo, $userId, $res['hex'], resolveAppareilId($pdo));
-                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),$dumped?'enroll 2 captures ok':'enroll ok, UP_CHAR impossible (nodump)');
+                auditLog($pdo,'enrolement',$userId,$slot,null,$reader->getDeviceId(),$dumped?'enroll 2 captures ok':'enroll ok, dump gabarit impossible (nodump)');
                 $pdo->commit();
                 $msg = "Empreinte enrôlée (slot $slot) — 2 captures validées."
                     . ($dumped ? '' : ' (gabarit non sauvegardé — capteur seul)');
@@ -96,7 +96,7 @@ if ($method === 'POST') {
 
         } else if ($action === 'scan') {
             // Scan avec création pointage atomique (super_admin uniquement ici; borne utilise borne_pointage.php)
-            $reader = SdkReader::fromConfig();
+            $reader = HttpDeviceReader::fromConfig();
             $res = $reader->scanWithScore();
             if (!$res) { auditLog($pdo,'scan_refuse',null,null,0,$reader->getDeviceId(),'aucune correspondance'); echo json_encode(['ok'=>false,'message'=>'Aucune empreinte reconnue']); exit; }
             $foundId = $res['page_id']; $score = $res['score'];
@@ -113,7 +113,7 @@ if ($method === 'POST') {
             if (!$empRow || ($empRow['statut']??'actif')!=='actif') { auditLog($pdo,'scan_refuse',$empId,$foundId,$score,$reader->getDeviceId(),'employé non actif'); echo json_encode(['ok'=>false,'message'=>'Employé non actif ou introuvable']); exit; }
             $chkBio = $pdo->prepare("SELECT 1 FROM donnees_biometriques WHERE id_employe=? AND type_biometrie='empreinte' AND statut='actif' LIMIT 1"); $chkBio->execute([$empId]); if (!$chkBio->fetch()) { echo json_encode(['ok'=>false,'message'=>'Empreinte révoquée']); exit; }
             // Anti-double 45s
-            $cfg = require __DIR__.'/../config/biometric.php'; $anti = $cfg['drivers']['r307']['anti_double_seconds']??45;
+            $cfg = require __DIR__.'/../config/biometric.php'; $anti = $cfg['drivers'][$cfg['driver'] ?? 'device']['anti_double_seconds']??45;
             $last = $pdo->prepare('SELECT date_heure FROM pointages WHERE id_employe=? ORDER BY date_heure DESC LIMIT 1'); $last->execute([$empId]); $lr=$last->fetch();
             if ($lr) { $diff = time() - strtotime($lr['date_heure']); if ($diff < $anti) { auditLog($pdo,'scan_refuse',$empId,$foundId,$score,$reader->getDeviceId(),"anti-double ${diff}s"); http_response_code(409); echo json_encode(['ok'=>false,'message'=>"Pointage ignoré (anti-double {$diff}s < {$anti}s)",'retry_after'=>$anti-$diff]); exit; } }
             // Transaction entrée/sortie
@@ -137,16 +137,16 @@ if ($method === 'POST') {
 
         } else if ($action === 'delete') {
             if ($userId<=0) { echo json_encode(['ok'=>false,'message'=>'ID invalide']); exit; }
-            $reader = SdkReader::fromConfig();
+            $reader = HttpDeviceReader::fromConfig();
             $slot = $reader->getSlotForUser($userId);
             try { $reader->delete($userId); } catch(Throwable $e) {
                 auditLog($pdo,'delete_echec',$userId,$slot,null,$reader->getDeviceId(),$e->getMessage());
-                http_response_code(500); echo json_encode(['ok'=>false,'message'=>'R307 échec, base conservée: '.$e->getMessage(),'a_supprimer'=>true]); exit;
+                http_response_code(500); echo json_encode(['ok'=>false,'message'=>'Dispositif échec, base conservée: '.$e->getMessage(),'a_supprimer'=>true]); exit;
             }
             $pdo->prepare('DELETE FROM donnees_biometriques WHERE id_employe=? AND type_biometrie=\'empreinte\'')->execute([$userId]);
-            // slot déjà supprimé par SdkReader
+            // slot déjà supprimé par HttpDeviceReader
             auditLog($pdo,'delete_ok',$userId,$slot,null,$reader->getDeviceId(),'suppression synchrone');
-            echo json_encode(['ok'=>true,'message'=>'Empreinte supprimée (R307 + BDD).']);
+            echo json_encode(['ok'=>true,'message'=>'Empreinte supprimée (dispositif + BDD).']);
             exit;
         }
         http_response_code(400); echo json_encode(['ok'=>false,'message'=>'Action inconnue.']);

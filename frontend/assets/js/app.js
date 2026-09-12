@@ -104,11 +104,11 @@ function renderSidebarModeBadge(mode) {
 }
 
 function initSidebarModeBadge() {
-    // Mode Opératoire du Terminal : pointage par défaut (PHP→R307 via sensor_mode.php)
+    // Mode Opératoire du Terminal : pointage par défaut (via sensor_mode.php)
     if (!storage.get(MODE_STORAGE_KEY)) storage.set(MODE_STORAGE_KEY, 'pointage');
     const mode = storage.get(MODE_STORAGE_KEY);
     renderSidebarModeBadge(mode);
-    // Sync Python si jamais initialisé (évite R307 en idle)
+    // Sync serveur si jamais initialisé (évite le dispositif en idle)
     try { fetch(getApiEndpoint('sensor_mode.php'), { method:'GET', credentials:'include', cache:'no-store' }).then(r=>r.json()).then(j=>{ if(j.ok && !j.mode?.mode) fetchCsrf('sensor_mode.php', {mode}); }); } catch {}
 
     // Écouter les changements de mode et de cible émis par parametres.js
@@ -327,7 +327,7 @@ function buildShell() {
 
     // Initialiser et synchroniser le badge du mode opératoire dans la sidebar
     initSidebarModeBadge();
-    // Badge capteur HS/En service à côté de Pointage (état réel R307)
+    // Badge dispositif HS/En service (état réel via sensor_status.php)
     initSidebarCapteurBadge();
 
     // Attach dark mode toggle (sidebar bottom)

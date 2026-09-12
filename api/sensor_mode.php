@@ -4,11 +4,21 @@ require_once __DIR__ . '/db.php';
 $pdo = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
-// Fichier miroir pour Python (R307) : python/mode.json
-$modeFile = __DIR__ . '/../python/mode.json';
+// Mode opératoire du dispositif (pointage | enrolement + cible).
+// Stocké côté serveur : config/sensor_mode.json (aucune dépendance matérielle).
+// Lecture dispositif : GET accepté avec session OU X-Device-Token (BORNE_TOKEN)
+// pour permettre au dispositif réseau de sonder le mode sans session web.
+$modeFile = __DIR__ . '/../config/sensor_mode.json';
+
+function deviceTokenOk(): bool {
+    $expected = getenv('BORNE_TOKEN') ?: '';
+    if ($expected === '') return false;
+    $got = $_SERVER['HTTP_X_DEVICE_TOKEN'] ?? '';
+    return $got !== '' && hash_equals($expected, $got);
+}
 
 if ($method === 'GET') {
-    if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Non authentifié']); exit; }
+    if (!isset($_SESSION['user_id']) && !deviceTokenOk()) { http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Non authentifié']); exit; }
     $data = ['mode'=>'pointage','target_id'=>null,'updated_at'=>null];
     if (file_exists($modeFile)) {
         $j = json_decode(@file_get_contents($modeFile), true);
@@ -42,8 +52,6 @@ if ($method === 'POST') {
     }
     $payload = ['mode'=>$mode,'target_id'=>$targetId,'updated_at'=>date('c'),'updated_by'=>$_SESSION['user_id']];
     @file_put_contents($modeFile, json_encode($payload, JSON_PRETTY_PRINT));
-    // Notifie Python si dispo : touche un fichier trigger
-    @touch(__DIR__ . '/../python/.mode_trigger');
     echo json_encode(['ok'=>true,'mode'=>$payload,'message'=> $mode==='enrolement' ? "Mode enrôlement activé pour #$targetId" : "Mode pointage activé"]);
     exit;
 }

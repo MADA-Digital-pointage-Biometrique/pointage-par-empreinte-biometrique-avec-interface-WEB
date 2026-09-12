@@ -1,7 +1,7 @@
 -- Migration: biometric_slots (R307) + audit immuable + offline
 -- Compatible MySQL et Postgres (Supabase)
 
--- 1. Table de correspondance slots R307 (évite collision min(999))
+-- 1. Table de correspondance identifiants de gabarits (évite collision min(999))
 CREATE TABLE IF NOT EXISTS biometric_slots (
     id SERIAL PRIMARY KEY,
     id_employe INT NOT NULL UNIQUE,

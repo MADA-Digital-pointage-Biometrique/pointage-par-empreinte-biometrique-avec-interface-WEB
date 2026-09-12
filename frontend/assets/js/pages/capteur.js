@@ -196,19 +196,19 @@ async function syncModeButtonsWithCapteur(){
 
 async function applyMode(mode) {
     if (capteurHs) { flash('Capteur HS — changement de mode désactivé.', 'warning'); return; }
-    // Enrôlement sans employé = reste en pointage côté R307 (en attente d'employé)
+    // Enrôlement sans employé = reste en pointage côté dispositif (en attente d'employé)
     if (mode === 'enrolement' && !storage.get(ENROLL_TARGET_KEY)) {
-        // UI passe en enrolement mais R307 reste pointage jusqu'à sélection
+        // UI passe en enrolement mais le dispositif reste pointage jusqu'à sélection
         storage.set(MODE_KEY, mode);
         refreshModeUI(mode);
         document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode } }));
-        flash('Mode Enrôlement : sélectionne un employé — R307 reste en Pointage (en attente).', 'info');
+        flash('Mode Enrôlement : sélectionne un employé — le dispositif reste en Pointage (en attente).', 'info');
         return;
     }
     const prevMode = storage.get(MODE_KEY);
     storage.set(MODE_KEY, mode);
     if (mode !== 'enrolement') storage.remove(ENROLL_TARGET_KEY);
-    // Sync PHP→Python R307 (sensor_mode.php → python/mode.json).
+    // Sync mode serveur (sensor_mode.php → config/sensor_mode.json).
     // Le succès n'est affiché qu'APRÈS confirmation serveur ; en cas d'échec,
     // l'UI revient à l'état réel du terminal (pas de divergence).
     const targetRaw = storage.get(ENROLL_TARGET_KEY);
@@ -219,14 +219,14 @@ async function applyMode(mode) {
     try {
         const r = await fetchCsrf('sensor_mode.php', {mode, target_id: targetId});
         const j = await r.json();
-        if (!j.ok) throw new Error(j.message || 'Erreur mode R307');
+        if (!j.ok) throw new Error(j.message || 'Erreur mode dispositif');
         flash(`Mode "${labels[mode]}" activé avec succès.`, 'success');
     } catch (e) {
         if (prevMode) storage.set(MODE_KEY, prevMode); else storage.remove(MODE_KEY);
         const realMode = getCurrentMode();
         refreshModeUI(realMode);
         document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode: realMode } }));
-        flash((e && e.message) || 'Erreur mode R307 — retour au mode précédent.', 'danger');
+        flash((e && e.message) || 'Erreur mode dispositif — retour au mode précédent.', 'danger');
     }
 }
 
@@ -400,7 +400,7 @@ function selectEnrollTarget(employee) {
     }
 
     document.dispatchEvent(new CustomEvent('mada:enrollTargetChanged', { detail: { employee } }));
-    // Si mode enrolement, configure R307 immédiatement (PHP→python/mode.json)
+    // Si mode enrolement, configure le dispositif immédiatement (sensor_mode.php)
     if (getCurrentMode() === 'enrolement') {
         fetchCsrf('sensor_mode.php', {mode:'enrolement', target_id: employee.id}).catch(()=>{});
     }

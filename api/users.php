@@ -4,6 +4,11 @@ require_once __DIR__ . '/db.php';
 $pdo = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
+// Identifiant logique du dispositif (biometric_slots.device_id) depuis la config.
+$__bioCfg = require __DIR__ . '/../config/biometric.php';
+$__bioDriver = $__bioCfg['driver'] ?? 'device';
+$__deviceId = $__bioCfg['drivers'][$__bioDriver]['device_id'] ?? 'device_main';
+
 // ── RBAC : seul super_admin peut faire CUD (admin = lecture seule) ──
 if (in_array($method, ['POST','PUT','DELETE'])) {
     $role = $_SESSION['role'] ?? '';
@@ -52,7 +57,7 @@ if ($method === 'GET') {
                 s.slot_number
             FROM employes e
             LEFT JOIN departements d ON e.id_departement = d.id_departement
-            LEFT JOIN biometric_slots s ON s.id_employe = e.id_employe AND s.device_id = 'r307_main'
+            LEFT JOIN biometric_slots s ON s.id_employe = e.id_employe AND s.device_id = '" . str_replace("'", "", $__deviceId) . "'
         ");
         $employes = $stmtEmp->fetchAll();
 
@@ -510,17 +515,17 @@ if ($method === 'DELETE') {
                 $photoPath = __DIR__ . '/../uploads/photos/' . $emp['photo_profil'];
                 if (file_exists($photoPath)) unlink($photoPath);
             }
-            // Capteur : purge l'empreinte physique + mapping slot AVANT la
+            // Dispositif : purge le gabarit + mapping AVANT la
             // transaction DB (si la DB échoue après, Réconcilier détectera).
-            // Non-bloquant : capteur débranché = suppression RH quand même.
+            // Non-bloquant : dispositif injoignable = suppression RH quand même.
             $capteurWarn = null;
             try {
                 require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
-                require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
+                require_once __DIR__ . '/../app/Core/Biometric/HttpDeviceReader.php';
                 $slotChk = $pdo->prepare('SELECT slot_number FROM biometric_slots WHERE id_employe=? LIMIT 1');
                 $slotChk->execute([$id]);
                 if ($slotChk->fetch()) {
-                    \App\Core\Biometric\SdkReader::fromConfig()->delete($id);
+                    \App\Core\Biometric\HttpDeviceReader::fromConfig()->delete($id);
                 }
             } catch (Throwable $e) {
                 $capteurWarn = $e->getMessage();
