@@ -67,9 +67,9 @@ if ($method === 'POST') {
             exit;
         }
 
-        $stmt = $pdo->prepare('INSERT INTO departements (nom_departement, description) VALUES (?, ?)');
+        $stmt = $pdo->prepare('INSERT INTO departements (nom_departement, description) VALUES (?, ?) RETURNING id_departement');
         $stmt->execute([$nom, $description ?: null]);
-        $newId = (int) $pdo->lastInsertId();
+        $newId = (int) $stmt->fetchColumn();
         auditWrite($pdo, 'departement_cree', $newId, 'departements', ['nom' => $nom]);
 
         echo json_encode([

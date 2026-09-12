@@ -43,7 +43,14 @@ async function renderAudit() {
         );
         if (r.status === 401) { window.location.replace('login.php'); return; }
         const j = await r.json();
-        if (!j.ok) { body.innerHTML = '<tr><td colspan="4" class="py-lg px-md text-center text-rose-500">Accès refusé.</td></tr>'; return; }
+        if (!j.ok) {
+            // 403 = session serveur sans droits super-admin (ex. connecté avec un
+            // compte admin simple, ou 2 onglets avec 2 comptes différents).
+            const msg = (j.message && String(j.message)) || 'Accès refusé.';
+            body.innerHTML = '<tr><td colspan="4" class="py-lg px-md text-center text-rose-500">' + msg + '<br><span class="text-[11px] text-slate-400">Connectez-vous avec le compte Super Admin (ADM001).</span></td></tr>';
+            if (summary) summary.textContent = 'Accès refusé';
+            return;
+        }
         if (j.missing) {
             body.innerHTML = '<tr><td colspan="4" class="py-lg px-md text-center text-amber-600 dark:text-amber-400">Table journal_audit absente — applique database/migration_journal_audit.sql sur Supabase.</td></tr>';
             if (summary) summary.textContent = 'Table manquante';

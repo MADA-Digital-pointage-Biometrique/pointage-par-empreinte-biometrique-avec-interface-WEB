@@ -357,9 +357,9 @@ if ($method === 'POST') {
             $hash = hashPassword($password);
             $dbRole = ($role === 'super_admin') ? 'admin_systeme' : 'admin';
             $userEmail = $email ?: $matricule . '@mada-digital.mg';
-            $insertUser = $pdo->prepare('INSERT INTO utilisateurs_systeme (matricule, nom, prenom, email, telephone, id_departement, mot_de_passe_hash, role, statut) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'actif\')');
+            $insertUser = $pdo->prepare('INSERT INTO utilisateurs_systeme (matricule, nom, prenom, email, telephone, id_departement, mot_de_passe_hash, role, statut) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'actif\') RETURNING id_utilisateur');
             $insertUser->execute([$matricule, $nom, $prenom, $userEmail, $telephone ?: null, $id_dept > 0 ? $id_dept : null, $hash, $dbRole]);
-            $newId = $pdo->lastInsertId();
+            $newId = (int)$insertUser->fetchColumn();
             $pdo->commit();
             auditWrite($pdo, 'admin_cree', $newId, 'utilisateurs_systeme', ['matricule' => $matricule, 'role' => $role]);
             echo json_encode([
@@ -405,10 +405,10 @@ if ($method === 'POST') {
                 if (!move_uploaded_file($_FILES['photo']['tmp_name'], $uploadDir.$photoFilename)) { http_response_code(500); echo json_encode(['ok'=>false,'message'=>'Erreur lors de l\'enregistrement de la photo.']); exit; }
             }
             $pdo->beginTransaction();
-            $insertEmp = $pdo->prepare('INSERT INTO employes (matricule, nom, prenom, email, telephone, id_departement, poste, date_embauche, statut, photo_profil) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'actif\', ?)');
+            $insertEmp = $pdo->prepare('INSERT INTO employes (matricule, nom, prenom, email, telephone, id_departement, poste, date_embauche, statut, photo_profil) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'actif\', ?) RETURNING id_employe');
             $poste = 'Employé';
             $insertEmp->execute([$matricule, $nom, $prenom, $email ?: null, $telephone ?: null, $id_dept > 0 ? $id_dept : null, $poste, $dateEmbauche, $photoFilename]);
-            $empId = $pdo->lastInsertId();
+            $empId = (int)$insertEmp->fetchColumn();
             $pdo->commit();
             auditWrite($pdo, 'employe_cree', $empId, 'employes', ['matricule' => $matricule]);
             echo json_encode([
