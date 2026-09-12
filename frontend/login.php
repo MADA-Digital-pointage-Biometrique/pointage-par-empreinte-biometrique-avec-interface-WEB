@@ -66,9 +66,9 @@ if (isset($_SESSION['user_id'])) {
         </div>
     </div>
 
-<script src="assets/js/data.js"></script>
-    <script src="assets/js/api.js"></script>
-    <script src="assets/js/app.js"></script>
-    <script src="assets/js/pages/login.js"></script>
+<script src="assets/js/data.js?v=<?= asset_ver('assets/js/data.js') ?>"></script>
+    <script src="assets/js/api.js?v=<?= asset_ver('assets/js/api.js') ?>"></script>
+    <script src="assets/js/app.js?v=<?= asset_ver('assets/js/app.js') ?>"></script>
+    <script src="assets/js/pages/login.js?v=<?= asset_ver('assets/js/pages/login.js') ?>"></script>
 </body>
 </html>
