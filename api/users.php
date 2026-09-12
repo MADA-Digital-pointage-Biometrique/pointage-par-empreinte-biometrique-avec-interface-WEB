@@ -163,6 +163,7 @@ if ($method === 'POST') {
                 $updateStmt = $pdo->prepare("UPDATE utilisateurs_systeme SET $updateFields WHERE id_utilisateur=?");
                 $updateStmt->execute($params);
                 $pdo->commit();
+                auditWrite($pdo, 'admin_modifie', $realId, 'utilisateurs_systeme', ['matricule' => $matricule, 'role' => $role]);
                 echo json_encode([
                     'ok' => true, 'message' => 'Administrateur mis à jour avec succès.',
                     'user' => ['id' => $id, 'matricule' => $matricule, 'nom' => $nom, 'prenom' => $prenom, 'email' => $email, 'telephone' => $telephone, 'departement' => $deptName, 'id_departement' => $id_dept > 0 ? $id_dept : null, 'role' => $role, 'date_embauche' => $dateEmbauche ?: date('Y-m-d'), 'photo_url' => null]
@@ -262,6 +263,7 @@ if ($method === 'POST') {
 
             $pdo->commit();
 
+            auditWrite($pdo, 'employe_modifie', $id, 'employes', ['matricule' => $matricule]);
             echo json_encode([
                 'ok'      => true,
                 'message' => 'Employé mis à jour avec succès.',
@@ -359,6 +361,7 @@ if ($method === 'POST') {
             $insertUser->execute([$matricule, $nom, $prenom, $userEmail, $telephone ?: null, $id_dept > 0 ? $id_dept : null, $hash, $dbRole]);
             $newId = $pdo->lastInsertId();
             $pdo->commit();
+            auditWrite($pdo, 'admin_cree', $newId, 'utilisateurs_systeme', ['matricule' => $matricule, 'role' => $role]);
             echo json_encode([
                 'ok' => true, 'message' => 'Administrateur créé avec succès.',
                 'user' => [
@@ -407,6 +410,7 @@ if ($method === 'POST') {
             $insertEmp->execute([$matricule, $nom, $prenom, $email ?: null, $telephone ?: null, $id_dept > 0 ? $id_dept : null, $poste, $dateEmbauche, $photoFilename]);
             $empId = $pdo->lastInsertId();
             $pdo->commit();
+            auditWrite($pdo, 'employe_cree', $empId, 'employes', ['matricule' => $matricule]);
             echo json_encode([
                 'ok' => true, 'message' => 'Employé créé avec succès.',
                 'user' => [
@@ -456,6 +460,7 @@ if ($method === 'PUT') {
             $stmt = $pdo->prepare('UPDATE utilisateurs_systeme SET matricule=?, nom=?, prenom=?, email=?, telephone=?, id_departement=?, role=? WHERE id_utilisateur=?');
             $dbRole = ($role === 'super_admin') ? 'admin_systeme' : 'admin';
             $stmt->execute([$matricule, $nom, $prenom, $email ?: null, $telephone ?: null, $deptId, $dbRole, $realId]);
+            auditWrite($pdo, 'admin_modifie', $realId, 'utilisateurs_systeme', ['matricule' => $matricule, 'role' => $role]);
             echo json_encode(['ok' => true, 'message' => 'Administrateur mis à jour.', 'user' => [
                 'id' => $id, 'matricule' => $matricule, 'nom' => $nom, 'prenom' => $prenom, 'email' => $email, 'telephone' => $telephone, 'departement' => $departement, 'role' => $role, 'date_embauche' => $dateEmbauche ?: date('Y-m-d')
             ]]);
@@ -463,6 +468,7 @@ if ($method === 'PUT') {
             $stmt = $pdo->prepare('UPDATE employes SET matricule=?, nom=?, prenom=?, email=?, telephone=?, id_departement=?, poste=?, date_embauche=? WHERE id_employe=?');
             $poste = 'Employé';
             $stmt->execute([$matricule, $nom, $prenom, $email ?: null, $telephone ?: null, $deptId, $poste, $dateEmbauche ?: date('Y-m-d'), $id]);
+            auditWrite($pdo, 'employe_modifie', $id, 'employes', ['matricule' => $matricule]);
             echo json_encode(['ok' => true, 'message' => 'Employé mis à jour.', 'user' => [
                 'id' => $id, 'matricule' => $matricule, 'nom' => $nom, 'prenom' => $prenom, 'email' => $email, 'telephone' => $telephone, 'departement' => $departement, 'role' => $role, 'date_embauche' => $dateEmbauche ?: date('Y-m-d')
             ]]);
@@ -490,6 +496,7 @@ if ($method === 'DELETE') {
             $realId = $id - 10000;
             $stmt = $pdo->prepare('DELETE FROM utilisateurs_systeme WHERE id_utilisateur = ?');
             $stmt->execute([$realId]);
+            auditWrite($pdo, 'admin_supprime', $realId, 'utilisateurs_systeme');
             echo json_encode(['ok' => true, 'message' => 'Administrateur supprimé avec succès.']);
         } else {
             $row = $pdo->prepare('SELECT photo_profil FROM employes WHERE id_employe = ?');
@@ -540,6 +547,7 @@ if ($method === 'DELETE') {
                 $stmt = $pdo->prepare('DELETE FROM employes WHERE id_employe = ?');
                 $stmt->execute([$id]);
                 $pdo->commit();
+                auditWrite($pdo, 'employe_supprime', $id, 'employes', ['capteur_purge' => $capteurWarn === null]);
             } catch (Exception $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 throw $e;

@@ -89,6 +89,11 @@ try {
 
     if (!$loginOk) {
         $throttleBump();
+        // Traçabilité des échecs (table super_admin uniquement : pas d'oracle
+        // pour l'attaquant). Throttle existant => pas de risque d'inondation.
+        // Acteur = compte visé (attribuable au filtrage) même sans session.
+        $failUid = $userExists ? (int)$user['id_utilisateur'] : null;
+        auditWrite($pdo, 'connexion_echec', $failUid, 'utilisateurs_systeme', ['matricule' => $matricule], $failUid);
         http_response_code(401);
         echo json_encode(['ok' => false, 'message' => 'Matricule ou mot de passe incorrect.']);
         exit;
@@ -130,6 +135,7 @@ try {
     $_SESSION['user'] = $userData;
     $_SESSION['user_id'] = $userData['id'];
     $_SESSION['role'] = $roleMapped;
+    auditWrite($pdo, 'connexion', $userData['id'], 'utilisateurs_systeme', ['matricule' => $userData['matricule'], 'role' => $roleMapped]);
 
     echo json_encode([
         'ok'      => true,

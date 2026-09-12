@@ -70,6 +70,7 @@ if ($method === 'POST') {
         $stmt = $pdo->prepare('INSERT INTO departements (nom_departement, description) VALUES (?, ?)');
         $stmt->execute([$nom, $description ?: null]);
         $newId = (int) $pdo->lastInsertId();
+        auditWrite($pdo, 'departement_cree', $newId, 'departements', ['nom' => $nom]);
 
         echo json_encode([
             'ok' => true,
@@ -107,6 +108,7 @@ if ($method === 'PUT') {
 
         $stmt = $pdo->prepare('UPDATE departements SET nom_departement = ?, description = ? WHERE id_departement = ?');
         $stmt->execute([$nom, $description ?: null, $id]);
+        auditWrite($pdo, 'departement_modifie', $id, 'departements', ['nom' => $nom]);
 
         echo json_encode([
             'ok' => true,
@@ -134,6 +136,7 @@ if ($method === 'DELETE') {
     try {
         $stmt = $pdo->prepare('DELETE FROM departements WHERE id_departement = ?');
         $stmt->execute([$id]);
+        auditWrite($pdo, 'departement_supprime', $id, 'departements');
 
         echo json_encode(['ok' => true, 'message' => 'Département supprimé.']);
     } catch (Throwable $e) {

@@ -138,6 +138,22 @@ function cacheClear(string $key): void {
     @unlink($f);
 }
 
+// Journal d'audit générique (toutes écritures métier : RH, pointages manuels,
+// connexions, départements, mots de passe — la biométrie garde son auditLog
+// dédié avec slot/score). Ne fait JAMAIS échouer l'opération appelante :
+// table absente (migration non appliquée) = log seul.
+function auditWrite(PDO $pdo, string $action, $recordId = null, ?string $table = null, $details = null, ?int $actorId = null): void {
+    try {
+        $actor = $actorId ?? (isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null);
+        $rec = is_numeric($recordId) ? (int)$recordId : null;
+        $det = $details === null ? null : (is_string($details) ? $details : json_encode($details, JSON_UNESCAPED_UNICODE));
+        $pdo->prepare("INSERT INTO journal_audit (id_utilisateur, action, table_concernee, id_enregistrement_concerne, details, date_heure) VALUES (?,?,?,?,?,NOW())")
+            ->execute([$actor, $action, $table, $rec, $det]);
+    } catch (Throwable $e) {
+        error_log('auditWrite(' . $action . '): ' . $e->getMessage());
+    }
+}
+
 // CSRF central : vérifie automatiquement POST/PUT/DELETE sauf login/logout/csrf/me.
 // bornes (borne_pointage/sync_offline) : exemptées car auth par X-Device-Token.
 // sensor_status : GET uniquement, le contrôle ne s'applique pas.

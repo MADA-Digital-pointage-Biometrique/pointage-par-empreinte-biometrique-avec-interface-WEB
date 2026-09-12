@@ -142,6 +142,7 @@ if ($method === 'POST') {
         }
 
         $pdo->commit();
+        auditWrite($pdo, 'pointage_manuel_cree', $userId, 'pointages', ['date' => $date, 'entree' => $entree ?: null, 'sortie' => $sortie ?: null]);
 
         // Récupérer le pointage groupé créé
         $stmt = $pdo->prepare("
@@ -224,6 +225,7 @@ if ($method === 'PUT') {
         $upsert('entree', $entree);
         $upsert('sortie', $sortie);
         $pdo->commit();
+        auditWrite($pdo, 'pointage_manuel_modifie', $userId, 'pointages', ['date' => $date, 'entree' => $entree ?: null, 'sortie' => $sortie ?: null]);
 
         $stmt = $pdo->prepare("
             SELECT MIN(p.id_pointage) AS id, p.id_employe AS user_id, (p.date_heure::date) AS date,
@@ -278,6 +280,7 @@ if ($method === 'DELETE') {
 
         $del = $pdo->prepare('DELETE FROM pointages WHERE id_employe = ? AND (date_heure::date) = ?');
         $del->execute([(int)$orig['id_employe'], $orig['date']]);
+        auditWrite($pdo, 'pointage_supprime', (int)$orig['id_employe'], 'pointages', ['date' => $orig['date']]);
 
         cacheClear('dash_' . date('Y-m-d'));
         echo json_encode(['ok' => true, 'message' => 'Pointage supprimé avec succès.']);

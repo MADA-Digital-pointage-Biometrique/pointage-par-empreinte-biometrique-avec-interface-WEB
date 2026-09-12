@@ -46,6 +46,7 @@ try {
     }
     $newHash = hashPassword($new);
     $pdo->prepare('UPDATE utilisateurs_systeme SET mot_de_passe_hash = ? WHERE id_utilisateur = ?')->execute([$newHash, $uid]);
+    auditWrite($pdo, 'mot_de_passe_modifie', $uid, 'utilisateurs_systeme');
     echo json_encode(['ok' => true, 'message' => 'Mot de passe mis à jour avec succès.']);
 } catch (Throwable $e) {
     http_response_code(500);
