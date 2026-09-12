@@ -15,10 +15,21 @@ function initPage() {
         const password = document.getElementById('password')?.value || '';
 
         const btn = document.getElementById('btn-submit');
-        if (btn) {
-            btn.disabled = true;
-            btn.classList.add('opacity-70', 'pointer-events-none');
-        }
+        let btnOriginal = null;
+        const setLoading = (on) => {
+            if (!btn) return;
+            if (on) {
+                if (btnOriginal === null) btnOriginal = btn.innerHTML;
+                btn.disabled = true;
+                btn.classList.add('opacity-70', 'pointer-events-none');
+                btn.innerHTML = '<span class="btn-spinner"></span>Connexion en cours…';
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('opacity-70', 'pointer-events-none');
+                if (btnOriginal !== null) btn.innerHTML = btnOriginal;
+            }
+        };
+        setLoading(true);
 
         let res;
         try {
@@ -28,11 +39,7 @@ function initPage() {
             res = { ok: false, message: 'Erreur réseau : ' + err.message };
         }
 
-        if (btn) {
-            btn.disabled = false;
-            btn.classList.remove('opacity-70', 'pointer-events-none');
-        }
-
+        // Le spinner reste jusqu'à la redirection ; restauré uniquement en échec.
         if (res.ok) {
             flash(`Bienvenue ${res.user.prenom} ${res.user.nom}`, 'success');
             // Vérifie que la session est bien active côté serveur avant de rediriger
@@ -52,10 +59,7 @@ function initPage() {
                     const v = await api.verifyAuth();
                     if (!v) {
                         flash('Session non établie, veuillez réessayer.', 'warning');
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.classList.remove('opacity-70', 'pointer-events-none');
-                        }
+                        setLoading(false);
                         return;
                     }
                 } catch {}
@@ -67,6 +71,7 @@ function initPage() {
                 window.location.replace('dashboard.php?v=' + Date.now());
             }
         } else {
+            setLoading(false);
             flash(res.message, 'danger');
         }
     });
