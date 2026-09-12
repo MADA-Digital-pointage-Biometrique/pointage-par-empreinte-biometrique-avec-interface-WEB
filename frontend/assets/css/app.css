@@ -723,6 +723,23 @@ body.sidebar-collapsed .nav-footer-border .nav-item-link {
 }
 
 /* ============================================================
+   SPINNER BOUTON (état de chargement des modales de confirmation)
+   CSS pur : les classes injectées en JS ne sont pas dans le build Tailwind.
+   ============================================================ */
+.btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #ffffff;
+    border-radius: 9999px;
+    animation: btn-spin 0.7s linear infinite;
+    vertical-align: -2px;
+    margin-right: 6px;
+}
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
    TOOLTIP D'ONGLET (indice au survol des liens de navigation)
    ============================================================ */
 .nav-tooltip {

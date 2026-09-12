@@ -755,8 +755,18 @@ function showConfirmModal({ title, message, type = 'warning', confirmText = 'Con
 
     document.getElementById('btn-cancel-confirm').onclick = () => modal.remove();
     document.getElementById('btn-submit-confirm').onclick = async () => {
-        modal.remove();
-        if (typeof onConfirm === 'function') await onConfirm();
+        // État de chargement : bouton désactivé + spinner, anti double-clic.
+        // Le modal se ferme une fois l'action terminée (pas avant).
+        const btn = document.getElementById('btn-submit-confirm');
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-wait');
+        btn.innerHTML = '<span class="btn-spinner"></span>' + original;
+        try {
+            if (typeof onConfirm === 'function') await onConfirm();
+        } finally {
+            modal.remove();
+        }
     };
 }
 
@@ -1022,8 +1032,8 @@ function performLogout() {
         type: 'warning',
         confirmText: 'Se déconnecter',
         cancelText: 'Rester connecté',
-        onConfirm: () => {
-            api.logout();
+        onConfirm: async () => {
+            await api.logout();
             if (SINGLE_FILE_MODE) {
                 switchPage('login');
             } else {
