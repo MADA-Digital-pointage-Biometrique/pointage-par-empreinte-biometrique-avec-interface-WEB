@@ -1016,12 +1016,21 @@ const SINGLE_FILE_MODE = (window.location.pathname.split('/').pop() || 'index.ht
 const SPA_PAGES = ['login', 'dashboard', 'employes', 'capteur', 'administrateurs', 'historique', 'pointage', 'parametres', 'audit'];
 
 function performLogout() {
-    api.logout();
-    if (SINGLE_FILE_MODE) {
-        switchPage('login');
-    } else {
-        window.location.href = 'login.php';
-    }
+    showConfirmModal({
+        title: 'Se déconnecter ?',
+        message: 'Voulez-vous vraiment vous déconnecter ? Votre session sera fermée.',
+        type: 'warning',
+        confirmText: 'Se déconnecter',
+        cancelText: 'Rester connecté',
+        onConfirm: () => {
+            api.logout();
+            if (SINGLE_FILE_MODE) {
+                switchPage('login');
+            } else {
+                window.location.href = 'login.php';
+            }
+        }
+    });
 }
 
 function switchPage(pageName) {
