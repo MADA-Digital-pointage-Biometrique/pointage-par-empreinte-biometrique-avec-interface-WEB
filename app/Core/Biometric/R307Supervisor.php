@@ -8,7 +8,7 @@ namespace App\Core\Biometric;
  * - ensureRunning() : démarre le daemon en tâche de fond s'il est absent
  *                     (spawn détaché sans fenêtre, cooldown 60 s, log
  *                     python/r307_service.log, sonde de confirmation)
- * Utilisé par api/sensor_watch.php (toggle surveillance) et api/sensor_status.php.
+ * Utilisé par api/sensor_watch.php (toggle surveillance).
  */
 final class R307Supervisor
 {
@@ -79,19 +79,6 @@ final class R307Supervisor
         $hint = is_file($log) ? ' — voir python/r307_service.log' : '';
         return ['up' => false, 'started' => false,
                 'message' => 'Le service ne répond pas après démarrage' . $hint];
-    }
-
-    /** URL de l'API borne : R307_API_URL sinon dérivation depuis la requête courante. */
-    public static function apiUrl(): ?string
-    {
-        $env = getenv('R307_API_URL');
-        if ($env && trim($env) !== '') return trim($env);
-        // Dérivation : scheme://host + répertoire de l'API + borne_pointage.php
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? null);
-        if (!$host) return null;
-        $dir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
-        return $scheme . '://' . $host . ($dir !== '' ? $dir : '') . '/borne_pointage.php';
     }
 
     /**
