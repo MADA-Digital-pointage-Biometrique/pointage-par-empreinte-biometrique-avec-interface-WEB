@@ -1,0 +1,52 @@
+%% MADA Digital — Diagrammes d'activité (Mermaid)
+%% Rendu : https://mermaid.live — copier chaque bloc flowchart séparément
+%% Sources : docs/FLUX_BIOMETRIE.md + api/borne_pointage.php + app/Core/PointageService.php
+
+%% ========== A. ENROLEMENT (2 captures R307) ==========
+flowchart TD
+    A1([Admin ouvre page Capteur<br/>mode Enrolement]) --> A2[POST sensor_mode.php<br/>mode.json = enrolement]
+    A2 --> A3{Watchdog voit<br/>mode != pointage ?}
+    A3 -- Oui --> A4[Pause surveillance<br/>port COM libéré]
+    A3 -- Non --> A3
+    A4 --> A5[POST biometric.php enroll_start<br/>allocateSlot + upsert biometric_slots]
+    A5 --> A6{Slot libre 0..999 ?}
+    A6 -- Non 507 plein --> A6E([Erreur : bibliothèque pleine])
+    A6 -- Oui --> A7[Daemon /enroll1<br/>GenImg + Img2Tz Buffer1]
+    A7 --> A8{Doigt détecté<br/>avant 90s ?}
+    A8 -- Non timeout --> A8E([Relance auto front<br/>max 10 essais])
+    A8 -- Oui --> A9[Retrait doigt 4s<br/>anti-fusion]
+    A9 --> A10[Daemon /enroll2<br/>Img2Tz Buffer2 + RegModel + Store slot]
+    A10 --> A11{Qualité fusion OK ?}
+    A11 -- Non --> A11E([Erreur : reposer le doigt])
+    A11 -- Oui --> A12[UpChar 512o → PHP<br/>Crypto ENC1 AES-256-GCM]
+    A12 --> A13[(Supabase : donnees_biometriques<br/>+ biometric_slots + journal_audit)]
+    A13 --> A14[POST sensor_mode.php<br/>mode.json = pointage]
+    A14 --> A15([Enrôlement terminé — reprise surveillance])
+
+%% ========== B. POINTAGE (surveillance continue) ==========
+flowchart TD
+    P1([Employé pose le doigt]) --> P2[Daemon watch cycle 0,1s<br/>GenImg + Img2Tz + Search]
+    P2 --> P3{Match page_id ?}
+    P3 -- Non 404 --> P4[Attente retrait doigt<br/>pas de spam]
+    P4 --> P2
+    P3 -- Oui page_id + score --> P5[POST borne_pointage.php<br/>identified, ts, nonce + X-Device-Token]
+    P5 --> P6{Token == BORNE_TOKEN ?}
+    P6 -- Non --> P6E([401 Borne non authentifiée])
+    P6 -- Oui --> P7{ts ±120s et nonce unique ?}
+    P7 -- Non --> P7E([400 expiré / 409 rejoué])
+    P7 -- Oui --> P8{Rate-limit 0,8s + 20/min ?}
+    P8 -- Non --> P8E([429 Trop de requêtes])
+    P8 -- Oui --> P9[Resolve slot → employé<br/>biometric_slots]
+    P9 --> P10{Employé actif<br/>et empreinte active ?}
+    P10 -- Non --> P10E([403 révoqué / inactif])
+    P10 -- Oui --> P11{score >= seuil 60 ?}
+    P11 -- Non --> P11E([403 Score faible])
+    P11 -- Oui --> P12{Dernier pointage<br/>il y a moins de 45s ?}
+    P12 -- Oui --> P12E([409 Anti-double<br/>retry_after])
+    P12 -- Non --> P13[(INSERT pointages<br/>+ recalc heures_mensuelles + audit)]
+    P13 --> P14{Dernier type du jour ?}
+    P14 -- aucun / sortie --> P15[Décision = ENTREE]
+    P14 -- entrée / pause_debut --> P16[Décision = SORTIE]
+    P14 -- pause_fin --> P15
+    P15 --> P17([Pointage enregistré])
+    P16 --> P17
