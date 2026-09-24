@@ -1,0 +1,29 @@
+# MADA Digital — déploiement VPS (centrale seule, borne native Windows)
+# BDD : Supabase externe. Capteur R307 : PC borne, jamais dans Docker.
+services:
+  web:
+    build: .
+    image: mada-pointage:latest
+    restart: unless-stopped
+    ports:
+      # VPS : inversez via reverse-proxy HTTPS (443 -> 80). En local : http://localhost:8080/login
+      - "8080:80"
+    env_file:
+      # .env NON versionné (cf. .env.example) : DB_*, APP_ENCRYPTION_KEY, BORNE_TOKEN, CRON_SECRET
+      - .env
+    environment:
+      # Serveur sans capteur direct : SdkReader saute le daemon local (évite 25 s d'attente
+      # vers 127.0.0.1:8765 dans le conteneur). La borne Windows POST vers /api/borne_pointage.php.
+      R307_SERVICE_URL: ""
+      APP_TZ: "Indian/Antananarivo"
+    volumes:
+      # Photos employés persistées hors image (le .htaccess anti-webshell est dans l'image)
+      - uploads_photos:/var/www/html/uploads/photos
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(is_file('/var/www/html/frontend/login.php') ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  uploads_photos:

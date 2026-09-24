@@ -1,0 +1,22 @@
+# Contexte Docker : image = centrale seule (pas de secrets, pas de dev)
+.git/
+.gitignore
+.env
+.env.example
+.freebuff/
+node_modules/
+docs/
+tests/
+logs/
+*.log
+python/__pycache__/
+python/*.log
+python/mode.json
+python/.mode_trigger
+python/watch_state.json
+uploads/photos/*
+!uploads/photos/.gitkeep
+frontend/tools/
+tailwind.config.js
+package.json
+package-lock.json
