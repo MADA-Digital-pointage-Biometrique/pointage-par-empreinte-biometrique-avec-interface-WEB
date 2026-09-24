@@ -1,8 +1,10 @@
 <?php
 // Route borne dédiée : POST sans session admin, auth par X-Device-Token (env BORNE_TOKEN) ou IP allowlist
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../app/Core/PointageService.php';
 // SdkReader chargé APRÈS les gates auth/anti-rejeu (évite fatal + paths leak avant 401).
 use App\Core\Biometric\SdkReader;
+use App\Core\PointageService;
 
 // CSRF exempt pour borne (ajouté à api/db.php) — token par header UNIQUEMENT
 // (jamais dans le body JSON : loggable/cachable par proxies).
@@ -51,26 +53,38 @@ try {
     require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
     require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
     $reader = SdkReader::fromConfig();
-    $res = $reader->scanWithScore();
+    // Surveillance daemon (r307_service.py) : l'identification est déjà faite
+    // côté capteur (Img2Tz + Search, une seule capture) — le résultat est fourni
+    // dans la requête. Le serveur NE FAIT PAS confiance aveuglément : revalidation
+    // du slot (0..999) et du score (seuil config) ci-dessous.
+    if (!empty($input0['identified'])) {
+        $pageId0 = (int)($input0['page_id'] ?? 0);
+        $score0 = (int)($input0['score'] ?? 0);
+        if ($pageId0 < 0 || $pageId0 > 999) { http_response_code(400); echo json_encode(['ok'=>false,'message'=>'page_id invalide']); exit; }
+        if ($score0 < $reader->getThreshold()) { http_response_code(403); echo json_encode(['ok'=>false,'message'=>"Score faible {$score0}"]); exit; }
+        $res = ['page_id'=>$pageId0, 'score'=>$score0];
+    } else {
+        $res = $reader->scanWithScore();
+    }
     if (!$res) { http_response_code(404); echo json_encode(['ok'=>false,'message'=>'Aucune empreinte']); exit; }
     if ($res['score'] < $reader->getThreshold()) { http_response_code(403); echo json_encode(['ok'=>false,'message'=>"Score faible {$res['score']}"]); exit; }
-    // Reuse même transaction que biometric.php scan (copié simplifié)
-    $foundId=$res['page_id']; $score=$res['score'];
-    $st=$pdo->prepare('SELECT id_employe FROM biometric_slots WHERE slot_number=? AND device_id=?'); $st->execute([$foundId,$reader->getDeviceId()]); $r=$st->fetch(); $empId=$r?(int)$r['id_employe']:$foundId;
-    $emp=$pdo->prepare('SELECT prenom,nom,statut FROM employes WHERE id_employe=?'); $emp->execute([$empId]); $er=$emp->fetch();
-    if(!$er || ($er['statut']??'actif')!=='actif'){ http_response_code(403); echo json_encode(['ok'=>false,'message'=>'Employé non actif']); exit; }
-    $anti=45; $last=$pdo->prepare('SELECT date_heure FROM pointages WHERE id_employe=? ORDER BY date_heure DESC LIMIT 1'); $last->execute([$empId]); $lr=$last->fetch();
-    if($lr && (time()-strtotime($lr['date_heure'])) < $anti){ http_response_code(409); echo json_encode(['ok'=>false,'message'=>'Anti-double']); exit; }
-    $pdo->beginTransaction();
-    $today=date('Y-m-d'); $lt=$pdo->prepare("SELECT type_pointage FROM pointages WHERE id_employe=? AND DATE(date_heure)=? ORDER BY date_heure DESC LIMIT 1"); $lt->execute([$empId,$today]); $t=$lt->fetch();
-    $type = (!$t || $t['type_pointage']==='sortie') ? 'entree' : 'sortie';
-    $uuid=sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0x0fff)|0x4000,mt_rand(0,0x3fff)|0x8000,mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff));
-    $appId=null; try{ $a=$pdo->query("SELECT id_appareil FROM appareils_pointage WHERE type_capteur='empreinte' LIMIT 1")->fetch(); if($a) $appId=$a['id_appareil']; }catch(Throwable $e){}
-    $pdo->prepare("INSERT INTO pointages (id_uuid_local, id_employe, id_appareil, type_pointage, date_heure, methode_verification, score_correspondance, source_donnee, synchronise, statut) VALUES (?,?,?,?,NOW(),'empreinte',?,'serveur',true,'valide')")->execute([$uuid,$empId,$appId,$type,$score]);
-    // L'audit ne doit jamais faire échouer un pointage (table absente = log seul).
-    try { $pdo->prepare("INSERT INTO journal_audit (id_utilisateur, action, table_concernee, id_enregistrement_concerne, details, date_heure) VALUES (NULL,?,?,?,?,NOW())")->execute(['borne_'.$type,'pointages',$empId,json_encode(['slot'=>$foundId,'score'=>$score,'ip'=>$ip])]); }
-    catch (Throwable $e) { error_log('borne audit: ' . $e->getMessage()); }
-    $pdo->commit();
-    cacheClear('dash_' . date('Y-m-d'));
-    echo json_encode(['ok'=>true,'user_id'=>$empId,'nom'=>$er['prenom'].' '.$er['nom'],'type'=>$type,'score'=>$score,'heure'=>date('H:i:s')]);
+    // Logique partagée avec l'API web (PointageService) — la borne applique
+    // désormais EXACTEMENT la même décision entrée/sortie, pause_fin incluse
+    // (bug corrigé : reprise de pause comptée comme sortie au lieu d'une entrée),
+    // même anti-double, même verrou transactionnel, même audit.
+    $foundId = $res['page_id']; $score = (int)$res['score'];
+    $empId = PointageService::resolveEmployeFromSlot($pdo, $reader->getDeviceId(), $foundId);
+    try {
+        $empRow = PointageService::assertEmployeActif($pdo, $empId);
+        PointageService::assertEmpreinteActive($pdo, $empId);
+    } catch (\DomainException $e) {
+        http_response_code(403); echo json_encode(['ok'=>false,'message'=>$e->getMessage()]); exit;
+    }
+    $anti = PointageService::antiDoubleSeconds($reader->getDeviceId());
+    if ($ad = PointageService::checkAntiDouble($pdo, $empId, $anti)) {
+        http_response_code(409); echo json_encode(['ok'=>false,'message'=>$ad['message'],'retry_after'=>$ad['retry_after']]); exit;
+    }
+    $r = PointageService::recordScanPointage($pdo, $empId, $score, $reader->getDeviceId(),
+        fn(string $t) => PointageService::auditBorne($pdo, 'borne_' . $t, $empId, ['slot'=>$foundId,'score'=>$score,'ip'=>$ip]));
+    echo json_encode(['ok'=>true,'user_id'=>$empId,'nom'=>$empRow['prenom'].' '.$empRow['nom'],'type'=>$r['type'],'score'=>$score,'heure'=>date('H:i:s')]);
 } catch(Throwable $e){ if($pdo->inTransaction()) $pdo->rollBack(); http_response_code(500); echo json_encode(['ok'=>false,'message'=>$e->getMessage()]); }

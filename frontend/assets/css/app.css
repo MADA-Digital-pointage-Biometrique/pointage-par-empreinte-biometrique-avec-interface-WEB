@@ -630,6 +630,98 @@ html.dark .dark\:hidden { display: none !important; }
     color: #ffffff !important;
 }
 
+/* ============================================================
+   BOUTONS « ACTUALISER » — pill hover douce + icône animée
+   (remplace l'ancien hover:underline peu soigné)
+   ============================================================ */
+.btn-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    color: #F46A21;
+    background-color: rgba(244, 106, 33, 0.06);
+    border: 1px solid rgba(244, 106, 33, 0.18);
+    cursor: pointer;
+    user-select: none;
+    transition:
+        background-color 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.15s ease;
+}
+.dark .btn-refresh {
+    color: #F9AE3F;
+    background-color: rgba(249, 174, 63, 0.08);
+    border-color: rgba(249, 174, 63, 0.22);
+}
+.btn-refresh .material-symbols-outlined {
+    font-size: 15px;
+    transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-refresh:hover:not(:disabled) {
+    color: #EA580C;
+    background-color: rgba(244, 106, 33, 0.12);
+    border-color: rgba(244, 106, 33, 0.38);
+    box-shadow: 0 2px 10px -2px rgba(244, 106, 33, 0.35);
+    transform: translateY(-1px);
+}
+.dark .btn-refresh:hover:not(:disabled) {
+    color: #FDBA74;
+    background-color: rgba(249, 174, 63, 0.16);
+    border-color: rgba(249, 174, 63, 0.45);
+    box-shadow: 0 2px 12px -2px rgba(249, 174, 63, 0.30);
+}
+.btn-refresh:hover:not(:disabled) .material-symbols-outlined {
+    transform: rotate(180deg);
+}
+.btn-refresh:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
+    box-shadow: none;
+}
+.btn-refresh:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+/* État chargement : icône qui tourne en continu */
+.btn-refresh.is-loading .material-symbols-outlined {
+    animation: refresh-spin 0.9s linear infinite;
+}
+@keyframes refresh-spin {
+    to { transform: rotate(360deg); }
+}
+/* Respect des préférences mouvement réduit */
+@media (prefers-reduced-motion: reduce) {
+    .btn-refresh,
+    .btn-refresh .material-symbols-outlined {
+        transition: none;
+    }
+    .btn-refresh:hover:not(:disabled) {
+        transform: none;
+    }
+    .btn-refresh:hover:not(:disabled) .material-symbols-outlined,
+    .btn-refresh.is-loading .material-symbols-outlined {
+        animation: none;
+        transform: none;
+    }
+}
+
+/* Lien type « Voir tout → » : flèche qui glisse au survol (au lieu du souligné) */
+.link-arrow {
+    transition: color 0.18s ease;
+}
+.link-arrow .material-symbols-outlined {
+    transition: transform 0.18s ease;
+}
+.link-arrow:hover .material-symbols-outlined {
+    transform: translateX(3px);
+}
+
 /* Card Hover Elevation */
 .card-hover {
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease;
@@ -911,6 +1003,176 @@ body.sidebar-collapsed .nav-footer-border .nav-item-link {
     border-color: #374151;
     color: #9CA3AF;
 }
+/* ─── Interrupteur de surveillance (toggle style iOS) ─── */
+.watch-switch {
+    width: 52px;
+    height: 28px;
+    border-radius: 9999px;
+    background: #cbd5e1;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+}
+.watch-switch .watch-knob {
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transform: translateX(0);
+    transition: transform 0.2s ease;
+}
+.watch-switch.on { background: #3ec52e; }
+.watch-switch.on .watch-knob { transform: translateX(24px); }
+.dark .watch-switch { background: #475569; }
+.dark .watch-switch.on { background: #34c759; }
+.watch-switch:disabled { opacity: 0.6; pointer-events: none; }
+.watch-switch:focus-visible { outline: 2px solid #F46A21; outline-offset: 2px; }
+
+/* ============================================================
+   WIDGET TEMPS REEL - Surveillance du capteur (fix haut droite)
+   Etats : scrutation / doigt pose / pointage valide / alerte
+   ============================================================ */
+.sensor-live {
+    position: fixed; top: 72px; right: 16px; z-index: 9990;
+    width: 300px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 18px;
+    box-shadow: 0 12px 40px -12px rgba(15, 23, 42, 0.28);
+    overflow: hidden;
+    transition: border-color .3s, box-shadow .3s, transform .25s;
+    font-family: inherit;
+}
+.dark .sensor-live {
+    background: rgba(15, 23, 42, 0.92);
+    border-color: rgba(51, 65, 85, 0.9);
+    box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.55);
+}
+.sensor-live.hidden-widget { display: none; }
+.sensor-live.minimized { width: 220px; }
+.sensor-live.minimized .sl-body,
+.sensor-live.minimized .sl-footer { display: none; }
+
+/* Barre superieure : titre + statut + boutons */
+.sensor-live .sl-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, rgba(244,106,33,0.10), rgba(249,174,63,0.05));
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+.dark .sensor-live .sl-head { border-bottom-color: rgba(51, 65, 85, 0.8); }
+.sensor-live .sl-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #94a3b8; flex-shrink: 0; position: relative;
+}
+.sensor-live.scanning .sl-dot { background: #3ec52e; }
+.sensor-live.scanning .sl-dot::after {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid rgba(62, 197, 46, 0.5);
+    animation: sl-pulse 1.6s ease-out infinite;
+}
+.sensor-live.detecting .sl-dot,
+.sensor-live.success .sl-dot { background: #F46A21; }
+.sensor-live.detecting .sl-dot::after,
+.sensor-live.success .sl-dot::after {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid rgba(244, 106, 33, 0.5);
+    animation: sl-pulse 1.1s ease-out infinite;
+}
+.sensor-live.error .sl-dot { background: #e11d48; }
+@keyframes sl-pulse {
+    0% { transform: scale(0.6); opacity: 1; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+.sensor-live .sl-title {
+    font-size: 11px; font-weight: 800; letter-spacing: .06em;
+    text-transform: uppercase; color: #64748b;
+    flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dark .sensor-live .sl-title { color: #94a3b8; }
+.sensor-live .sl-headbtn {
+    width: 24px; height: 24px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #94a3b8; cursor: pointer; border: none; background: transparent;
+    transition: background .2s, color .2s; flex-shrink: 0;
+}
+.sensor-live .sl-headbtn:hover { background: rgba(148, 163, 184, 0.15); color: #475569; }
+.dark .sensor-live .sl-headbtn:hover { color: #cbd5e1; }
+
+/* Corps : grand statut + details */
+.sensor-live .sl-body { padding: 12px 14px 10px; }
+.sensor-live .sl-state {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; font-weight: 700; color: #334155;
+    transition: color .3s;
+}
+.dark .sensor-live .sl-state { color: #e2e8f0; }
+.sensor-live .sl-state .material-symbols-outlined { font-size: 26px; }
+.sensor-live.scanning .sl-state .material-symbols-outlined { color: #3ec52e; }
+.sensor-live.detecting .sl-state .material-symbols-outlined { color: #F46A21; }
+.sensor-live.success .sl-state .material-symbols-outlined { color: #16a34a; }
+.sensor-live.error .sl-state .material-symbols-outlined { color: #e11d48; }
+.sensor-live .sl-state .sl-flip { animation: sl-flip .45s ease; display: inline-flex; }
+@keyframes sl-flip {
+    0% { transform: rotateX(0); }
+    50% { transform: rotateX(90deg); }
+    100% { transform: rotateX(0); }
+}
+.sensor-live .sl-sub {
+    margin-top: 3px; font-size: 11.5px; color: #64748b; line-height: 1.45;
+    padding-left: 36px;
+}
+.dark .sensor-live .sl-sub { color: #94a3b8; }
+.sensor-live .sl-sub strong { color: #F46A21; font-weight: 700; }
+
+/* Historique (3 dernieres detections) */
+.sensor-live .sl-footer {
+    padding: 8px 14px 10px; border-top: 1px dashed rgba(148, 163, 184, 0.35);
+}
+.sensor-live .sl-log { display: flex; flex-direction: column; gap: 3px; }
+.sensor-live .sl-log-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10.5px; color: #64748b; font-family: ui-monospace, monospace;
+}
+.sensor-live .sl-log-item .material-symbols-outlined { font-size: 13px; }
+.sensor-live .sl-log-item.ok .material-symbols-outlined { color: #16a34a; }
+.sensor-live .sl-log-item.info .material-symbols-outlined { color: #F46A21; }
+.sensor-live .sl-log-item.err .material-symbols-outlined { color: #e11d48; }
+.sensor-live .sl-log-item time { margin-left: auto; color: #94a3b8; }
+
+/* Bandes d'accent laterales selon l'etat */
+.sensor-live.scanning { border-left: 3px solid #3ec52e; }
+.sensor-live.detecting { border-left: 3px solid #F46A21; }
+.sensor-live.success { border-left: 3px solid #16a34a; }
+.sensor-live.error { border-left: 3px solid #e11d48; }
+
+/* Pop de confirmation (pointage valide) */
+.sensor-live.sl-pop { animation: sl-pop .5s cubic-bezier(.2,1.4,.4,1); }
+@keyframes sl-pop {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.045); }
+    100% { transform: scale(1); }
+}
+
+/* Animation d'entree du widget a l'activation de la surveillance */
+.sensor-live.sl-enter { animation: sl-enter .35s cubic-bezier(.2,1.2,.4,1); }
+@keyframes sl-enter {
+    0% { opacity: 0; transform: translateX(24px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+/* Mobile : pleine largeur en haut */
+@media (max-width: 640px) {
+    .sensor-live { left: 12px; right: 12px; width: auto; top: 68px; }
+}
+
 #mode-info-banner.banner-enrolement {
     background: linear-gradient(135deg, rgba(244, 106, 33, 0.08) 0%, rgba(249, 174, 63, 0.05) 100%);
     border-color: rgba(244, 106, 33, 0.30);
@@ -993,4 +1255,93 @@ body.sidebar-collapsed #sidebar-mode-badge span:not(.mode-pulse):not(.material-s
 body.sidebar-collapsed #sidebar-mode-badge {
     justify-content: center;
     padding: 6px;
+}
+
+/* ============================================================
+   PROGRESS INDICATOR — barres KPI & légendes (comme Heures)
+   ============================================================ */
+.progress-indicator {
+    transition: width 1.05s cubic-bezier(0.16, 1, 0.30, 1);
+    position: relative;
+    overflow: hidden;
+}
+.progress-indicator::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.38), transparent);
+    transform: translateX(-100%);
+    animation: progress-shimmer 1.45s ease-in-out 0.85s 1;
+}
+@keyframes progress-shimmer { to { transform: translateX(100%); } }
+
+/* ============================================================
+   Enrôlement : bandeau d'état capteur temps réel (dans le modal)
+   ============================================================ */
+.enroll-live {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(22, 163, 74, 0.25);
+    background: rgba(22, 163, 74, 0.07);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #15803d;
+    transition: background .3s ease, border-color .3s ease, color .3s ease;
+}
+.enroll-live .el-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: currentColor;
+    flex: none;
+    animation: el-pulse 1.6s ease-in-out infinite;
+}
+.enroll-live .el-pulse-icon {
+    font-size: 22px;
+    flex: none;
+    animation: el-beat 1.6s ease-in-out infinite;
+}
+.enroll-live .el-text { flex: 1; }
+.enroll-live .el-count {
+    font-size: 0.68rem;
+    font-weight: 700;
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+    flex: none;
+}
+.enroll-live.waiting { color: #16a34a; }
+.enroll-live.captured { color: #16a34a; border-color: rgba(22, 163, 74, 0.45); background: rgba(22, 163, 74, 0.14); }
+.enroll-live.captured .el-pulse-icon { animation: none; }
+.enroll-live.error {
+    color: #b91c1c;
+    border-color: rgba(220, 38, 38, 0.30);
+    background: rgba(220, 38, 38, 0.07);
+    animation: el-shake 0.4s ease;
+}
+.enroll-live.offline { color: #b45309; border-color: rgba(217, 119, 6, 0.30); background: rgba(217, 119, 6, 0.07); }
+.enroll-live.idle { color: inherit; opacity: .65; border-color: rgba(100, 116, 139, .25); background: rgba(100, 116, 139, .05); }
+.enroll-live.idle .el-dot, .enroll-live.idle .el-pulse-icon { animation: none; }
+.dark .enroll-live { border-color: rgba(34, 197, 94, 0.25); background: rgba(34, 197, 94, 0.08); color: #4ade80; }
+.dark .enroll-live.waiting { color: #4ade80; }
+.dark .enroll-live.captured { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.16); color: #86efac; }
+.dark .enroll-live.error { color: #f87171; border-color: rgba(248, 113, 113, 0.28); background: rgba(248, 113, 113, 0.08); }
+.dark .enroll-live.offline { color: #fbbf24; border-color: rgba(251, 191, 36, 0.28); background: rgba(251, 191, 36, 0.08); }
+@keyframes el-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.8); }
+}
+@keyframes el-beat {
+    0%, 100% { transform: scale(1); }
+    15% { transform: scale(1.15); }
+    30% { transform: scale(1); }
+    45% { transform: scale(1.12); }
+}
+@keyframes el-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .enroll-live .el-dot, .enroll-live .el-pulse-icon { animation: none; }
 }

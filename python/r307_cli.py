@@ -22,19 +22,93 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime
+
+
+def _mode_path():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mode.json')
+
+
+def _trigger_path():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), '.mode_trigger')
+
+
+def read_mode():
+    """Lit mode.json. Retourne le mode par défaut (pointage) si absent/corrompu."""
+    path = _mode_path()
+    default = {"mode": "pointage", "target_id": None, "updated_at": None, "updated_by": None}
+    if not os.path.exists(path):
+        return default
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        default.update(data)
+        return default
+    except Exception:
+        return default
+
+
+def write_mode(mode, target_id=None, updated_by=None):
+    """Écrit mode.json de façon atomique (tmp + os.replace) et notifie via .mode_trigger.
+
+    L'écriture atomique évite qu'un autre processus (r307_cli enroll, r307_service)
+    lise un fichier à moitié écrit pendant le remplacement.
+    """
+    if mode not in ('enrolement', 'pointage'):
+        raise ValueError("mode invalide (enrolement|pointage)")
+    data = {
+        "mode": mode,
+        "target_id": int(target_id) if (mode == 'enrolement' and target_id) else None,
+        "updated_at": datetime.now().astimezone().isoformat(timespec='seconds'),
+        "updated_by": updated_by,
+    }
+    path = _mode_path()
+    tmp = path + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(data, f)
+    os.replace(tmp, path)
+    # .mode_trigger : simple marqueur dont on met à jour la date de modification,
+    # pour qu'un watcher (JS/PHP) détecte le changement sans reparser mode.json à chaque poll.
+    try:
+        open(_trigger_path(), 'a', encoding='utf-8').close()
+        os.utime(_trigger_path(), None)
+    except Exception:
+        pass
+    return data
+
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument('--port', default='COM3')
+    p.add_argument('--port', default='COM5')
     p.add_argument('--baud', type=int, default=57600)
     p.add_argument('--timeout', type=int, default=15)
     p.add_argument('--password', default='00000000')
-    p.add_argument('--action', choices=['enroll','search','verify','delete','empty','status','count','template','enroll1','enroll2','probe'], default='status')
+    p.add_argument('--action', choices=['enroll','search','verify','delete','empty','status','count','template','enroll1','enroll2','probe','set-mode','get-mode'], default='status')
     p.add_argument('--id', type=int, default=0, dest='page_id')
     p.add_argument('--list-ports', action='store_true')
     p.add_argument('--auto-port', action='store_true')
     p.add_argument('--mock', action='store_true', help='Simule sans matériel (pour dev sans R307)')
+    p.add_argument('--mode', choices=['enrolement', 'pointage'], help="Mode à appliquer (set-mode)")
+    p.add_argument('--target-id', type=int, default=None, dest='target_id', help="Employé cible en mode enrolement (set-mode)")
+    p.add_argument('--updated-by', type=int, default=None, dest='updated_by', help="id_utilisateur à l'origine du changement (set-mode)")
     args = p.parse_args()
+
+    # Gestion du mode (enrolement/pointage) : ne nécessite pas le matériel,
+    # traitée avant --mock et avant l'import du driver.
+    if args.action == 'get-mode':
+        print(json.dumps({"ok": True, **read_mode()}))
+        return
+
+    if args.action == 'set-mode':
+        if not args.mode:
+            print(json.dumps({"ok": False, "message": "--mode requis (enrolement|pointage)"}))
+            return
+        if args.mode == 'enrolement' and (not args.target_id or args.target_id < 1):
+            print(json.dumps({"ok": False, "message": "--target-id requis (>=1) pour passer en mode enrolement"}))
+            return
+        data = write_mode(args.mode, args.target_id, args.updated_by)
+        print(json.dumps({"ok": True, **data}))
+        return
 
     if args.mock:
         if args.action == 'enroll':
@@ -73,22 +147,14 @@ def main():
         port = R307.auto_detect() or 'COM3'
 
     # Vérifie Mode Opératoire du Terminal (python/mode.json) : enrolement sans cible = idle
-    try:
-        mode_path = os.path.join(os.path.dirname(__file__), 'mode.json')
-        if os.path.exists(mode_path):
-            with open(mode_path, 'r', encoding='utf-8') as mf:
-                mj = json.load(mf)
-            mmode = (mj.get('mode') or 'pointage')
-            mtarget = mj.get('target_id')
-            if args.action in ('enroll', 'enroll1', 'enroll2') and (mmode != 'enrolement' or not mtarget):
-                print(json.dumps({"ok": False, "message": "R307 en attente : mode Pointage ou enrolement sans employé (sélectionne cible)", "mode": mmode}))
-                sys.exit(0)
-            # F3 : le slot (--id) alloué par PHP/SdkReader fait foi. L'ancien code
-            # l'écrasait par target_id (id_employe), corrompant le mapping dès que
-            # slot != id_employe (ex. id > 999 → échec injustifié). Garde seule :
-            # un enrôlement exige le mode enrolement + une cible (vérifié ci-dessus).
-    except Exception:
-        pass
+    if args.action in ('enroll', 'enroll1', 'enroll2'):
+        mj = read_mode()
+        if mj.get('mode') != 'enrolement' or not mj.get('target_id'):
+            print(json.dumps({"ok": False, "message": "R307 en attente : mode Pointage ou enrolement sans employé (sélectionne cible)", "mode": mj.get('mode')}))
+            sys.exit(0)
+        # F3 : le slot (--id) alloué par PHP/SdkReader fait foi, pas target_id
+        # (un ancien code écrasait le slot par target_id, corrompant le mapping
+        # dès que slot != id_employe, ex. id > 999 → échec injustifié).
 
     # timeout/password depuis config (SdkReader)
     pwd = args.password

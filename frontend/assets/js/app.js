@@ -20,17 +20,17 @@ const NAV_SECTIONS = [
         title: 'VUE GÉNÉRALE',
         items: [
             { page: 'dashboard', link: 'dashboard.php', icon: 'dashboard', label: 'Tableau de bord' },
-            { page: 'pointage', link: 'pointage.php', icon: 'fingerprint', label: 'Pointage' },
+            { page: 'historique', link: 'historique.php', icon: 'history', label: 'Historique des Pointages' },
+            { page: 'audit', link: 'audit.php', icon: 'receipt_long', label: "Journal d'audit", superAdminOnly: true },
         ]
     },
     {
         title: 'GESTION DE L\'EFFECTIF',
         items: [
             { page: 'employes', link: 'employes.php', icon: 'badge', label: 'Employés', adminOnly: true, badgeId: 'badge-count-emp' },
+            { page: 'pointage', link: 'pointage.php', icon: 'fingerprint', label: 'Pointage' },
             { page: 'capteur', link: 'capteur.php', icon: 'sensors', label: 'Capteur', adminOnly: true, badgeId: 'sidebar-capteur-badge' },
             { page: 'administrateurs', link: 'administrateurs.php', icon: 'admin_panel_settings', label: 'Administrateurs', superAdminOnly: true },
-            { page: 'historique', link: 'historique.php', icon: 'history', label: 'Historique des Pointages' },
-            { page: 'audit', link: 'audit.php', icon: 'receipt_long', label: "Journal d'audit", superAdminOnly: true },
         ]
     }
 ];
@@ -770,6 +770,52 @@ function showConfirmModal({ title, message, type = 'warning', confirmText = 'Con
     };
 }
 
+// ----------------------------------------------------
+// ÉTAT DE CHARGEMENT DES BOUTONS (opérations CRUD)
+// ----------------------------------------------------
+// Spinner + désactivation pendant une opération asynchrone, restauration
+// exacte de l'état initial (texte, disabled) — même en cas d'erreur.
+// Réutilise la classe .btn-spinner déjà stylée dans app.css.
+function setButtonLoading(btn, loading, loadingLabel = null) {
+    if (!btn) return;
+    if (loading) {
+        if (btn.dataset.origHtml === undefined) {
+            btn.dataset.origHtml = btn.innerHTML;
+            btn.dataset.origDisabled = btn.disabled ? '1' : '0';
+        }
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-wait');
+        btn.innerHTML = '<span class="btn-spinner"></span>' + (loadingLabel ? escapeHtml(loadingLabel) : '');
+    } else {
+        if (btn.dataset.origHtml !== undefined) {
+            btn.innerHTML = btn.dataset.origHtml;
+            btn.disabled = btn.dataset.origDisabled === '1';
+            delete btn.dataset.origHtml;
+            delete btn.dataset.origDisabled;
+        }
+        btn.classList.remove('opacity-70', 'cursor-wait');
+    }
+}
+
+// Boutons « Actualiser » (.btn-refresh) : garde le contenu, fait tourner
+// l'icône pendant le rechargement (état .is-loading défini dans app.css).
+function setRefreshLoading(btn, loading) {
+    if (!btn) return;
+    btn.classList.toggle('is-loading', !!loading);
+    btn.disabled = !!loading;
+}
+
+// Enveloppe : spinner automatique pendant l'opération (ex : création de
+// pointage sur le bouton « Créer »), toujours restauré à la fin.
+async function withButtonLoading(btn, fn, loadingLabel = null) {
+    setButtonLoading(btn, true, loadingLabel);
+    try {
+        return await fn();
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
 function openModal(id) {
     const el = document.getElementById(id);
     if (el) {
@@ -1174,9 +1220,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (document.body.dataset.page && !document.body.dataset.noShell) buildShell();
     setupSPARouting();
+    initSensorLiveLoader();
     const currentPage = document.body.dataset.page;
     if (currentPage && typeof initPage === 'function' && window._lastInitializedModule !== currentPage) {
         window._lastInitializedModule = currentPage;
         initPage();
     }
 });
+
+// ============================================================
+// Widget temps réel « Surveillance du capteur » : chargement
+// dynamique du module sensor-live.js puis démarrage du polling.
+// ============================================================
+function initSensorLiveLoader() {
+    const page = document.body.dataset.page || '';
+    if (!page || page === 'login') return;
+    if (document.getElementById('sl-script')) { if (typeof initSensorLive === 'function') initSensorLive(); return; }
+    const sc = document.createElement('script');
+    sc.id = 'sl-script';
+    sc.src = 'assets/js/pages/sensor-live.js?v=' + (window.ASSET_VER || Date.now());
+    sc.onload = () => { if (typeof initSensorLive === 'function') initSensorLive(); };
+    document.head.appendChild(sc);
+}

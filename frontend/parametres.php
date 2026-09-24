@@ -21,8 +21,8 @@ if (!isset($_SESSION['user_id'])) {
     <div id="topbar-slot"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 md:ml-[280px] flex flex-col min-h-screen">
-        <main class="flex-1 mt-16 p-md md:p-xl max-w-container-max mx-auto w-full">
+    <div class="flex-1 md:ml-[280px] flex flex-col min-h-screen min-w-0 overflow-x-hidden">
+        <main class="flex-1 mt-16 p-md md:p-xl max-w-container-max mx-auto w-full max-w-full overflow-x-hidden min-w-0">
             <div id="flash"></div>
 
             <!-- Page Header -->

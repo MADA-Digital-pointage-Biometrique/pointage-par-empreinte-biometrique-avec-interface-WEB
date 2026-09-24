@@ -237,25 +237,28 @@ async function initAdminPage() {
                 return;
             }
 
-            const res = await api.addUser({
-                matricule: '', // auto-généré côté serveur (ADMxxx)
-                nom: document.getElementById('f-admin-nom').value.trim(),
-                prenom: document.getElementById('f-admin-prenom').value.trim(),
-                email: document.getElementById('f-admin-email').value.trim(),
-                telephone: document.getElementById('f-admin-telephone').value.trim(),
-                date_embauche: document.getElementById('f-admin-date-embauche').value,
-                departement: document.getElementById('f-admin-departement').value,
-                role: document.getElementById('f-admin-role').value,
-                password: pass
-            });
-            if (res.ok) {
-                flash(`Administrateur ${res.user ? res.user.prenom : ''} créé avec succès !`, 'success');
-                closeModal('modal-add-admin');
-                formAdd.reset();
-                await renderAdmins(true);
-            } else {
-                flash(res.message || 'Erreur lors de la création de l\'administrateur.', 'danger');
-            }
+            const submitBtn = e.submitter || document.querySelector('#form-add-admin button[type="submit"]');
+            await withButtonLoading(submitBtn, async () => {
+                const res = await api.addUser({
+                    matricule: '', // auto-généré côté serveur (ADMxxx)
+                    nom: document.getElementById('f-admin-nom').value.trim(),
+                    prenom: document.getElementById('f-admin-prenom').value.trim(),
+                    email: document.getElementById('f-admin-email').value.trim(),
+                    telephone: document.getElementById('f-admin-telephone').value.trim(),
+                    date_embauche: document.getElementById('f-admin-date-embauche').value,
+                    departement: document.getElementById('f-admin-departement').value,
+                    role: document.getElementById('f-admin-role').value,
+                    password: pass
+                });
+                if (res.ok) {
+                    flash(`Administrateur ${res.user ? res.user.prenom : ''} créé avec succès !`, 'success');
+                    closeModal('modal-add-admin');
+                    formAdd.reset();
+                    await renderAdmins(true);
+                } else {
+                    flash(res.message || 'Erreur lors de la création de l\'administrateur.', 'danger');
+                }
+            }, 'Création…');
         };
     }
 
@@ -282,14 +285,17 @@ async function initAdminPage() {
                 payload.password = newPass.trim();
             }
 
-            const res = await api.updateUser(id, payload);
-            if (res.ok) {
-                flash('Administrateur mis à jour avec succès !', 'success');
-                closeModal('modal-edit-admin');
-                await renderAdmins(true);
-            } else {
-                flash(res.message || 'Erreur lors de la mise à jour.', 'danger');
-            }
+            const submitBtn = e.submitter || document.querySelector('#form-edit-admin button[type="submit"]');
+            await withButtonLoading(submitBtn, async () => {
+                const res = await api.updateUser(id, payload);
+                if (res.ok) {
+                    flash('Administrateur mis à jour avec succès !', 'success');
+                    closeModal('modal-edit-admin');
+                    await renderAdmins(true);
+                } else {
+                    flash(res.message || 'Erreur lors de la mise à jour.', 'danger');
+                }
+            }, 'Enregistrement…');
         };
     }
 }

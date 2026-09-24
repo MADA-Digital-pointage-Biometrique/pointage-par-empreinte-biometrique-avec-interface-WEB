@@ -11,7 +11,8 @@ Application de pointage par **empreinte R307 + CP2102** (USB-UART) + interface W
 * **Slots** : `database/migration_biometric_slots.sql` table `biometric_slots(device_id,slot 0..999 UNIQUE)` — `SdkReader::allocateSlot()` évite `min(999)` silencieux (`507` si plein)
 * **Score** : `scanWithScore()` → `threshold 60` (`config/biometric.php:17`) rejet si < seuil
 * **Borne** : `api/borne_pointage.php` auth `X-Device-Token` (`BORNE_TOKEN` env), rate-limit, CSRF exempt (`api/db.php:131`), `api/sync_offline.php` queue UUID idempotent
-* **Service local** : `python/r307_service.py` `http://127.0.0.1:8765` lock unique COM (évite concurrence poll 5s)
+* **Service local** : `python/r307_service.py` `http://127.0.0.1:8765` **propriétaire unique du COM** — surveillance continue du capteur en mode pointage (détection doigt → identification locale → POST `borne_pointage.php`), lock unique (fin des conflits poll 5s / scans), lancer via `python/start_r307_service.bat` (nécessite `BORNE_TOKEN` + `R307_API_URL` dans `.env`)
+* **Transport SdkReader** : daemon-first (`R307_SERVICE_URL`) avec fallback `exec` CLI — l'UI affiche « Surveillance active/inactive » (page Capteur, `sensor_status.php`)
 * **UI** : sidebar badge `Pointage` → `HS`/`En service` temps réel (`sensor_status.php` + `pointage.js:88` poll 5s), `empreintes` notice `Capteur En service requis` + boutons désactivés si `HS`, flash `HS→En service` fixé (`…` neutre), `login.php:23` `data-page="login" data-no-shell="1"` fix boucle `login.php?v=Date.now()`
 
 ## Installation (XAMPP)
@@ -21,7 +22,7 @@ Application de pointage par **empreinte R307 + CP2102** (USB-UART) + interface W
 3. `py -m pip install pyserial`
 4. `.env` depuis `.env.example` (`BORNE_TOKEN`, `R307_PASSWORD`)
 5. `config/biometric.php:12` `port` = `COMx` ou `auto`, `python` chemin
-6. `py python/r307_service.py --port auto &` (optionnel, sinon `exec` direct)
+6. Surveillance capteur : `python\start_r307_service.bat` (ou `py python/r307_service.py --port auto`) — obligatoire pour la détection continue des doigts en mode pointage. Autostart : raccourci du .bat dans `shell:startup`
 
 BDD déjà sur Supabase — si vide : `psql < database/migration_biometric_slots.sql`
 

@@ -27,9 +27,18 @@ function fmtDateEnrolement(iso) {
 function empRow(u) {
     const isSuper = (() => { try { const cu = api.getCurrentUser(); return cu && (cu.role === 'super_admin' || cu.role === 'admin_systeme'); } catch(e){ return false; } })();
     const hasFp = u.empreinte === true || u.empreinte === 1;
-    const action = !isSuper ? '' : (hasFp
-        ? `<button class="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Supprimer l'empreinte" data-delete-fp="${u.id}"><span class="material-symbols-outlined text-[16px]">delete</span></button>`
-        : `<button class="bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] hover:bg-orange-100 font-semibold text-[11px] px-2.5 py-1 rounded-lg border border-[#F46A21]/25 dark:border-orange-900 transition-colors inline-flex items-center gap-1 cursor-pointer" data-enroll="${u.id}"><span class="material-symbols-outlined text-[14px]">fingerprint</span> Enrôler</button>`);
+    const enrollMode = getCurrentMode() === 'enrolement';
+    let action = '';
+    if (isSuper) {
+        if (hasFp) {
+            action = `<button class="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-1.5 rounded-lg transition-colors cursor-pointer" title="Supprimer l'empreinte" data-delete-fp="${u.id}"><span class="material-symbols-outlined text-[16px]">delete</span></button>`;
+        } else if (enrollMode) {
+            // Bouton Enrôler visible UNIQUEMENT en mode Enrôlement.
+            action = `<button class="bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] hover:bg-orange-100 font-semibold text-[11px] px-2.5 py-1 rounded-lg border border-[#F46A21]/25 dark:border-orange-900 transition-colors inline-flex items-center gap-1 cursor-pointer" data-enroll="${u.id}"><span class="material-symbols-outlined text-[14px]">fingerprint</span> Enrôler</button>`;
+        } else {
+            action = `<span class="text-slate-300 dark:text-slate-600 inline-flex items-center cursor-help" title="Le bouton Enrôler apparaît en mode Enrôlement"><span class="material-symbols-outlined text-[16px]">lock</span></span>`;
+        }
+    }
 
     return `
         <tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors h-14">
@@ -158,15 +167,39 @@ function setModeButtonsDisabled(hs, detail) {
     }
 }
 function updateSensorCard(data) {
-    // Carte « État du capteur » : statut + N/999 + port + détail (poll 5 s).
+    // Carte « État du capteur » : statut + N/999 + port + détail (poll 5 s)
+    // + état de la surveillance daemon (watch) quand elle est exposée.
     const pill = document.getElementById('sensor-state-pill');
     const countEl = document.getElementById('sensor-slots-count');
     const bar = document.getElementById('sensor-slots-bar');
     const portEl = document.getElementById('sensor-state-port');
+    const watchEl = document.getElementById('sensor-watch-badge');
     const detailEl = document.getElementById('sensor-state-detail');
     const updatedEl = document.getElementById('sensor-state-updated');
     if (!pill) return;
     const hs = !data || data.status === 'hs';
+    if (watchEl) {
+        const watching = !!(data && data.watching);
+        const watchEnabled = !!(data && data.watch_enabled);
+        const baseWatch = 'inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ';
+        if (watching) {
+            watchEl.className = baseWatch + 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+            watchEl.innerHTML = '<span class="material-symbols-outlined text-[12px]">radar</span> Surveillance active';
+            watchEl.title = 'Le capteur scrute en continu — posez un doigt pour pointer';
+        } else if (hs) {
+            watchEl.className = baseWatch + 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+            watchEl.innerHTML = '<span class="material-symbols-outlined text-[12px]">radar</span> Surveillance inactive';
+            watchEl.title = 'Capteur hors service — surveillance impossible';
+        } else if (watchEnabled) {
+            watchEl.className = baseWatch + 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+            watchEl.innerHTML = '<span class="material-symbols-outlined text-[12px]">pause_circle</span> Surveillance en pause';
+            watchEl.title = 'Mode enrôlement ou capture en cours — la surveillance reprendra automatiquement';
+        } else {
+            watchEl.className = baseWatch + 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+            watchEl.innerHTML = '<span class="material-symbols-outlined text-[12px]">radar</span> Surveillance inactive';
+            watchEl.title = 'Lancez le service de surveillance (python/start_r307_service.bat) pour activer la détection continue';
+        }
+    }
     const base = 'inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ';
     if (hs) {
         pill.className = base + 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800';
@@ -288,6 +321,79 @@ async function runReconcile(repair = false) {
 function initReconcile() {
     document.getElementById('btn-reconcile')?.addEventListener('click', () => runReconcile(false));
 }
+
+// ============================================================
+// SURVEILLANCE (watch) — interrupteur activer/désactiver
+// ============================================================
+function renderWatchButton(state) {
+    // state: 'unknown' | 'on' | 'off' — reflète watch_user_enabled (daemon ou défaut off)
+    const btn = document.getElementById('btn-watch-toggle');
+    const txt = document.getElementById('watch-state-text');
+    if (!btn) return;
+    const on = state === 'on';
+    btn.dataset.watchState = state;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-checked', on ? 'true' : 'false');
+    if (txt) {
+        if (state === 'unknown') {
+            txt.textContent = 'État inconnu';
+            txt.className = 'text-[11px] font-medium text-slate-400 mt-0.5';
+        } else if (on) {
+            txt.textContent = 'Activée — le capteur scrute en continu';
+            txt.className = 'text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5';
+        } else {
+            txt.textContent = 'Désactivée — détection continue arrêtée';
+            txt.className = 'text-[11px] font-medium text-slate-400 mt-0.5';
+        }
+    }
+    btn.title = on
+        ? 'Cliquer pour arrêter la détection continue (le capteur s\'éteint, les scans à la demande restent possibles)'
+        : 'Cliquer pour démarrer le service de surveillance — le capteur scrute en continu et enregistre les pointages';
+}
+
+async function syncWatchButton() {
+    try {
+        const r = await fetch(getApiEndpoint('sensor_watch.php'), { credentials: 'include', cache: 'no-store' });
+        if (!r.ok) { renderWatchButton('unknown'); return; }
+        const j = await r.json();
+        if (!j.ok) { renderWatchButton('unknown'); return; }
+        renderWatchButton(j.watch_user_enabled ? 'on' : 'off');
+    } catch (e) { renderWatchButton('unknown'); }
+}
+
+async function toggleWatch() {
+    const btn = document.getElementById('btn-watch-toggle');
+    if (!btn || btn.disabled) return;
+    const wantOn = btn.dataset.watchState !== 'on';
+    btn.disabled = true;
+    try {
+        const r = await fetchCsrf('sensor_watch.php', { enabled: wantOn });
+        const j = await r.json();
+        if (j.ok) {
+            renderWatchButton(j.watch_user_enabled ? 'on' : 'off');
+            if (wantOn && typeof window.sensorLiveReopen === 'function') {
+                // Le widget temps réel s'affiche immédiatement à l'activation
+                window.sensorLiveReopen();
+            }
+            flash(j.message || (wantOn ? 'Surveillance activée' : 'Surveillance désactivée'), wantOn ? 'success' : 'info');
+        } else {
+            flash(j.message || 'Échec du changement de surveillance', 'error');
+        }
+    } catch (e) {
+        flash('Erreur réseau — surveillance inchangée', 'error');
+    } finally {
+        btn.disabled = false;
+        syncModeButtonsWithCapteur(); // rafraîchit badge + état carte au cycle suivant
+    }
+}
+
+function initWatchToggle() {
+    const btn = document.getElementById('btn-watch-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', toggleWatch);
+    syncWatchButton();
+}
+
 
 function updateSidebarModeBadge(mode) {
     const badge = document.getElementById('sidebar-mode-badge');
@@ -501,6 +607,7 @@ function openEnrollModal(target) {
                 // Annule la capture en cours (la requête Python côté serveur
                 // termine son timeout seule ; le slot sera réutilisé).
                 if (enrollAbort) enrollAbort.abort();
+                enrollLiveStopPoll();
                 setEnrollHint('Enrôlement annulé.');
                 if (step) step.textContent = 'Enrôlement annulé — cliquez pour recommencer.';
                 setEnrollStep(1, 'idle'); setEnrollStep(2, 'idle');
@@ -515,6 +622,7 @@ function openEnrollModal(target) {
                 enrollAbort = new AbortController();
                 const signal = enrollAbort.signal;
                 showCancel(true);
+                enrollLiveStartPoll();
                 const wasAborted = (r) => r && r.aborted;
                 const showAbort = () => {
                     // La fin effective est déjà gérée par le bouton Annuler.
@@ -528,7 +636,7 @@ function openEnrollModal(target) {
                     icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>';
                 }
                 if (step) step.textContent = 'Capture 1/2 : posez le doigt sur le capteur…';
-                let timeout1 = r1.timeout || 15;
+                let timeout1 = 15; // affiché pendant la requête (r1 pas encore défini ici — TDZ sinon)
                 let countdown1 = timeout1;
                 const countdownInterval1 = setInterval(() => {
                     countdown1--;
@@ -538,7 +646,7 @@ function openEnrollModal(target) {
                         clearInterval(countdownInterval1);
                     }
                 }, 1000);
-                const r1 = await api.enrollStep1(target.id, signal);
+                const r1 = await enrollWithAutoRetry(() => api.enrollStep1(target.id, signal), wasAborted);
                 clearInterval(countdownInterval1);
                 if (wasAborted(r1)) { showAbort(); return; }
                 if (!r1.ok) {
@@ -559,7 +667,7 @@ function openEnrollModal(target) {
                 setEnrollHint('En attente du doigt (capture 2)…');
                 flash('Capture 1 validée.', 'success');
                 // ── CAPTURE 2 ──
-                let timeout2 = r1.timeout || 15;
+                let timeout2 = 4; // attente de retrait côté daemon (4 s) puis capture immédiate
                 let countdown2 = timeout2;
                 const countdownInterval2 = setInterval(() => {
                     countdown2--;
@@ -569,7 +677,7 @@ function openEnrollModal(target) {
                         clearInterval(countdownInterval2);
                     }
                 }, 1000);
-                const r2 = await api.enrollStep2(target.id, r1.slot, signal);
+                const r2 = await enrollWithAutoRetry(() => api.enrollStep2(target.id, r1.slot, signal), wasAborted);
                 clearInterval(countdownInterval2);
                 if (wasAborted(r2)) { showAbort(); return; }
                 showCancel(false);
@@ -596,6 +704,8 @@ function openEnrollModal(target) {
                 // Mettre à jour la cible et rafraîchir le tableau
                 const updated = { ...target, empreinte: true };
                 selectEnrollTarget(updated);
+
+                enrollLiveStopPoll();
 
                 setTimeout(() => {
                     closeModal('modal-enroll');
@@ -760,6 +870,7 @@ async function initPage() {
     setInterval(syncModeButtonsWithCapteur, 5000);
     document.addEventListener('capteurStatusChanged', e=> setModeButtonsDisabled(e.detail?.status==='hs', e.detail?.detail));
     initReconcile();
+    initWatchToggle();
 
     // Panneau sélection employé
     initEnrollTargetPanel();
@@ -770,6 +881,37 @@ async function initPage() {
     if (filterSlot) filterSlot.onchange = () => renderCapteur(false);
     const filterEmp = document.getElementById('filter-emp');
     if (filterEmp) filterEmp.onchange = () => renderCapteur(false);
+
+    // Re-rendu du tableau au changement de mode (le bouton Enrôler suit le mode).
+    document.addEventListener('mada:modeChanged', () => renderCapteur(false));
+
+    // Purge totale biométrie (Super Admin uniquement).
+    const purgeBtn = document.getElementById('btn-purge-bio');
+    if (purgeBtn) {
+        const isSuper = user && (user.role === 'super_admin' || user.role === 'admin_systeme');
+        purgeBtn.classList.toggle('hidden', !isSuper);
+        if (isSuper) {
+            purgeBtn.onclick = () => {
+                const n = allUsers.filter(u => u.empreinte).length;
+                if (n === 0) { flash('Aucune empreinte à supprimer.', 'info'); return; }
+                showConfirmModal({
+                    title: 'Vider TOUTE la biométrie ?',
+                    message: `${n} empreinte(s) seront supprimées du CAPTEUR (bibliothèque R307 complète) ET de la base de données (slots + gabarits chiffrés). Action irréversible — tous les employés devront être ré-enrôlés.`,
+                    type: 'danger',
+                    confirmText: 'Tout supprimer',
+                    cancelText: 'Annuler',
+                    onConfirm: async () => {
+                        purgeBtn.disabled = true;
+                        try {
+                            const res = await api.deleteAllFingerprints();
+                            flash(res.message || (res.ok ? 'Purge effectuée.' : 'Échec de la purge.'), res.ok ? (res.partial ? 'warning' : 'success') : 'danger');
+                            if (res.ok) { syncModeButtonsWithCapteur(); await renderCapteur(true); }
+                        } finally { purgeBtn.disabled = false; }
+                    }
+                });
+            };
+        }
+    }
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};

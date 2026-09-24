@@ -35,8 +35,8 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['super_admin', 'a
                     </h2>
                     <p class="text-slate-500 dark:text-slate-400 text-[13px] mt-0.5">Traçabilité : enrôlements, suppressions, scans, borne et capteur</p>
                 </div>
-                <button id="btn-refresh-audit" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-md py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer self-start md:self-auto">
-                    <span class="material-symbols-outlined text-[16px]">refresh</span>
+                <button id="btn-refresh-audit" class="btn-refresh self-start md:self-auto" type="button">
+                    <span class="material-symbols-outlined">refresh</span>
                     Actualiser
                 </button>
             </div>

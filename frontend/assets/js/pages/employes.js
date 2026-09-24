@@ -452,29 +452,32 @@ async function initPage() {
             const roleInput = document.getElementById('f-role');
             const roleVal = roleInput ? roleInput.value : 'employe';
 
-            const res = await api.addUser({
-                nom:            document.getElementById('f-nom').value.trim(),
-                prenom:         document.getElementById('f-prenom').value.trim(),
-                email:          document.getElementById('f-email').value.trim(),
-                telephone:      document.getElementById('f-telephone')?.value.trim() || '',
-                date_embauche:  dateEmbauche,
-                id_departement: idDept || '',
-                role:           roleVal,
-                password:       null
-            }, photoFile);
+            const submitBtn = e.submitter || document.querySelector('#form-add button[type="submit"]');
+            await withButtonLoading(submitBtn, async () => {
+                const res = await api.addUser({
+                    nom:            document.getElementById('f-nom').value.trim(),
+                    prenom:         document.getElementById('f-prenom').value.trim(),
+                    email:          document.getElementById('f-email').value.trim(),
+                    telephone:      document.getElementById('f-telephone')?.value.trim() || '',
+                    date_embauche:  dateEmbauche,
+                    id_departement: idDept || '',
+                    role:           roleVal,
+                    password:       null
+                }, photoFile);
 
-            if (res.ok) {
-                flash(`Employé ${res.user.prenom} ${res.user.nom} (${res.user.matricule}) ajouté avec succès.`, 'success');
-                closeModal('modal-add');
-                formAdd.reset();
-                const thumb = document.getElementById('photo-add-thumb');
-                if (thumb) thumb.innerHTML = '<span class="material-symbols-outlined text-[26px]">add_a_photo</span>';
-                const nameLabel = document.getElementById('photo-add-name');
-                if (nameLabel) nameLabel.textContent = 'Aucun fichier sélectionné';
-                await renderUsers(true);
-            } else {
-                flash(res.message, 'danger');
-            }
+                if (res.ok) {
+                    flash(`Employé ${res.user.prenom} ${res.user.nom} (${res.user.matricule}) ajouté avec succès.`, 'success');
+                    closeModal('modal-add');
+                    formAdd.reset();
+                    const thumb = document.getElementById('photo-add-thumb');
+                    if (thumb) thumb.innerHTML = '<span class="material-symbols-outlined text-[26px]">add_a_photo</span>';
+                    const nameLabel = document.getElementById('photo-add-name');
+                    if (nameLabel) nameLabel.textContent = 'Aucun fichier sélectionné';
+                    await renderUsers(true);
+                } else {
+                    flash(res.message, 'danger');
+                }
+            }, 'Création…');
         };
     }
 
@@ -491,28 +494,31 @@ async function initPage() {
             const roleInput = document.getElementById('f-edit-role');
             const roleVal = roleInput ? roleInput.value : 'employe';
 
-            const res = await api.updateUser(editingId, {
-                matricule:      document.getElementById('f-edit-matricule').value.trim(),
-                nom:            document.getElementById('f-edit-nom').value.trim(),
-                prenom:         document.getElementById('f-edit-prenom').value.trim(),
-                email:          document.getElementById('f-edit-email').value.trim(),
-                telephone:      document.getElementById('f-edit-telephone')?.value.trim() || '',
-                date_embauche:  document.getElementById('f-edit-date-embauche')?.value || '',
-                id_departement: idDept || '',
-                departement:    deptSel ? deptSel.options[deptSel.selectedIndex]?.text : '',
-                role:           roleVal
-            }, photoEditFile);
+            const submitBtn = e.submitter || document.querySelector('#form-edit button[type="submit"]');
+            await withButtonLoading(submitBtn, async () => {
+                const res = await api.updateUser(editingId, {
+                    matricule:      document.getElementById('f-edit-matricule').value.trim(),
+                    nom:            document.getElementById('f-edit-nom').value.trim(),
+                    prenom:         document.getElementById('f-edit-prenom').value.trim(),
+                    email:          document.getElementById('f-edit-email').value.trim(),
+                    telephone:      document.getElementById('f-edit-telephone')?.value.trim() || '',
+                    date_embauche:  document.getElementById('f-edit-date-embauche')?.value || '',
+                    id_departement: idDept || '',
+                    departement:    deptSel ? deptSel.options[deptSel.selectedIndex]?.text : '',
+                    role:           roleVal
+                }, photoEditFile);
 
-            if (res.ok) {
-                flash(`Employé ${res.user.prenom} ${res.user.nom} (${res.user.matricule}) mis à jour avec succès.`, 'success');
-                closeModal('modal-edit');
-                editingId = null;
-                photoEditFile = null;
-                formEdit.reset();
-                await renderUsers(true);
-            } else {
-                flash(res.message, 'danger');
-            }
+                if (res.ok) {
+                    flash(`Employé ${res.user.prenom} ${res.user.nom} (${res.user.matricule}) mis à jour avec succès.`, 'success');
+                    closeModal('modal-edit');
+                    editingId = null;
+                    photoEditFile = null;
+                    formEdit.reset();
+                    await renderUsers(true);
+                } else {
+                    flash(res.message, 'danger');
+                }
+            }, 'Enregistrement…');
         };
     }
 }

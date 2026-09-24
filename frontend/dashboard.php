@@ -13,7 +13,9 @@ if (!isset($_SESSION['user_id'])) {
     <title>Tableau de bord - P.Biometrique</title>
     <script src="assets/js/theme-init.js"></script>
     <link rel="stylesheet" href="assets/css/tailwind.css?v=<?= asset_ver('assets/css/tailwind.css') ?>">
-    <script src="assets/js/vendor/chart.umd.min.js"></script>
+    <!-- PERF : Chart.js (~200 Ko) ne bloque plus le <head> — déplacé en fin
+         de body (juste avant dashboard.js) pour que le squelette de page
+         s'affiche sans attendre son téléchargement/parse. -->
     <link rel="stylesheet" href="assets/css/app.css?v=<?= asset_ver('assets/css/app.css') ?>">
 </head>
 <body class="bg-[#F7F8FA] dark:bg-stone-950 text-[#303030] dark:text-slate-100 antialiased flex" data-page="dashboard">
@@ -21,9 +23,9 @@ if (!isset($_SESSION['user_id'])) {
 <div id="app-shell"></div>
 <div id="topbar-slot"></div>
 
-<!-- Main Content Area -->
-<div class="flex-1 md:ml-[280px] flex flex-col min-h-screen">
-    <main class="flex-1 mt-16 p-md md:p-xl max-w-container-max mx-auto w-full">
+ <!-- Main Content Area -->
+<div class="flex-1 md:ml-[280px] flex flex-col min-h-screen min-w-0 overflow-x-hidden">
+    <main class="flex-1 mt-16 p-md md:p-xl max-w-container-max mx-auto w-full max-w-full overflow-x-hidden min-w-0">
         <div id="flash"></div>
 
         <!-- Header Bar & Period Selector Menu -->
@@ -102,7 +104,7 @@ if (!isset($_SESSION['user_id'])) {
                 </div>
                 <div>
                     <div class="text-3xl font-extrabold tracking-tight text-[#303030] dark:text-white" id="kpi-retards">—</div>
-                    <div class="text-[11px] text-amber-500 font-medium mt-1">Arrivés après 09:00</div>
+                    <div class="text-[11px] text-amber-500 font-medium mt-1">Arrivés après 08:30</div>
                 </div>
             </div>
 
@@ -136,7 +138,7 @@ if (!isset($_SESSION['user_id'])) {
                 <div class="relative h-56 flex items-center justify-center my-auto">
                     <canvas id="chart-presence-donut" class="max-h-56"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                        <span class="text-2xl font-extrabold text-slate-900 dark:text-white" id="donut-center-pct">0%</span>
+                        <span class="text-2xl font-extrabold text-slate-900 dark:text-white" id="donut-center-pct">—</span>
                         <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assiduité</span>
                     </div>
                 </div>
@@ -192,7 +194,7 @@ if (!isset($_SESSION['user_id'])) {
                         <p class="text-[11px] text-slate-400 mt-0.5">Volume moyen d'heures effectuées par département</p>
                     </div>
                     <span class="bg-[#FFF1E8] dark:bg-orange-950/40 text-[#F46A21] dark:text-[#F9AE3F] text-[11px] font-bold px-2.5 py-1 rounded-full border border-[#F46A21]/25 dark:border-orange-900 font-mono" id="avg-hours-badge">
-                        Moyenne: 7.8h / jour
+                        Moyenne: — h / jour
                     </span>
                 </div>
 
@@ -211,12 +213,12 @@ if (!isset($_SESSION['user_id'])) {
                         <span class="material-symbols-outlined text-[#F46A21]">history</span>
                         <h3 class="font-bold text-[15px] text-[#303030] dark:text-white">Derniers pointages enregistrés</h3>
                     </div>
-                    <a class="text-xs font-semibold text-[#F46A21] hover:underline flex items-center gap-1" href="pointage.php">
+                    <a class="link-arrow text-xs font-semibold text-[#F46A21] hover:text-[#EA580C] dark:text-[#F9AE3F] dark:hover:text-[#FDBA74] inline-flex items-center gap-1" href="pointage.php">
                         Voir la borne <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </a>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-[13px]">
+                <div class="overflow-x-auto w-full max-w-full overscroll-x-contain">
+                    <table class="w-full min-w-[640px] text-left border-collapse text-[13px]">
                         <thead>
                             <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/30 dark:bg-slate-900">
                                 <th class="py-md px-md w-12 text-center">Photo</th>
@@ -243,7 +245,7 @@ if (!isset($_SESSION['user_id'])) {
                     <div class="relative h-36 w-full bg-slate-50 dark:bg-slate-800/50 rounded-xl p-md flex items-end justify-between gap-1 border border-slate-100 dark:border-slate-800" id="activity-bars"></div>
                     <div class="flex justify-between mt-sm text-[11px] text-slate-400 font-mono">
                         <span>Horaires: 07h — 18h</span>
-                        <span class="text-[#F46A21] font-semibold" id="activity-peak">Pic à 08h</span>
+                        <span class="text-[#F46A21] font-semibold" id="activity-peak">Pic : —</span>
                     </div>
                 </div>
             </div>
@@ -290,10 +292,12 @@ if (!isset($_SESSION['user_id'])) {
     </div>
 </div>
 
+<script src="assets/js/vendor/chart.umd.min.js?v=<?= asset_ver('assets/js/vendor/chart.umd.min.js') ?>"></script>
 <script src="assets/js/data.js?v=<?= asset_ver('assets/js/data.js') ?>"></script>
 <script src="assets/js/api.js?v=<?= asset_ver('assets/js/api.js') ?>"></script>
 <script src="assets/js/templates.js?v=<?= asset_ver('assets/js/templates.js') ?>"></script>
 <script src="assets/js/app.js?v=<?= asset_ver('assets/js/app.js') ?>"></script>
+<script src="assets/js/animate.js?v=<?= asset_ver('assets/js/animate.js') ?>"></script>
 <script src="assets/js/pages/dashboard.js?v=<?= asset_ver('assets/js/pages/dashboard.js') ?>"></script>
 </body>
 </html>

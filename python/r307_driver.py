@@ -18,6 +18,7 @@ CMD_GEN_IMG = 0x01
 CMD_IMG2TZ = 0x02
 CMD_MATCH = 0x03
 CMD_SEARCH = 0x04
+CMD_HISPEED_SEARCH = 0x1B
 CMD_REG_MODEL = 0x05
 CMD_STORE = 0x06
 CMD_LOAD = 0x07
@@ -34,7 +35,7 @@ CONFIRM_OK = 0x00
 ERR_NOFINGER = 0x02
 
 class R307:
-    def __init__(self, port='COM3', baud=57600, addr=0xFFFFFFFF, pwd=None, timeout=1):
+    def __init__(self, port='COM5', baud=57600, addr=0xFFFFFFFF, pwd=None, timeout=1):
         self.port = port
         self.baud = baud
         self.addr = addr
@@ -184,8 +185,26 @@ class R307:
             raise RuntimeError(f'UpChar incomplet ({len(out)}/{expected} octets)')
         return bytes(out[:expected])
 
+    _hispeed_ok = True  # HighSpeedSearch essayee d'abord (repli auto sur 0x04)
+
     def search(self, buf=1, start=0, count=1000):
-        confirm, resp = self._cmd(CMD_SEARCH, struct.pack('B', buf) + struct.pack('>H', start) + struct.pack('>H', count))
+        """Identification dans la bibliotheque (1:N).
+
+        Essaie d'abord HighSpeedSearch (0x1B, ~0,3 s quasi constante), bien
+        plus rapide que la recherche standard 0x04 (jusqu'a ~1 s). Toute
+        reponse inattendue (commande refusee par le capteur) desactive 0x1B
+        de facon permanente pour la session et replie sur 0x04 : aucune
+        empreinte ne peut etre perdue a cause de cette optimisation.
+        """
+        params = struct.pack('B', buf) + struct.pack('>H', start) + struct.pack('>H', count)
+        if self._hispeed_ok:
+            confirm, resp = self._cmd(CMD_HISPEED_SEARCH, params)
+            if confirm == CONFIRM_OK:
+                return struct.unpack('>H', resp[0:2])[0], struct.unpack('>H', resp[2:4])[0]
+            if confirm == ERR_NOFINGER:
+                return None  # etat normal (pas de doigt dans le buffer) : on garde 0x1B
+            self._hispeed_ok = False  # commande non supportee -> repli permanent sur 0x04
+        confirm, resp = self._cmd(CMD_SEARCH, params)
         if confirm == CONFIRM_OK:
             page_id = struct.unpack('>H', resp[0:2])[0]
             score = struct.unpack('>H', resp[2:4])[0]

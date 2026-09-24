@@ -1,0 +1,127 @@
+<?php
+// Toggle de la surveillance du capteur (détection continue en mode pointage).
+// GET  : état courant (daemon + flags) — pour l'état initial du bouton.
+// POST {enabled: bool} : watch-on/watch-off sur le daemon (le démarre si absent).
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../app/Core/Biometric/FingerprintReader.php';
+require_once __DIR__ . '/../app/Core/Biometric/SdkReader.php';
+require_once __DIR__ . '/../app/Core/Biometric/R307Supervisor.php';
+
+use App\Core\Biometric\R307Supervisor;
+use App\Core\Biometric\SdkReader;
+
+$method = $_SERVER['REQUEST_METHOD'];
+if (!in_array($method, ['GET', 'POST'], true)) {
+    http_response_code(405);
+    echo json_encode(['ok' => false, 'message' => 'Méthode non autorisée']);
+    exit;
+}
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['ok' => false, 'message' => 'Non authentifié']);
+    exit;
+}
+
+// Lecture seule en GET ; écriture réservée Super Admin en POST.
+if ($method === 'POST' && !in_array($_SESSION['role'] ?? '', ['super_admin', 'admin_systeme'], true)) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'message' => 'Seul Super Admin peut activer/désactiver la surveillance']);
+    exit;
+}
+
+try {
+    if ($method === 'GET') {
+        $status = R307Supervisor::isUp();
+        if ($status === null) {
+            // Daemon absent : le bouton démarre sur "inactif".
+            echo json_encode([
+                'ok' => true,
+                'daemon_up' => false,
+                'watching' => false,
+                'watch_user_enabled' => false,
+                'watch_enabled' => false,
+                'message' => 'Service de surveillance arrêté',
+            ]);
+            exit;
+        }
+        echo json_encode([
+            'ok' => true,
+            'daemon_up' => true,
+            'watching' => (bool)($status['watching'] ?? false),
+            'watch_user_enabled' => (bool)($status['watch_user_enabled'] ?? true),
+            'watch_enabled' => (bool)($status['watch_enabled'] ?? false),
+            'last_detection' => $status['last_detection'] ?? null,
+            'last_result' => $status['last_result'] ?? null,
+            'message' => 'ok',
+        ]);
+        exit;
+    }
+
+    // ── POST : toggle ──
+    $input = getJsonInput();
+    $enabled = !empty($input['enabled']);
+    $modeFile = __DIR__ . '/../python/mode.json';
+    $mode = 'pointage';
+    if (is_file($modeFile)) {
+        $j = json_decode((string)@file_get_contents($modeFile), true);
+        if (is_array($j) && !empty($j['mode'])) $mode = (string)$j['mode'];
+    }
+
+    if ($enabled) {
+        // Le daemon doit tourner pour accepter watch-on.
+        $ensure = R307Supervisor::ensureRunning();
+        if (!$ensure['up']) {
+            http_response_code(503);
+            echo json_encode(['ok' => false, 'message' => $ensure['message']]);
+            exit;
+        }
+        $ctx = stream_context_create(['http' => [
+            'method' => 'POST',
+            'header' => "Content-Type: application/json\r\n",
+            'content' => '{}',
+            'timeout' => 8,
+            'ignore_errors' => true,
+        ]]);
+        $resp = @file_get_contents('http://127.0.0.1:8765/watch-on', false, $ctx);
+        $data = json_decode((string)$resp, true);
+        if (!is_array($data) || empty($data['ok'])) {
+            http_response_code(500);
+            echo json_encode(['ok' => false,
+                'message' => $data['message'] ?? 'Daemon injoignable pour watch-on']);
+            exit;
+        }
+        echo json_encode([
+            'ok' => true,
+            'watching' => (bool)($data['watching'] ?? false),
+            'watch_user_enabled' => true,
+            'mode' => $mode,
+            'message' => $mode === 'pointage'
+                ? 'Surveillance activée — le capteur scrute en continu'
+                : 'Surveillance armée — elle démarre au retour en mode pointage',
+        ]);
+        exit;
+    }
+
+    // watch-off : le daemon peut être arrêté — c'est un no-op réussi côté UI.
+    $ctx = stream_context_create(['http' => [
+        'method' => 'POST',
+        'header' => "Content-Type: application/json\r\n",
+        'content' => '{}',
+        'timeout' => 4,
+        'ignore_errors' => true,
+    ]]);
+    $resp = @file_get_contents('http://127.0.0.1:8765/watch-off', false, $ctx);
+    $data = json_decode((string)$resp, true);
+    $daemonAck = is_array($data) && !empty($data['ok']);
+    echo json_encode([
+        'ok' => true,
+        'watching' => false,
+        'watch_user_enabled' => false,
+        'daemon_ack' => $daemonAck,
+        'message' => $daemonAck ? 'Surveillance désactivée' : 'Surveillance désactivée (service arrêté)',
+    ]);
+} catch (Throwable $e) {
+    error_log('sensor_watch: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+}

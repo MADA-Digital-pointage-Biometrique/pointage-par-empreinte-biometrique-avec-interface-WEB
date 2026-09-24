@@ -82,7 +82,10 @@ async function initPage() {
         return;
     }
     renderAudit();
-    document.getElementById('btn-refresh-audit')?.addEventListener('click', renderAudit);
+    document.getElementById('btn-refresh-audit')?.addEventListener('click', async (e) => {
+        setRefreshLoading(e.currentTarget, true);
+        try { await renderAudit(); } finally { setRefreshLoading(e.currentTarget, false); }
+    });
     document.getElementById('filter-audit-action')?.addEventListener('change', renderAudit);
     document.getElementById('filter-audit-limit')?.addEventListener('change', renderAudit);
 }

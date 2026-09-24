@@ -3,7 +3,7 @@
 // Page : Historique Général des Pointages - Connecté MySQL
 // ============================================================
 
-let currentPeriod = 'today';
+let currentPeriod = 'all'; // « Tous » par défaut : l'historique affiche TOUT dès l'ouverture
 let editingPointageId = null;
 
 function statusBadge(p) {
@@ -63,6 +63,7 @@ function filterRecords(db) {
         else if (filterStatus === 'retard') matchesStatus = isRetard(p.entree);
         else if (filterStatus === 'encours') matchesStatus = !p.sortie;
 
+        // 'all' (Tous) = tout l'historique, aucune restriction de période.
         let matchesPeriod = true;
         if (currentPeriod === 'today') {
             matchesPeriod = p.date === todayStr;
@@ -115,6 +116,10 @@ if (!window._historiqueEditHandler) {
         if (dateEl) dateEl.value = p.date || todayISO();
         if (entreeEl) entreeEl.value = p.entree ? p.entree.slice(0,5) : '';
         if (sortieEl) sortieEl.value = p.sortie ? p.sortie.slice(0,5) : '';
+        const entree2El = document.getElementById('f-p-entree2');
+        const sortie2El = document.getElementById('f-p-sortie2');
+        if (entree2El) entree2El.value = p.entree2 ? p.entree2.slice(0,5) : '';
+        if (sortie2El) sortie2El.value = p.sortie2 ? p.sortie2.slice(0,5) : '';
         const u = (db.users || []).find(u => u.id === p.user_id) || p.user || {prenom:'',nom:'',matricule:''};
         if (userEl) userEl.textContent = `${u.prenom} ${u.nom} (${u.matricule||''})`;
         openModal('modal-edit-pointage');
@@ -150,14 +155,22 @@ if (!window._historiqueDeleteHandler) {
 async function renderHistory(forceFetch = false) {
     if (forceFetch || !cachedHistoriqueDb) {
         const [users, pointages] = await Promise.all([
-            api.getUsers(),
-            api.getAllPointages()
+            api.getUsers(forceFetch),
+            api.getAllPointages(forceFetch)
         ]);
         cachedHistoriqueDb = { users, pointages };
     }
     const db = cachedHistoriqueDb;
     const records = filterRecords(db);
     updateKPIs(records);
+
+    // Mémorise les filtres (recherche, statut, département) pour les
+    // ré-appliquer après un re-rendu — la page garde l'état de l'utilisateur.
+    ['top-search', 'filter-status', 'filter-dept'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || !el.value) return;
+        try { sessionStorage.setItem('mada-hist-' + id, el.value); } catch {}
+    });
 
     const body = document.getElementById('history-table-body');
     const summary = document.getElementById('records-count-summary');
@@ -252,7 +265,7 @@ async function exportCSV() {
     lines.push(`MADA DIGITAL - RAPPORT GÉNÉRAL DU REGISTRE DE POINTAGE`);
     lines.push(`Date d'extraction${sep}"${formattedNow}"`);
     lines.push(`Généré par${sep}"${currentUser.prenom} ${currentUser.nom}"`);
-    lines.push(`Période sélectionnée${sep}"${currentPeriod === 'today' ? "Aujourd'hui (" + todayISO() + ")" : (document.getElementById('filter-date')?.value || todayISO())}"`);
+    lines.push(`Période sélectionnée${sep}"${currentPeriod === 'all' ? 'Tout l\'historique' : (currentPeriod === 'today' ? "Aujourd'hui (" + todayISO() + ")" : (document.getElementById('filter-date')?.value || todayISO()))}"`);
     lines.push(`Volume d'enregistrements${sep}"${totalRecords}"`);
     lines.push(``); // Ligne vide de séparation
 
@@ -334,6 +347,13 @@ function initPage() {
         }
     });
 
+    // Restaure les filtres mémorisés avant le premier rendu
+    ['top-search', 'filter-status', 'filter-dept'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || !el.value) return;
+        try { const v = sessionStorage.getItem('mada-hist-' + id); if (v) el.value = v; } catch {}
+    });
+
     document.getElementById('top-search')?.addEventListener('input', () => renderHistory(false));
     document.getElementById('filter-status')?.addEventListener('change', () => renderHistory(false));
     document.getElementById('filter-dept')?.addEventListener('change', () => renderHistory(false));
@@ -379,19 +399,31 @@ function initPage() {
     document.getElementById('form-edit-pointage')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (editingPointageId === null) return;
-        const res = await api.updatePointage(editingPointageId, {
-            date: document.getElementById('f-p-date').value,
-            entree: document.getElementById('f-p-entree').value,
-            sortie: document.getElementById('f-p-sortie').value
-        });
-        if (res.ok) {
-            flash(`Pointage de ${res.pointage.date} corrigé.`, 'success');
-            closeModal('modal-edit-pointage');
-            editingPointageId = null;
-            renderHistory(true);
-        } else {
-            flash(res.message, 'danger');
-        }
+        const entree = document.getElementById('f-p-entree').value;
+        const sortie = document.getElementById('f-p-sortie').value;
+        const entree2 = document.getElementById('f-p-entree2')?.value || '';
+        const sortie2 = document.getElementById('f-p-sortie2')?.value || '';
+        if (sortie && entree && sortie <= entree) { flash('L\'heure de sortie doit être après l\'heure d\'entrée.', 'warning'); return; }
+        if (entree2 && sortie2 && sortie2 <= entree2) { flash('La 2e sortie doit être après la 2e entrée.', 'warning'); return; }
+        if (entree2 && sortie && entree2 <= sortie) { flash('La 2e entrée doit être après la première sortie.', 'warning'); return; }
+        const submitBtn = e.submitter || document.querySelector('#form-edit-pointage button[type="submit"]');
+        await withButtonLoading(submitBtn, async () => {
+            const res = await api.updatePointage(editingPointageId, {
+                date: document.getElementById('f-p-date').value,
+                entree,
+                sortie,
+                entree2,
+                sortie2
+            });
+            if (res.ok) {
+                flash(`Pointage de ${res.pointage.date} corrigé.`, 'success');
+                closeModal('modal-edit-pointage');
+                editingPointageId = null;
+                renderHistory(true);
+            } else {
+                flash(res.message, 'danger');
+            }
+        }, 'Enregistrement…');
     });
 }
 

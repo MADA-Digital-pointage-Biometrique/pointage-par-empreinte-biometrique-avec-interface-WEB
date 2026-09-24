@@ -23,6 +23,7 @@ if ($method === 'GET') {
         echo json_encode(['ok' => false, 'message' => 'Non authentifié.']);
         exit;
     }
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
     try {
         // Employés : table employes (matricules EMP/INF/DIR...)
         $stmtEmp = $pdo->query("

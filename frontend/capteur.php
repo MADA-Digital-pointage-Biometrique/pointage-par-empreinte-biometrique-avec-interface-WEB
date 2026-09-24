@@ -172,9 +172,14 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                         <span class="material-symbols-outlined text-[#F46A21] text-[20px]">memory</span>
                         <h3 class="font-bold text-[15px] text-slate-900 dark:text-white">État du capteur</h3>
                     </div>
-                    <span id="sensor-state-pill" class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700">
-                        <span class="material-symbols-outlined text-[14px]">hourglass_empty</span> Vérification…
-                    </span>
+                    <div class="flex items-center gap-2">
+                        <span id="sensor-watch-badge" class="hidden inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                            <span class="material-symbols-outlined text-[12px]">radar</span> Surveillance
+                        </span>
+                        <span id="sensor-state-pill" class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                            <span class="material-symbols-outlined text-[14px]">hourglass_empty</span> Vérification…
+                        </span>
+                    </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-md items-end">
                     <div>
@@ -190,11 +195,25 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                         <div class="text-[11px] text-slate-400 mt-1">Dernière vérif : <span id="sensor-state-updated" class="font-mono">–</span></div>
                     </div>
                     <div class="sm:text-right">
-                        <button id="btn-reconcile" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-md py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-60 disabled:pointer-events-none">
-                            <span class="material-symbols-outlined text-[16px]">sync_problem</span>
-                            Réconcilier slots
-                        </button>
-                        <p class="text-[11px] text-slate-400 mt-1">Compare base ↔ capteur</p>
+                        <div class="flex flex-col items-stretch sm:items-end gap-2">
+                            <div class="flex items-center justify-between sm:justify-end gap-md">
+                                <div class="text-left sm:text-right">
+                                    <div class="text-[13px] font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-[16px] text-[#F46A21]">radar</span>
+                                        Surveillance du capteur
+                                    </div>
+                                    <div id="watch-state-text" class="text-[11px] font-medium text-slate-400 mt-0.5">Chargement…</div>
+                                </div>
+                                <button id="btn-watch-toggle" class="watch-switch" type="button" role="switch" aria-checked="false" aria-label="Activer ou désactiver la surveillance du capteur">
+                                    <span class="watch-knob"></span>
+                                </button>
+                            </div>
+                            <button id="btn-reconcile" class="self-end w-fit whitespace-nowrap inline-flex items-center gap-1.5 text-[12px] font-semibold px-md py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-60 disabled:pointer-events-none">
+                                <span class="material-symbols-outlined text-[16px]">sync_problem</span>
+                                Réconcilier slots
+                            </button>
+                            <p class="text-[11px] text-slate-400 mt-1 sm:text-right">Compare base ↔ capteur</p>
+                        </div>
                     </div>
                 </div>
                 <p class="text-[12px] text-slate-500 dark:text-slate-400 mt-md" id="sensor-state-detail">Interrogation du capteur…</p>
@@ -220,6 +239,10 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                             <option value="no">Sans Empreinte</option>
                         </select>
                     </div>
+                    <button id="btn-purge-bio" class="hidden inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer disabled:opacity-60 disabled:pointer-events-none">
+                        <span class="material-symbols-outlined text-[15px]">delete_sweep</span>
+                        Tout supprimer
+                    </button>
                 </div>
                 <div class="text-xs font-mono text-slate-400" id="emp-count-summary">
                     Calcul en cours...
@@ -279,6 +302,12 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 min-h-[1.25rem]" id="enroll-step">Placez le doigt de l'employé sur le capteur.</p>
                 <div id="enroll-progress" class="hidden w-full max-w-[260px] h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-3">
                     <div id="enroll-progress-bar" class="h-full w-0 bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] transition-all duration-500"></div>
+                </div>
+                <div id="enroll-live" class="enroll-live idle hidden" aria-live="polite">
+                    <span class="el-pulse-icon material-symbols-outlined" id="enroll-live-icon">fingerprint</span>
+                    <span class="el-dot"></span>
+                    <span class="el-text" id="enroll-live-text">Capteur prêt — posez le doigt pour démarrer les captures.</span>
+                    <span class="el-count" id="enroll-live-count">0</span>
                 </div>
                 <div class="mt-lg flex items-center justify-center gap-sm">
                     <button class="bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] hover:from-[#EA580C] hover:to-[#F59E0B] text-white font-semibold text-xs py-2.5 px-xl rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-2 cursor-pointer active:scale-98 disabled:opacity-60 disabled:pointer-events-none" id="btn-enroll">

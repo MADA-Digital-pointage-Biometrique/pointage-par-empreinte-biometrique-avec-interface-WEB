@@ -142,27 +142,30 @@ const api = {
         }
     },
 
-    // --- Tableau de bord (1 seul fetch dashboard.php / 15s, partagé stats+activité) ---
-    async _getDashboardBundle() {
-        const c = _getCache('dashAll', 15000); if (c) return c;
-        const res = await fetch(getApiEndpoint('dashboard.php'), { credentials: 'include' });
+    // --- Tableau de bord (1 fetch dashboard.php, partagé stats+activité) ---
+    // Cache PAR PÉRIODE : les pills Aujourd'hui/Semaine/Mois rechargent de
+    // vraies fenêtres distinctes, sans jamais mélanger les données.
+    async _getDashboardBundle(period = 'today') {
+        const key = 'dashAll_' + period;
+        const c = _getCache(key, 15000); if (c) return c;
+        const res = await fetch(getApiEndpoint('dashboard.php') + '?period=' + encodeURIComponent(period), { credentials: 'include' });
         if (res.status === 401) handleUnauthorized(res);
         const data = await res.json();
-        if (data.ok) { _setCache('dashAll', data); return data; }
+        if (data.ok) { _setCache(key, data); return data; }
         throw new Error(data.message || 'Dashboard indisponible');
     },
 
-    async getDashboardStats() {
+    async getDashboardStats(period = 'today') {
         try {
-            const data = await this._getDashboardBundle();
+            const data = await this._getDashboardBundle(period);
             if (data.stats) return data.stats;
         } catch (e) { if (e.message==='Session expirée') throw e; }
         return { total: 0, entrees: 0, sorties: 0, retards: 0, absents: 0, evenements: 0 };
     },
 
-    async getActivity() {
+    async getActivity(period = 'today') {
         try {
-            const data = await this._getDashboardBundle();
+            const data = await this._getDashboardBundle(period);
             if (data.activite) return data.activite;
         } catch (e) { if (e.message==='Session expirée') throw e; }
         return [
@@ -174,8 +177,8 @@ const api = {
         ];
     },
 
-    async getTodayPointages() {
-        const c = _getCache('pointages', 10000); if (c) return c;
+    async getTodayPointages(force=false) {
+        if (!force) { const c = _getCache('pointages', 10000); if (c) return c; }
         try {
             // today=1 : seul le jour courant, pas tout l'historique (PERF dashboard)
             const res = await fetch(getApiEndpoint('pointages.php?today=1'), { credentials: 'include' });
@@ -186,9 +189,66 @@ const api = {
         return [];
     },
 
+    // --- Graphiques du dashboard (trends + heures) : cache + dédup en vol ---
+    // PERF : mêmes mécaniques que _getDashboardBundle — un re-rendu (bascule
+    // sombre/clair, retour sur l'onglet) relit le cache au lieu de re-mêcher
+    // Supabase (~1s/aller-retour depuis MG), et deux appels simultanés ne
+    // déclenchent qu'UN seul aller-retour réseau.
+    async _getChartBundle() {
+        const c = _getCache('dashCharts', 15000); if (c) return c;
+        if (!_cache._chartsFlight) {
+            _cache._chartsFlight = (async () => {
+                const url = getApiEndpoint('dashboard_charts.php');
+                const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+                if (res.status === 401) handleUnauthorized(res);
+                const data = await res.json();
+                if (!data.ok) throw new Error(data.message || 'Graphiques indisponibles');
+                return data;
+            })().finally(() => { delete _cache._chartsFlight; });
+        }
+        return _cache._chartsFlight;
+    },
+
+    async getTrends(view = '7d') {
+        try {
+            const data = await this._getChartBundle();
+            if (view === '30d') return { labels: data.labels_30d, presents: data.presents_30d, retards: data.retards_30d, absents: data.absents_30d };
+            return { labels: data.labels_7d, presents: data.presents_7d, retards: data.retards_7d, absents: data.absents_7d };
+        } catch (e) { if (e.message==='Session expirée') throw e; }
+        return null;
+    },
+
+    async getHoursWorked() {
+        try {
+            const data = await this._getChartBundle();
+            return { departements: data.departements, heures: data.heures, moyenne_globale: data.moyenne_globale };
+        } catch (e) { if (e.message==='Session expirée') throw e; }
+        return null;
+    },
+
+    // PERF : lectures SYNCHRONES du cache (aucun fetch) pour les re-rendus
+    // immédiats (bascule sombre/clair, retour d'onglet, changement de vue déjà
+    // chargé). Retourne null si le cache est absent/expiré — l'appelant
+    // repasse alors par getTrends()/getHoursWorked().
+    peekTrends(view = '7d') {
+        const c = _getCache('dashCharts', 15000);
+        if (!c) return null;
+        if (view === '30d') return { labels: c.labels_30d, presents: c.presents_30d, retards: c.retards_30d, absents: c.absents_30d };
+        return { labels: c.labels_7d, presents: c.presents_7d, retards: c.retards_7d, absents: c.absents_7d };
+    },
+
+    peekHoursWorked() {
+        const c = _getCache('dashCharts', 15000);
+        if (!c) return null;
+        return { departements: c.departements, heures: c.heures, moyenne_globale: c.moyenne_globale };
+    },
+
+    // Invalide le bundle graphiques (mutations pointages/employés)
+    clearChartsCache() { _clearCache('dashCharts'); },
+
     // Historique complet (historique.js, pointage.js) — cache 30s, liste entière.
-    async getAllPointages() {
-        const c = _getCache('pointagesAll', 30000); if (c) return c;
+    async getAllPointages(force=false) {
+        if (!force) { const c = _getCache('pointagesAll', 30000); if (c) return c; }
         try {
             const res = await fetch(getApiEndpoint('pointages.php'), { credentials: 'include' });
             if (res.status === 401) handleUnauthorized(res);
@@ -207,7 +267,7 @@ const api = {
                 body: JSON.stringify(data),
                 credentials: 'include'
             });
-            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('pointagesAll'); _clearCache('dashAll'); }
+            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('pointagesAll'); _clearCache('dashAll_today'); _clearCache('dashAll_7d'); _clearCache('dashAll_30d'); _clearCache('dashCharts'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de l\'ajout du pointage.' };
@@ -223,7 +283,7 @@ const api = {
                 body: JSON.stringify({ id, ...data }),
                 credentials: 'include'
             });
-            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('pointagesAll'); _clearCache('dashAll'); }
+            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('pointagesAll'); _clearCache('dashAll_today'); _clearCache('dashAll_7d'); _clearCache('dashAll_30d'); _clearCache('dashCharts'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de la mise à jour du pointage.' };
@@ -239,10 +299,21 @@ const api = {
                 body: JSON.stringify({ id }),
                 credentials: 'include'
             });
-            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('pointagesAll'); _clearCache('dashAll'); }
+            const j = await res.json(); if (j.ok) { _clearCache('pointages'); _clearCache('pointagesAll'); _clearCache('dashAll_today'); _clearCache('dashAll_7d'); _clearCache('dashAll_30d'); _clearCache('dashCharts'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de la suppression du pointage.' };
+        }
+    },
+
+    // Totaux d'heures de travail du mois (table heures_mensuelles)
+    async getPointageTotals(mois) {
+        try {
+            const q = mois ? ('&mois=' + encodeURIComponent(mois)) : '';
+            const res = await fetch(getApiEndpoint('pointages.php') + '?totals=1' + q, { credentials: 'include' });
+            return await res.json();
+        } catch (e) {
+            return { ok: false, message: 'Erreur chargement des totaux.' };
         }
     },
 
@@ -297,7 +368,7 @@ const api = {
             const headers = {};
             if (csrf) headers['X-CSRF-Token'] = csrf;
             const res = await fetch(getApiEndpoint('users.php'), { method: 'POST', headers, body: fd, credentials: 'include' });
-            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashAll'); }
+            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashAll_today'); _clearCache('dashAll_7d'); _clearCache('dashAll_30d'); _clearCache('dashCharts'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de l\'ajout de l\'employé.' };
@@ -328,7 +399,7 @@ const api = {
                 });
                 j = await res.json();
             }
-            if (j && j.ok) { _clearCache('users'); _clearCache('dashAll'); }
+            if (j && j.ok) { _clearCache('users'); _clearCache('dashAll_today'); _clearCache('dashAll_7d'); _clearCache('dashAll_30d'); _clearCache('dashCharts'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur de mise à jour.' };
@@ -344,7 +415,7 @@ const api = {
                 body: JSON.stringify({ id }),
                 credentials: 'include'
             });
-            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashAll'); _clearCache('pointages'); _clearCache('pointagesAll'); }
+            const j = await res.json(); if (j.ok) { _clearCache('users'); _clearCache('dashAll_today'); _clearCache('dashAll_7d'); _clearCache('dashAll_30d'); _clearCache('dashCharts'); _clearCache('pointages'); _clearCache('pointagesAll'); }
             return j;
         } catch (e) {
             return { ok: false, message: 'Erreur lors de la suppression.' };
@@ -402,6 +473,23 @@ const api = {
         } catch (e) {
             if (e && e.name === 'AbortError') return { ok: false, aborted: true };
             return { ok: false, message: 'Erreur capture 2.' };
+        }
+    },
+
+    // Purge TOTALE de la biométrie : bibliothèque R307 vidée + slots + gabarits BDD.
+    // Retourne { ok, message, partial?, purged?, deleted? }
+    async deleteAllFingerprints() {
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('biometric.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ action: 'purge_all' }),
+                credentials: 'include'
+            });
+            return await res.json();
+        } catch (e) {
+            return { ok: false, message: 'Erreur purge biométrie.' };
         }
     },
 

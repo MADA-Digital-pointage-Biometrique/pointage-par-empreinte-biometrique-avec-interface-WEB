@@ -20,8 +20,8 @@ if (!isset($_SESSION['user_id'])) {
     <div id="app-shell"></div>
     <div id="topbar-slot"></div>
 
-    <div class="flex-1 md:ml-[280px] flex flex-col min-h-screen">
-        <main class="flex-1 mt-16 p-md md:p-xl max-w-container-max mx-auto w-full">
+    <div class="flex-1 md:ml-[280px] flex flex-col min-h-screen min-w-0 overflow-x-hidden">
+        <main class="flex-1 mt-16 p-md md:p-xl max-w-container-max mx-auto w-full max-w-full overflow-x-hidden min-w-0">
             <div id="flash"></div>
 
             <!-- Page Header & Action Controls -->
@@ -60,7 +60,7 @@ if (!isset($_SESSION['user_id'])) {
                         <span class="material-symbols-outlined text-emerald-600">verified</span>
                     </div>
                     <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400" id="stat-ponctualite">0%</div>
-                    <div class="text-[11px] text-slate-400 mt-1">Pointages avant 09:00 AM</div>
+                    <div class="text-[11px] text-slate-400 mt-1">Entrées avant 08:30</div>
                 </div>
 
                 <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-md shadow-sm">
@@ -87,7 +87,8 @@ if (!isset($_SESSION['user_id'])) {
                 <div class="flex flex-wrap items-center gap-md">
                     <!-- Period Filter Menu -->
                     <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs font-semibold" id="period-pills">
-                        <button class="period-pill active px-3 py-1.5 rounded-lg cursor-pointer transition-all" data-period="today">Aujourd'hui</button>
+                        <button class="period-pill active px-3 py-1.5 rounded-lg cursor-pointer transition-all" data-period="all">Tous</button>
+                        <button class="period-pill text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white cursor-pointer transition-all" data-period="today">Aujourd'hui</button>
                         <button class="period-pill text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white cursor-pointer transition-all" data-period="date">Date</button>
                     </div>
 
@@ -130,7 +131,7 @@ if (!isset($_SESSION['user_id'])) {
             <!-- Attendance History Table Card -->
             <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-[13px]">
+                    <table class="w-full min-w-[640px] text-left border-collapse text-[13px]">
                         <thead>
                             <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/50 dark:bg-slate-900">
                                 <th class="py-md px-md">Employé</th>

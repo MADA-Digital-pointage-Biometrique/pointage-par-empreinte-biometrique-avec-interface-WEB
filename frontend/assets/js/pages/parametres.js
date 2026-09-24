@@ -81,13 +81,8 @@ function initPage() {
         if (next !== confirm) { flash('Les deux nouveaux mots de passe ne correspondent pas.', 'warning'); return; }
         if (next.length < 6)  { flash('Le nouveau mot de passe doit contenir au moins 6 caractères.', 'warning'); return; }
 
-        const btn   = document.getElementById('btn-change-password');
-        const label = document.getElementById('pw-btn-label');
-        if (btn) btn.disabled = true;
-        if (label) label.textContent = 'Mise à jour en cours…';
-        const res = await api.changePassword(current, next);
-        if (btn) btn.disabled = false;
-        if (label) label.textContent = 'Mettre à jour le mot de passe';
+        const btn = document.getElementById('btn-change-password');
+        const res = await withButtonLoading(btn, () => api.changePassword(current, next), 'Mise à jour…');
 
         if (res.ok) { flash(res.message, 'success'); pwForm.reset(); }
         else        { flash(res.message, 'danger'); }

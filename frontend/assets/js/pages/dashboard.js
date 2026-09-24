@@ -8,56 +8,68 @@ let trendChartInstance = null;
 let hoursChartInstance = null;
 let lastDashStats = null;
 let currentTrendView = '7d';
+let currentPeriod = 'today';
+let statsLoadSeq = 0; // anti-course : le dernier clic sur une pill gagne toujours
+let trendLoadSeq = 0; // anti-course : le dernier clic sur une vue tendance gagne toujours
+// PERF : dernier bundle graphiques connu — permet de re-rendre SANS refetch
+// (bascule sombre/clair, retour d'onglet) et d'afficher un squelette immédiat.
+let lastTrendData = null;
+let lastHoursData = null;
+let _onThemeChangedHandler = null; // closure sur la période courante (évite les doublons)
 
-function _onThemeChanged() {
-    // Re-rend les canvas avec la palette du thème courant (anneau donut, axes).
+function _onThemeChanged(period) {
+    // Re-rend les canvas avec la palette du thème courant (anneau donut, axes),
+    // en conservant la PÉRIODE active (sinon le donut revenait sur 'today').
+    // PERF : re-rendu 100 % LOCAL depuis les données déjà chargées — aucun
+    // refetch réseau (l'ancien code refaisait 2 aller-retours Supabase à
+    // chaque bascule sombre/clair, les graphiques "disparaissaient" 1-2s).
     if (lastDashStats) renderDonutChart(lastDashStats.entrees, lastDashStats.retards, lastDashStats.absents);
     renderTrendChart(currentTrendView);
     renderHoursWorkedChart();
 }
 
-let chartLoadAttempted = false;
-function loadChartJS() {
-    // Chart.js est vendu en local. Si la balise <script> de dashboard.php a
-    // échoué (cache, bloqueur), on réinjecte le fichier local UNE fois.
-    // Jamais de CDN : bloqué par script-src 'self'. Timeout 5s : ne bloque
-    // jamais le rendu (les graphiques afficheront un message d'erreur).
-    if (window.Chart) return Promise.resolve();
-    if (chartLoadAttempted) return Promise.resolve();
-    chartLoadAttempted = true;
-    return new Promise((resolve) => {
-        let done = false;
-        const finish = () => { if (!done) { done = true; resolve(); } };
-        try {
-            const s = document.createElement('script');
-            s.src = 'assets/js/vendor/chart.umd.min.js';
-            s.onload = finish;
-            s.onerror = finish;
-            document.head.appendChild(s);
-        } catch { finish(); }
-        setTimeout(finish, 5000);
-    });
+function _chartPalette() {
+    const isDark = document.documentElement.classList.contains('dark');
+    return {
+        isDark,
+        textColor: isDark ? '#9CA3AF' : '#4B5563',
+        gridColor: isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.06)'
+    };
 }
 
-// Message d'erreur à la place d'un canvas vide (jamais de graphique
-// invisible sans explication). classes Tailwind déjà présentes dans le build.
-function chartError(canvas, msg) {
-    if (!canvas || !canvas.parentElement) return;
-    canvas.style.display = 'none';
-    let el = canvas.parentElement.querySelector('[data-chart-err]');
-    if (!el) {
-        el = document.createElement('div');
-        el.setAttribute('data-chart-err', '1');
-        el.className = 'flex items-center justify-center h-36 text-[12px] text-slate-400 text-center px-md';
-        canvas.parentElement.appendChild(el);
-    }
-    el.textContent = msg;
-}
-function chartOk(canvas) {
-    if (!canvas || !canvas.parentElement) return;
-    canvas.style.display = '';
-    const el = canvas.parentElement.querySelector('[data-chart-err]');
-    if (el) el.remove();
+// Squelette de chargement : le canvas montre immédiatement une forme (au lieu
+// d'un bloc vide), puis le vrai graphique le remplace dès les données prêtes.
+function showChartSkeleton(canvas, { horizontal = false } = {}) {
+    if (!canvas || !window.Chart) return;
+    const { isDark } = _chartPalette();
+    const color = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15, 23, 42, 0.06)';
+    const highlight = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(15, 23, 42, 0.10)';
+    const N = 7;
+    const labels = Array.from({ length: N }, (_, i) => 'S' + (i + 1));
+    const data = labels.map(() => 2 + Math.random() * 8);
+    return new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: '', data,
+                backgroundColor: data.map((v, i) => (i % 3 === 1 ? highlight : color)),
+                borderRadius: 6,
+                barPercentage: horizontal ? 0.6 : 0.7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: horizontal ? 'y' : 'x',
+            animation: { duration: 0 },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: {
+                x: { display: !horizontal, grid: { display: false }, ticks: { display: false } },
+                y: { display: horizontal, grid: { display: false }, ticks: { display: false }, beginAtZero: true }
+            }
+        }
+    });
 }
 
 function initials(user) {
@@ -104,31 +116,64 @@ function rowHTML(p) {
 }
 
 // ----------------------------------------------------
+// ANIMATIONS DE PROGRESSION (purement présentationnel)
+// ----------------------------------------------------
+// Les valeurs affichées restent EXACTEMENT celles calculées ci-dessous
+// (aucun calcul modifié) : MadaAnim part visuellement de 0 et anime
+// jusqu'à la valeur réelle, puis s'arrête exactement dessus.
+function animateKpis(stats) {
+    if (!window.MadaAnim || !stats) {
+        // Fallback sans animation : les KPI s'affichent quand même.
+        if (!stats) return;
+        const pct0 = stats.total > 0 ? Math.round((stats.entrees / stats.total) * 100) : 0;
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('kpi-total', stats.total); set('kpi-presents', stats.entrees);
+        set('kpi-absents', stats.absents); set('kpi-retards', stats.retards);
+        set('kpi-pct', pct0 + '%');
+        return;
+    }
+    const pct = stats.total > 0 ? Math.round((stats.entrees / stats.total) * 100) : 0;
+    MadaAnim.animateNumber(document.getElementById('kpi-total'), stats.total);
+    MadaAnim.animateNumber(document.getElementById('kpi-presents'), stats.entrees);
+    MadaAnim.animateNumber(document.getElementById('kpi-absents'), stats.absents);
+    MadaAnim.animateNumber(document.getElementById('kpi-retards'), stats.retards);
+    MadaAnim.animateNumber(document.getElementById('kpi-pct'), pct, { suffix: '%' });
+}
+
+// ----------------------------------------------------
 // GRAPHICS RENDER ENGINE
 // ----------------------------------------------------
 function renderDonutChart(presents, retards, absents) {
     const canvas = document.getElementById('chart-presence-donut');
-    if (!canvas) return;
-    if (!window.Chart) { chartError(canvas, 'Librairie graphique indisponible — rechargez la page.'); return; }
-    chartOk(canvas);
+    if (!canvas || !window.Chart) return;
 
-    const old = donutChartInstance; donutChartInstance = null;
-    try { if (old) old.destroy(); } catch {}
+    if (donutChartInstance) {
+        donutChartInstance.destroy();
+    }
 
     const isDark = document.documentElement.classList.contains('dark');
 
+    // Garde-fou : si animate.js n'est pas chargé (SPA sans rechargement du
+    // bundle), on affiche les valeurs directement au lieu de PLANTER avant
+    // le dessin — c'est ce crash qui figeait les graphiques en SPA.
+    const A = window.MadaAnim;
     const legP = document.getElementById('legend-presents');
     const legR = document.getElementById('legend-retards');
     const legA = document.getElementById('legend-absents');
-    if (legP) legP.textContent = Math.max(0, presents - retards);
-    if (legR) legR.textContent = retards;
-    if (legA) legA.textContent = absents;
+    if (A && A.animateNumber) {
+        if (legP) A.animateNumber(legP, Math.max(0, presents - retards));
+        if (legR) A.animateNumber(legR, retards);
+        if (legA) A.animateNumber(legA, absents);
+    } else {
+        if (legP) legP.textContent = Math.max(0, presents - retards);
+        if (legR) legR.textContent = retards;
+        if (legA) legA.textContent = absents;
+    }
 
     // Données vides (0,0,0) : Chart.js ne dessine RIEN → anneau gris de
     // substitution pour que le donut reste visible (avec son animation).
     const values = [Math.max(0, presents - retards), retards, absents];
     const isEmpty = values.every(v => !v || v <= 0);
-    try {
     donutChartInstance = new Chart(canvas, {
         type: 'doughnut',
         data: {
@@ -159,145 +204,127 @@ function renderDonutChart(presents, retards, absents) {
             }
         }
     });
-    } catch (e) { donutChartInstance = null; chartError(canvas, 'Échec du rendu du graphique.'); }
 }
 
-function renderTrendChart(view = '7d') {
-    const canvas = document.getElementById('chart-attendance-trend');
-    if (!canvas) return;
-    if (!window.Chart) { chartError(canvas, 'Librairie graphique indisponible — rechargez la page.'); return; }
-    chartOk(canvas);
-
-    const oldT = trendChartInstance; trendChartInstance = null;
-    try { if (oldT) oldT.destroy(); } catch {}
-
-    const isDark = document.documentElement.classList.contains('dark');
-    const textColor = isDark ? '#9CA3AF' : '#4B5563';
-    const gridColor = isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.06)';
-
-    let labels = [];
-    let presentsData = [];
-    let retardsData = [];
-    let absentsData = [];
-
-    if (view === '7d') {
-        labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-        presentsData = [5, 6, 5, 6, 5, 2];
-        retardsData = [1, 0, 2, 1, 0, 0];
-        absentsData = [1, 0, 1, 0, 1, 4];
-    } else {
-        labels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
-        presentsData = [28, 30, 29, 31];
-        retardsData = [4, 3, 5, 2];
-        absentsData = [3, 2, 4, 1];
-    }
-
-    try {
-    trendChartInstance = new Chart(canvas, {
+function _renderTrendWithData(canvas, labels, presentsData, retardsData, absentsData, textColor, gridColor) {
+    return new Chart(canvas, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [
-                {
-                    label: 'Présents (À l\'heure)',
-                    data: presentsData,
-                    backgroundColor: '#10B981',
-                    borderRadius: 6
-                },
-                {
-                    label: 'Retards',
-                    data: retardsData,
-                    backgroundColor: '#F59E0B',
-                    borderRadius: 6
-                },
-                {
-                    label: 'Absents',
-                    data: absentsData,
-                    backgroundColor: '#F43F5E',
-                    borderRadius: 6
-                }
+                { label: 'Présents (À l\'heure)', data: presentsData, backgroundColor: '#10B981', borderRadius: 6 },
+                { label: 'Retards', data: retardsData, backgroundColor: '#F59E0B', borderRadius: 6 },
+                { label: 'Absents', data: absentsData, backgroundColor: '#F43F5E', borderRadius: 6 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { color: textColor, font: { size: 11, weight: '600' } }
-                }
-            },
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 400 },
+            plugins: { legend: { position: 'top', labels: { color: textColor, font: { size: 11, weight: '600' } } } },
             scales: {
-                x: {
-                    grid: { color: gridColor },
-                    ticks: { color: textColor, font: { size: 11 } }
-                },
-                y: {
-                    grid: { color: gridColor },
-                    ticks: { color: textColor, font: { size: 11 } }
-                }
+                x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 11 } } },
+                y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 11 } } }
             }
         }
     });
-    } catch (e) { trendChartInstance = null; chartError(canvas, 'Échec du rendu du graphique.'); }
 }
 
-function renderHoursWorkedChart() {
-    const canvas = document.getElementById('chart-hours-worked');
-    if (!canvas) return;
-    if (!window.Chart) { chartError(canvas, 'Librairie graphique indisponible — rechargez la page.'); return; }
-    chartOk(canvas);
+async function renderTrendChart(view = '7d') {
+    const canvas = document.getElementById('chart-attendance-trend');
+    if (!canvas || !window.Chart) return;
+    const { textColor, gridColor } = _chartPalette();
 
-    const oldH = hoursChartInstance; hoursChartInstance = null;
-    try { if (oldH) oldH.destroy(); } catch {}
+    // PERF : lecture SYNCHRONE du cache client (peekTrends) → re-rendu
+    // immédiat (bascule de vue/thème) sans aucun aller-retour. Sinon
+    // squelette pendant le fetch du bundle.
+    const cached = api.peekTrends ? api.peekTrends(view) : null;
+    if (cached) {
+        if (trendChartInstance) { try { trendChartInstance.destroy(); } catch {} }
+        trendChartInstance = _renderTrendWithData(canvas, cached.labels, cached.presents, cached.retards, cached.absents, textColor, gridColor);
+        return;
+    }
 
-    const isDark = document.documentElement.classList.contains('dark');
-    const textColor = isDark ? '#9CA3AF' : '#4B5563';
-    const gridColor = isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.06)';
-
-    const depts = ['Web & mobile', 'Infogérance', 'ERP', 'IA & data', 'Sécurité', 'Réseaux'];
-    const hours = [8.2, 7.9, 8.0, 7.5, 8.4, 7.8];
-
+    const seq = ++trendLoadSeq;
+    if (!lastTrendData) {
+        if (trendChartInstance) { try { trendChartInstance.destroy(); } catch {} }
+        trendChartInstance = showChartSkeleton(canvas);
+    }
+    let data = null;
     try {
-    hoursChartInstance = new Chart(canvas, {
+        data = api.getTrends ? await api.getTrends(view) : null;
+    } catch (e) { data = null; }
+    if (seq !== trendLoadSeq) return; // une requête plus récente a gagné
+
+    if (!data) {
+        // fallback : affichage vide (jamais de 500)
+        data = view === '30d'
+            ? { labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'], presents: [0, 0, 0, 0], retards: [0, 0, 0, 0], absents: [0, 0, 0, 0] }
+            : { labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'], presents: [0, 0, 0, 0, 0, 0, 0], retards: [0, 0, 0, 0, 0, 0, 0], absents: [0, 0, 0, 0, 0, 0, 0] };
+    }
+    lastTrendData = data;
+    if (trendChartInstance) { try { trendChartInstance.destroy(); } catch {} }
+    trendChartInstance = _renderTrendWithData(canvas, data.labels, data.presents, data.retards, data.absents, textColor, gridColor);
+}
+
+function _renderHoursWithData(canvas, depts, hours, textColor, gridColor) {
+    return new Chart(canvas, {
         type: 'bar',
         data: {
             labels: depts,
-            datasets: [{
-                label: 'Heures moyennes / jour',
-                data: hours,
-                backgroundColor: 'rgba(99, 102, 241, 0.85)',
-                hoverBackgroundColor: '#6366F1',
-                borderRadius: 8
-            }]
+            datasets: [{ label: 'Heures moyennes / jour', data: hours, backgroundColor: 'rgba(99, 102, 241, 0.85)', hoverBackgroundColor: '#6366F1', borderRadius: 8 }]
         },
         options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(ctx) { return ` ${ctx.raw} heures en moyenne`; }
-                    }
-                }
-            },
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            animation: { duration: 400 },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return ` ${ctx.raw} heures en moyenne`; } } } },
             scales: {
-                x: {
-                    min: 0,
-                    max: 10,
-                    grid: { color: gridColor },
-                    ticks: { color: textColor, font: { size: 11 } }
-                },
-                y: {
-                    grid: { display: false },
-                    ticks: { color: textColor, font: { size: 11, weight: '600' } }
-                }
+                x: { min: 0, max: 10, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 11 } } },
+                y: { grid: { display: false }, ticks: { color: textColor, font: { size: 11, weight: '600' } } }
             }
         }
     });
-    } catch (e) { hoursChartInstance = null; chartError(canvas, 'Échec du rendu du graphique.'); }
+}
+
+async function renderHoursWorkedChart() {
+    const canvas = document.getElementById('chart-hours-worked');
+    if (!canvas || !window.Chart) return;
+    const { textColor, gridColor } = _chartPalette();
+
+    // PERF : lecture SYNCHRONE du cache (peekHoursWorked) → rendu immédiat ;
+    // sinon squelette horizontal pendant le fetch du bundle.
+    const cached = api.peekHoursWorked ? api.peekHoursWorked() : null;
+    if (cached) {
+        if (hoursChartInstance) { try { hoursChartInstance.destroy(); } catch {} }
+        hoursChartInstance = _renderHoursWithData(canvas, cached.departements, cached.heures, textColor, gridColor);
+        _renderHoursBadge(cached.moyenne_globale);
+        return;
+    }
+
+    if (!lastHoursData) {
+        if (hoursChartInstance) { try { hoursChartInstance.destroy(); } catch {} }
+        hoursChartInstance = showChartSkeleton(canvas, { horizontal: true });
+    }
+    let data = null;
+    try {
+        data = api.getHoursWorked ? await api.getHoursWorked() : null;
+    } catch (e) { data = null; }
+    if (!data) data = { departements: ['Aucune donnée'], heures: [0], moyenne_globale: 0 };
+    lastHoursData = data;
+    if (hoursChartInstance) { try { hoursChartInstance.destroy(); } catch {} }
+    hoursChartInstance = _renderHoursWithData(canvas, data.departements, data.heures, textColor, gridColor);
+    _renderHoursBadge(data.moyenne_globale);
+}
+
+function _renderHoursBadge(moyenne) {
+    const badgeEl = document.getElementById('avg-hours-badge');
+    if (!badgeEl || moyenne === undefined) return;
+    if (window.MadaAnim && MadaAnim.animateNumber) {
+        MadaAnim.animateNumber(badgeEl, Number(moyenne) || 0, {
+            prefix: 'Moyenne: ', suffix: 'h / jour', decimals: 1
+        });
+    } else {
+        badgeEl.textContent = 'Moyenne: ' + moyenne + 'h / jour';
+    }
 }
 
 
@@ -318,28 +345,63 @@ async function initPage() {
         todayEl.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1) + ' — Analytics de présence en direct';
     }
 
-    // PERF : rendu PROGRESSIF — chaque bloc s'affiche dès que ses données
-    // arrivent (pas d'attente globale). Les graphiques statiques partent
-    // dès Chart.js prêt (~200ms), KPIs/table/bars suivent au fil de l'API.
-    const pCharts = loadChartJS().then(() => {
-        renderTrendChart('7d');
+    // PERF PRÉCHAUFFAGE : les 2 graphiques partent MAINTENANT, en parallèle
+    // du shell. Un seul vol réseau (dashboard_charts.php, partagé par
+    // getTrends()/getHoursWorked()) → dès l'arrivée du bundle, les deux
+    // se dessinent ensemble au lieu d'être sérialisés l'un derrière l'autre.
+    const pCharts = (async () => {
+        try {
+            // Amorce le vol partagé du bundle (getHoursWorked réutilisera
+            // la même promesse — zéro 2e aller-retour HTTP).
+            const trends = api.getTrends ? await api.getTrends('7d') : null;
+            if (trends) lastTrendData = trends;
+        } catch {}
+        renderTrendChart(currentTrendView);
         renderHoursWorkedChart();
+    })();
+
+    // ── FILTRES DE PÉRIODE : rechargent VRAIMENT les données ──
+    // Chaque clic recharge KPI + donut + flux horaire sur la fenêtre choisie
+    // (Aujourd'hui / Cette semaine / Ce mois) avec les animations.
+    document.querySelectorAll('#dashboard-period-menu .filter-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const period = btn.dataset.period || 'today';
+            if (period === currentPeriod) return;
+            document.querySelectorAll('#dashboard-period-menu .filter-pill').forEach(b => {
+                b.classList.remove('active');
+                b.classList.add('text-slate-600', 'dark:text-stone-400');
+            });
+            btn.classList.add('active');
+            btn.classList.remove('text-slate-600', 'dark:text-stone-400');
+            currentPeriod = period;
+            reloadPeriodData(period);
+        });
     });
 
-    document.removeEventListener('mada:themeChanged', _onThemeChanged);
-    document.addEventListener('mada:themeChanged', _onThemeChanged);
-
-    // Charge les stats avec 1 retry : un échec réseau ne doit jamais se
-    // déguiser en "0 employé" (anneau gris trompeur).
-    const loadStats = async () => {
-        let stats = await api.getDashboardStats();
+    // Charge les stats d'une période avec 1 retry : un échec réseau ne doit
+    // jamais se déguiser en "0 employé" (anneau gris trompeur).
+    const loadStats = async (period) => {
+        let stats = await api.getDashboardStats(period);
         if ((!stats || stats.total <= 0) && !lastDashStats) {
             await new Promise(r => setTimeout(r, 2000));
-            stats = await api.getDashboardStats();
+            stats = await api.getDashboardStats(period);
         }
         return stats;
     };
-    const pStats = loadStats().then((stats) => {
+
+    // Rechargement complet de la période courante (pills + initial).
+    // Anti-course : un double clic rapide ne mélange jamais deux fenêtres.
+    async function reloadPeriodData(period) {
+        const seq = ++statsLoadSeq;
+        const stats = await loadStats(period);
+        if (seq !== statsLoadSeq) return;
+        renderPeriodData(stats);
+        const activity = await api.getActivity(period);
+        if (seq !== statsLoadSeq) return;
+        renderActivityBars(activity);
+    }
+
+    function renderPeriodData(stats) {
         const donutCenterPct = document.getElementById('donut-center-pct');
         if (!stats || stats.total <= 0) {
             // Vrai échec (jamais 0 employé en pratique) : anneau gris + "…"
@@ -355,28 +417,59 @@ async function initPage() {
             return;
         }
         lastDashStats = stats;
-        const totalEl = document.getElementById('kpi-total');
-        const presentsEl = document.getElementById('kpi-presents');
-        const absentsEl = document.getElementById('kpi-absents');
-        const retardsEl = document.getElementById('kpi-retards');
-        const pctEl = document.getElementById('kpi-pct');
 
-        const pct = stats && stats.total > 0 ? Math.round((stats.entrees / stats.total) * 100) : 0;
+        const pct = stats.total > 0 ? Math.round((stats.entrees / stats.total) * 100) : 0;
 
-        if (totalEl) totalEl.textContent = stats ? stats.total : 0;
-        if (presentsEl) presentsEl.textContent = stats ? stats.entrees : 0;
-        if (absentsEl) absentsEl.textContent = stats ? stats.absents : 0;
-        if (retardsEl) retardsEl.textContent = stats ? stats.retards : 0;
-        if (pctEl) pctEl.textContent = pct + '%';
-        if (donutCenterPct) donutCenterPct.textContent = pct + '%';
+        // KPI animés 0 → valeur réelle (valeur finale identique)
+        animateKpis(stats);
+        if (donutCenterPct && window.MadaAnim) MadaAnim.animateNumber(donutCenterPct, pct, { suffix: '%' });
 
         // Sidebar counter badge
         const badgeEmp = document.getElementById('badge-count-emp');
-        if (badgeEmp && stats) badgeEmp.textContent = stats.total;
+        if (badgeEmp && window.MadaAnim) MadaAnim.animateNumber(badgeEmp, stats.total);
 
-        // Render Charts
-        if (stats) renderDonutChart(stats.entrees, stats.retards, stats.absents);
-    });
+        // Donut (répartition de la période)
+        renderDonutChart(stats.entrees, stats.retards, stats.absents);
+    }
+
+    function renderActivityBars(bars) {
+        try {
+            if (!Array.isArray(bars) || bars.length === 0) return;
+            const maxCount = Math.max(...bars.map(b => (b && b.count) ? b.count : 0), 1);
+            const peak = bars.reduce((best, b) => ((b && b.count) || 0) > ((best && best.count) || 0) ? b : best, bars[0]);
+            const activityBarsEl = document.getElementById('activity-bars');
+            if (activityBarsEl) {
+                activityBarsEl.innerHTML = bars.map(b => `
+                    <div class="w-full bg-[#F46A21]/20 hover:bg-[#F46A21] transition-colors relative group rounded-t-md cursor-pointer"
+                         data-h="${Math.max(12, Math.round((((b && b.count) || 0) / maxCount) * 100))}">
+                        <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg border border-slate-700">
+                            ${b.heure || ''} : ${b.count || 0} scan(s)
+                        </div>
+                    </div>`).join('');
+                // Hauteurs via CSSOM (autorisé par CSP style-src sans unsafe-inline)
+                // + montée animée 0 % → hauteur cible (MadaAnim, présentationnel)
+                if (window.MadaAnim && MadaAnim.animateBars) {
+                    MadaAnim.animateBars(activityBarsEl);
+                } else {
+                    activityBarsEl.querySelectorAll('[data-h]').forEach(el => { el.style.height = el.dataset.h + '%'; });
+                }
+            }
+            const peakEl = document.getElementById('activity-peak');
+            if (peakEl && peak) peakEl.textContent = `Pic à ${peak.heure || ''} (${peak.count || 0} pointages)`;
+        } catch (errAct) {
+            console.warn('Activity chart error:', errAct);
+        }
+    }
+
+    // Charge initial (période par défaut : Aujourd'hui) via le MÊME chemin
+    // que les pills — même rendu, mêmes animations.
+    const pStats = reloadPeriodData(currentPeriod);
+
+    document.removeEventListener('mada:themeChanged', _onThemeChangedHandler);
+    _onThemeChangedHandler = () => _onThemeChanged(currentPeriod);
+    document.addEventListener('mada:themeChanged', _onThemeChangedHandler);
+
+    // Stats/flux chargés par reloadPeriodData(currentPeriod) (pStats, plus haut)
 
     // Trend Chart Filter buttons
     document.querySelectorAll('#chart-trend-selector .trend-btn').forEach(btn => {
@@ -401,42 +494,10 @@ async function initPage() {
         }
     });
 
-    // Period Menu Buttons Interaction
-    document.querySelectorAll('#dashboard-period-menu .filter-pill').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('#dashboard-period-menu .filter-pill').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            flash(`Vue analytique mise à jour : ${btn.textContent}`, 'info');
-        });
-    });
+    // (Filtres de période branchés plus haut : rechargement réel des données)
 
-    // Render Activity Chart Bars (Hourly Peak)
-    const pBars = api.getActivity().then((bars) => {
-    try {
-        if (Array.isArray(bars) && bars.length > 0) {
-            const maxCount = Math.max(...bars.map(b => (b && b.count) ? b.count : 0), 1);
-            const peak = bars.reduce((best, b) => ((b && b.count) || 0) > ((best && best.count) || 0) ? b : best, bars[0]);
-            const activityBarsEl = document.getElementById('activity-bars');
-            if (activityBarsEl) {
-                activityBarsEl.innerHTML = bars.map(b => `
-                    <div class="w-full bg-[#F46A21]/20 hover:bg-[#F46A21] transition-colors relative group rounded-t-md cursor-pointer"
-                         data-h="${Math.max(12, Math.round((((b && b.count) || 0) / maxCount) * 100))}">
-                        <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg border border-slate-700">
-                            ${b.heure || ''} : ${b.count || 0} scan(s)
-                        </div>
-                    </div>`).join('');
-                // Hauteurs via CSSOM (autorisé par CSP style-src sans unsafe-inline)
-                activityBarsEl.querySelectorAll('[data-h]').forEach(el => { el.style.height = el.dataset.h + '%'; });
-            }
-            const peakEl = document.getElementById('activity-peak');
-            if (peakEl && peak) peakEl.textContent = `Pic à ${peak.heure || ''} (${peak.count || 0} pointages)`;
-        }
-    } catch (errAct) {
-        console.warn('Activity chart error:', errAct);
-    }
-    });
-
-    await Promise.allSettled([pCharts, pStats, pList, pBars]);
+    // Flux horaire + stats chargés par reloadPeriodData(currentPeriod) (pStats)
+    await Promise.allSettled([pCharts, pStats, pList]);
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};

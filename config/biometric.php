@@ -6,7 +6,6 @@ return [
 
     'drivers' => [
         // R307 + CP2102 — relié direct PC, piloté par python/r307_cli.py (PHP -> Python -> capteur)
-        // R307 + CP2102 — relié direct PC, piloté par python/r307_cli.py (PHP -> Python -> capteur)
         'r307' => [
             'class'      => \App\Core\Biometric\SdkReader::class,
             'port'       => getenv('R307_PORT') ?: 'COM3', // à ajuster : COM3/COM4 (CP2102). Mets 'auto' pour détection CP2102
@@ -18,6 +17,10 @@ return [
             'device_id'  => 'r307_main',
             'anti_double_seconds' => 45,
             'password'   => getenv('R307_PASSWORD') ?: '00000000', // remplace défaut 0x00000000
+            // Daemon local r307_service.py (propriétaire du port COM + surveillance
+            // continue en mode pointage). SdkReader le consulte en priorité ; sans
+            // daemon, fallback exec CLI (dev sans service).
+            'service_url' => getenv('R307_SERVICE_URL') ?: 'http://127.0.0.1:8765',
         ],
         // Fallback générique (legacy)
         'wa28' => [

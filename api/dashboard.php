@@ -7,10 +7,20 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$today = date('Y-m-d');
-// PERF : cache serveur 30s (clé par jour) — un aller-retour Supabase coûte
-// ~1s depuis MG ; les visites répétées et les 2 appels JS partagés tombent à ~ms.
-$cacheKey = 'dash_' . $today;
+// PERF : libère le verrou de session AVANT les requêtes (sinon les fetchs
+// parallèles dashboard_trends.php / dashboard_hours.php restaient bloqués sur
+// session_start() pendant tout l'agrégat → graphiques qui n'apparaissent qu'en
+// dernier). session_write_close() autorise le parallélisme HTTP des requêtes.
+if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+
+// ── Période d'analyse (pills du dashboard) : today (défaut) / 7d / 30d ──
+// Les filtres rechargent KPI, donut et flux horaire sur la fenêtre choisie.
+$period = $_GET['period'] ?? 'today';
+if (!in_array($period, ['today', '7d', '30d'], true)) $period = 'today';
+
+// PERF : cache serveur 30s — clé PAR PÉRIODE (sinon un filtre renvoyait
+// le cache d'une autre fenêtre et les graphiques semblaient "figés").
+$cacheKey = 'dash_' . $period;
 $cached = cacheGet($cacheKey, 30);
 if (is_array($cached)) {
     $cached['cached'] = true;
@@ -19,8 +29,17 @@ if (is_array($cached)) {
 }
 
 $pdo = getDB();
-$dayStart = $today . ' 00:00:00';
-$dayEnd = date('Y-m-d', strtotime($today . ' +1 day')) . ' 00:00:00';
+
+// Fenêtre [start, end) — le fuseau de session PG est aligné sur PHP par getDB()
+// (SET TIME ZONE), donc les comparaisons de dates tombent sur les bons jours.
+$dayEnd = date('Y-m-d', strtotime('+1 day')) . ' 00:00:00';
+if ($period === '7d') {
+    $dayStart = date('Y-m-d', strtotime('-6 days')) . ' 00:00:00';
+} elseif ($period === '30d') {
+    $dayStart = date('Y-m-d', strtotime('-29 days')) . ' 00:00:00';
+} else {
+    $dayStart = date('Y-m-d') . ' 00:00:00';
+}
 
 try {
     // PERF : 1 seul aller-retour pour tous les agrégats (plages >= / < sur
@@ -49,10 +68,14 @@ try {
     $presents = (int)($a['presents'] ?? 0);
     $retards = (int)($a['retards'] ?? 0);
 
-    $isSunday = (date('N', strtotime($today)) == 7);
+    // Dimanche = jour non travaillé : absents forcé à 0 UNIQUEMENT pour la
+    // vue "Aujourd'hui" (sur 7d/30d la fenêtre couvre des jours ouvrés).
+    $isSunday = ($period === 'today' && date('N') == 7);
     $absents = $isSunday ? 0 : max(0, $total - $presents);
 
-    // Activité horaire (2e et dernier aller-retour)
+    // Activité horaire de la fenêtre (2e et dernier aller-retour).
+    // today : volume réel par heure. 7d/30d : volume CUMULÉ par heure (le pic
+    // reste lisible) — les barres sont normalisées côté PHP comme avant.
     $activityStmt = $pdo->prepare("
         SELECT EXTRACT(HOUR FROM date_heure)::int as h, COUNT(*) as count
         FROM pointages
@@ -81,9 +104,11 @@ try {
     foreach ($activite as &$a) {
         $a['height'] = (int) round(($a['count'] / $maxCount) * 100);
     }
+    unset($a);
 
     $payload = [
         'ok' => true,
+        'period' => $period,
         'stats' => [
             'total' => $total,
             'entrees' => $entrees,

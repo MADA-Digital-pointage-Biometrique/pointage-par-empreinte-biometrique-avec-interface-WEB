@@ -20,6 +20,17 @@
     }
 })();
 
+// ── Autoloader minimal (PSR-4 sans composer) : App\ -> app/ ──
+// Chaque point d'entrée API inclut db.php : toute classe App\Core\* est donc
+// chargeable sans require explicite. Élimine la famille entière de bugs
+// « Class App...\ not found » (Crypto, PointageService, ...).
+spl_autoload_register(function (string $class): void {
+    if (str_starts_with($class, 'App' . chr(92))) {
+        $file = __DIR__ . '/../app/' . str_replace(chr(92), '/', substr($class, 4)) . '.php';
+        if (is_file($file)) require_once $file;
+    }
+});
+
 // ── Session durcie centralisée (HttpOnly + SameSite, voir config/session.php) ──
 require_once __DIR__ . '/../config/session.php';
 
@@ -40,30 +51,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit;
 }
 
-// CSRF helper
-function csrfToken(): string {
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-    return $_SESSION['csrf_token'];
-}
-function verifyCsrf(?string $token): bool {
-    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token ?? '');
+// -- Fuseau applicatif (source de verite unique pour les heures de pointage) --
+// La borne et l'entreprise operent en UTC+3 (heure de Madagascar) ; PHP/XAMPP
+// etait regle sur Europe/Berlin (UTC+2), ce qui decalait tous les NOW() de la
+// session PostgreSQL d'une heure en retard. Definissable via .env (APP_TZ).
+$tz = getenv('APP_TZ') ?: 'Indian/Antananarivo';
+if (!@date_default_timezone_set($tz)) {
+    date_default_timezone_set('UTC');
 }
 
-// H3 : politique mot de passe centralisée — 12 car. min, majuscule, minuscule, chiffre.
-// Retourne null si OK, sinon le message d'erreur à afficher.
-const PASSWORD_BCRYPT_COST = 12;
-function passwordPolicyCheck(string $pwd): ?string {
-    if (strlen($pwd) < 12) return 'Le mot de passe doit contenir au moins 12 caractères.';
-    if (!preg_match('/[A-Z]/', $pwd) || !preg_match('/[a-z]/', $pwd) || !preg_match('/[0-9]/', $pwd)) {
-        return 'Le mot de passe doit contenir majuscule, minuscule et chiffre.';
-    }
-    return null;
-}
-function hashPassword(string $pwd): string {
-    return password_hash($pwd, PASSWORD_BCRYPT, ['cost' => PASSWORD_BCRYPT_COST]);
-}
+// Helpers CSRF + politique mot de passe centralisés (testables, cf. app/Core/CsrfPasswordPolicy.php)
+require_once __DIR__ . '/../app/Core/CsrfPasswordPolicy.php';
 
 function getDB(): PDO {
     static $pdo = null;
@@ -76,6 +74,14 @@ function getDB(): PDO {
         }
         try {
             $config = require $configFile;
+            // B2 : si config/database.php a lu un .env vide, retente via getenv()
+            // (putenv du loader : .env présent mais lu AVANT que getenv ne soit
+            //  renseigné, ex. requêtes rapides / race au chargement).
+            if ((empty($config['username']) || empty($config['password']))
+                && getenv('DB_USERNAME') !== false && getenv('DB_PASSWORD') !== false) {
+                $config['username'] = getenv('DB_USERNAME');
+                $config['password'] = getenv('DB_PASSWORD');
+            }
             // C2 : refuse de connecter sans identifiants explicites (.env).
             if (empty($config['username']) || !isset($config['password']) || $config['password'] === '') {
                 error_log('DB config: DB_USERNAME/DB_PASSWORD manquants (.env).');
@@ -94,11 +100,24 @@ function getDB(): PDO {
             $pdo = new PDO($dsn, $config['username'], $config['password'], [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => false,
-                PDO::ATTR_PERSISTENT         => $isPgsql, // réutilise connexion TLS vers Supabase pooler
+                PDO::ATTR_EMULATE_PREPARES   => true, // PgBouncer (Supabase) : les prepared statements natifs cassent aleatoirement (26000/08P01) - emulation obligatoire
+                // CORRECTIF : pas de connexions persistantes vers le pooler Supabase
+                // (PgBouncer transaction pooling). Elles provoquent des erreurs
+                // aléatoires "prepared statement ... does not exist" / "bind message
+                // supplies N parameters" — des prepared statements d'une requête
+                // précédente fuient sur la connexion réutilisée par un autre worker.
+                PDO::ATTR_PERSISTENT         => false,
                 PDO::ATTR_TIMEOUT            => 5,
             ]);
-            if ($isPgsql) $pdo->exec("SET statement_timeout = 5000");
+            if ($isPgsql) {
+                $pdo->exec("SET statement_timeout = 5000");
+                // Cohérence des données : la session PG suit le fuseau PHP.
+                // TIMESTAMPTZ est un point absolu, mais les regroupements
+                // (date::date, CURRENT_DATE, HH24:MI) dépendent du fuseau de
+                // session — sans alignement, un serveur en UTC décale les
+                // pointages d'un jour et fausse les fenêtres du dashboard.
+                $pdo->exec('SET TIME ZONE ' . $pdo->quote(date_default_timezone_get())); // fuseau applicatif (bloc APP_TZ ci-dessus)
+            }
         } catch (Throwable $e) {
             http_response_code(500);
             error_log('DB connect error: ' . $e->getMessage());
