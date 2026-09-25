@@ -2,12 +2,19 @@
 # Périmètre : application WEB seule. BDD = Supabase externe, borne R307 = PC Windows natif.
 FROM php:8.2-apache
 
-# Extensions PHP requises : pgsql Supabase (pooler 6543, sslmode=require) via pdo_pgsql
-RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev \
-    && docker-php-ext-install pdo_pgsql pgsql \
-    && apt-get purge -y --auto-remove \
-    && rm -rf /var/lib/apt/lists \
-    && a2enmod rewrite headers
+# Extensions PHP requises : pgsql Supabase (pooler 6543, sslmode=require) via pdo_pgsql.
+# Couche 1 (cacheable) : paquets système avec retries — le réseau vers les miroirs
+# Debian peut être instable derrière certains pare-feu (2e tentative après 15 s).
+RUN set -eux; \
+    (apt-get update && apt-get install -y --no-install-recommends --fix-missing libpq-dev) \
+    || (sleep 15 && apt-get update && apt-get install -y --no-install-recommends --fix-missing libpq-dev); \
+    rm -rf /var/lib/apt/lists
+
+# Couche 2 : compilation des extensions PHP (rejouée sans re-télécharger si le code change)
+RUN set -eux; \
+    docker-php-ext-install pdo_pgsql pgsql; \
+    a2enmod rewrite headers; \
+    php -m | grep -E '^(pdo_pgsql|pgsql)$'
 
 # Fuseau entreprise (Madagascar UTC+3, cf. api/db.php APP_TZ)
 ENV TZ=Indian/Antananarivo
