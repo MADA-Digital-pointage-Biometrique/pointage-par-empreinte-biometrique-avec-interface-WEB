@@ -1410,20 +1410,82 @@ body.sidebar-collapsed #sidebar-mode-badge {
    CASES À COCHER (journal d'audit) — zone de clic élargie,
    survol doux et ligne surlignée quand cochée.
    ============================================================ */
+/* ============================================================
+   CASES À COCHER (journal d'audit) — rendu custom dessiné en CSS
+   (fini les carrés blancs natifs) : pastille arrondie, coche blanche,
+   état indéterminé (sélection partielle), dark mode, focus clavier.
+   L'input natif reste dans le DOM (accessibilité + formulaire).
+   ============================================================ */
 .audit-check {
-    width: 18px;
-    height: 18px;
-    accent-color: #F46A21;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    border: 2px solid #94A3B8;
+    border-radius: 7px;
+    background-color: #fff;
     cursor: pointer;
     vertical-align: middle;
-    transition: transform 0.15s ease;
+    display: inline-grid;
+    place-content: center;
+    flex-shrink: 0;
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.12s ease;
+}
+.audit-check::before {
+    content: "";
+    width: 11px;
+    height: 11px;
+    transform: scale(0);
+    transform-origin: center;
+    transition: transform 0.12s ease;
+    background-color: #fff;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+.audit-check:checked {
+    background-color: #F46A21;
+    border-color: #F46A21;
+}
+.audit-check:checked::before {
+    transform: scale(1);
+}
+.audit-check:indeterminate {
+    background-color: #F46A21;
+    border-color: #F46A21;
+}
+.audit-check:indeterminate::before {
+    clip-path: polygon(0 35%, 100% 35%, 100% 65%, 0 65%);
+    transform: scale(1);
 }
 .audit-check:hover {
-    transform: scale(1.18);
+    border-color: #F46A21;
+    box-shadow: 0 0 0 3px rgba(244, 106, 33, 0.15);
+}
+.audit-check:hover:not(:checked):not(:indeterminate) {
+    background-color: #FFF1E8;
+}
+.audit-check:active {
+    transform: scale(0.92);
 }
 .audit-check:focus-visible {
     outline: 2px solid #F46A21;
     outline-offset: 2px;
+}
+.dark .audit-check {
+    background-color: #1E293B;
+    border-color: #475569;
+}
+.dark .audit-check:hover:not(:checked):not(:indeterminate) {
+    background-color: rgba(249, 174, 63, 0.12);
+}
+.dark .audit-check:checked,
+.dark .audit-check:indeterminate {
+    background-color: #F46A21;
+    border-color: #F9AE3F;
 }
 .audit-select-all {
     display: inline-flex;
@@ -1445,7 +1507,7 @@ tr.audit-row-checked {
     background-color: rgba(249, 174, 63, 0.10);
 }
 @media (prefers-reduced-motion: reduce) {
-    .audit-check, .audit-check:hover,
+    .audit-check, .audit-check:hover, .audit-check:active, .audit-check::before,
     .btn-danger, .btn-danger:hover:not(:disabled) {
         transition: none;
         transform: none;
