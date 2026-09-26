@@ -29,14 +29,37 @@ function _clearCache(k) { if (k) delete _cache[k]; else Object.keys(_cache).forE
 
 function handleUnauthorized(res) {
     if (res && res.status === 401) {
+        let hadOwner = false;
+        try { hadOwner = !!sessionStorage.getItem('mada_tab_owner'); } catch {}
         try { sessionStorage.clear(); } catch {}
         try { localStorage.removeItem('mada_user_session'); } catch {}
         storage.remove(SESSION_KEY);
+        // Si l'onglet avait un compte : expiration OU compte changé dans un
+        // autre onglet (le login régénère l'ID et détruit l'ancienne session).
+        // On laisse un mot explicatif affiché sur la page de connexion.
+        if (hadOwner) {
+            try { sessionStorage.setItem('mada_auth_note', 'Session expirée ou compte changé dans un autre onglet. Reconnectez-vous.'); } catch {}
+        }
         // évite boucle si déjà sur login
         if (!window.location.pathname.endsWith('login.php') && !window.location.pathname.endsWith('login.html')) {
             window.location.replace('login.php?v=' + Date.now());
         }
         throw new Error('Session expirée');
+    }
+}
+
+// Compte changé dans un autre onglet : le cookie PHPSESSID (partagé par tout
+// le navigateur) pointe désormais vers un autre utilisateur. Re-login propre
+// avec message explicite au lieu de 401 en cascade + écran « instable ».
+function handleAccountSwitch(serverMatricule) {
+    try { sessionStorage.clear(); } catch {}
+    try { localStorage.removeItem('mada_user_session'); } catch {}
+    try { storage.remove(SESSION_KEY); } catch {}
+    try { sessionStorage.setItem('mada_auth_note', 'Compte changé dans un autre onglet (' + serverMatricule + '). Reconnectez-vous pour continuer.'); } catch {}
+    _csrfToken = null;
+    try { Object.keys(_cache).forEach(k => delete _cache[k]); } catch {}
+    if (!window.location.pathname.endsWith('login.php') && !window.location.pathname.endsWith('login.html')) {
+        window.location.replace('login.php?v=' + Date.now());
     }
 }
 
@@ -72,6 +95,12 @@ const api = {
                 const userJson = JSON.stringify(data.user);
                 sessionStorage.setItem('mada_user_session', userJson);
                 storage.set(SESSION_KEY, userJson);
+                // Propriétaire de CET onglet (sessionStorage = par onglet) :
+                // permet de détecter un changement de compte depuis un autre onglet.
+                try {
+                    sessionStorage.setItem('mada_tab_owner', data.user.matricule || '');
+                    sessionStorage.removeItem('mada_auth_note');
+                } catch {}
             }
             return data;
         } catch (e) {
@@ -107,7 +136,17 @@ const api = {
             const res = await fetch(getApiEndpoint('me.php'), { credentials: 'include', cache: 'no-store' });
             if (res.status === 401) return null; // non authentifié -> pas de throw, le caller décide
             const data = await res.json();
-            if (data.ok && data.user) return data.user;
+            if (data.ok && data.user) {
+                // Changement de compte depuis un autre onglet ? Re-login propre.
+                try {
+                    const owner = sessionStorage.getItem('mada_tab_owner');
+                    if (owner && data.user.matricule && owner !== data.user.matricule) {
+                        handleAccountSwitch(data.user.matricule);
+                        return null;
+                    }
+                } catch {}
+                return data.user;
+            }
         } catch (e) {
             // Erreur réseau -> on NE retourne PAS l'utilisateur local
             // pour que le caller sache que la session n'est pas vérifiée

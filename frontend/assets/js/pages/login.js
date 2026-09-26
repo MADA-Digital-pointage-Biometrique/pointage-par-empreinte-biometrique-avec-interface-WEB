@@ -9,6 +9,16 @@ function initPage() {
 
     document.getElementById('btn-login-theme')?.addEventListener('click', () => toggleDarkMode());
 
+    // Retour après expiration ou changement de compte dans un autre onglet :
+    // message explicite au lieu d'une page vide.
+    try {
+        const note = sessionStorage.getItem('mada_auth_note');
+        if (note) {
+            sessionStorage.removeItem('mada_auth_note');
+            flash(note, 'warning');
+        }
+    } catch {}
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const matricule = (document.getElementById('matricule')?.value || '').trim().toUpperCase();
