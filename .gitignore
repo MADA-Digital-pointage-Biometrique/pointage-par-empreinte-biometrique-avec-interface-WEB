@@ -17,3 +17,6 @@ uploads/photos/
 .freebuff/
 python/watch_state.json
 logs/*.log
+
+# Surcharge compose locale (pont Docker, ports perso...) — jamais commitée
+docker-compose.override.yml

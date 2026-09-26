@@ -22,7 +22,11 @@ try {
     // JAMAIS le CLI direct — le daemon tient le port COM et sur CP2102 deux
     // handles peuvent coexister : les écritures s'entremêlent et corrompent
     // le périphérique. Le CLI n'est autorisé que si le daemon est INJOIGNABLE.
-    $raw = @file_get_contents('http://127.0.0.1:8765/status', false, stream_context_create(['http' => ['method' => 'GET', 'timeout' => 2, 'ignore_errors' => true]]));
+    // daemon-first : URL configurable (R307_SERVICE_URL) pour supporter le
+    // pont Docker (host.docker.internal:8765 vers le daemon Windows) ;
+    // défaut 127.0.0.1:8765 en local XAMPP.
+    $serviceUrl = rtrim(getenv('R307_SERVICE_URL') ?: 'http://127.0.0.1:8765', '/');
+    $raw = @file_get_contents($serviceUrl . '/status', false, stream_context_create(['http' => ['method' => 'GET', 'timeout' => 2, 'ignore_errors' => true]]));
     $daemonUp = $raw !== false;
     $data = $daemonUp ? json_decode((string)$raw, true) : null;
 
