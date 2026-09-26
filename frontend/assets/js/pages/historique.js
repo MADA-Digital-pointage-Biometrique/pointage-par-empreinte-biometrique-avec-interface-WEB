@@ -196,15 +196,15 @@ async function renderHistory(forceFetch = false) {
                         ${initials(u)}
                     </div>
                     <div>
-                        <div class="font-semibold text-slate-900 dark:text-white">${u.prenom} ${u.nom}</div>
-                        <div class="text-[11px] font-mono text-slate-400">${u.matricule}</div>
+                        <div class="font-semibold text-slate-900 dark:text-white">${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</div>
+                        <div class="text-[11px] font-mono text-slate-400">${escapeHtml(u.matricule)}</div>
                     </div>
                 </div>
             </td>
             <td class="py-sm px-md font-mono text-[13px] text-slate-700 dark:text-slate-300 font-semibold">${formatDate(p.date)}</td>
             <td class="py-sm px-md text-slate-600 dark:text-slate-300">
                 <span class="inline-block bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                    ${u.departement || 'Général'}
+                    ${escapeHtml(u.departement) || 'Général'}
                 </span>
             </td>
             <td class="py-sm px-md font-mono text-[13px] ${isRetard(p.entree) ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-emerald-600 dark:text-emerald-400 font-semibold'}">

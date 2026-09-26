@@ -12,7 +12,7 @@ function badgeFor(action) {
         : warn
             ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
             : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-    return `<span class="inline-flex items-center font-mono font-semibold text-[11px] px-2 py-0.5 rounded-full border ${cls}">${a || '–'}</span>`;
+    return `<span class="inline-flex items-center font-mono font-semibold text-[11px] px-2 py-0.5 rounded-full border ${cls}">${escapeHtml(a) || '–'}</span>`;
 }
 
 function auditDetail(e) {
@@ -63,8 +63,8 @@ async function renderAudit() {
             <tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                 <td class="py-sm px-md font-mono text-[11px] text-slate-500 whitespace-nowrap">${e.date_heure || ''}</td>
                 <td class="py-sm px-md">${badgeFor(e.action)}</td>
-                <td class="py-sm px-md hidden md:table-cell font-mono text-[11px] text-slate-400">${e.table_concernee || '–'}</td>
-                <td class="py-sm px-md text-slate-600 dark:text-slate-300">${auditDetail(e)}</td>
+                <td class="py-sm px-md hidden md:table-cell font-mono text-[11px] text-slate-400">${escapeHtml(e.table_concernee) || '–'}</td>
+                <td class="py-sm px-md text-slate-600 dark:text-slate-300">${escapeHtml(auditDetail(e))}</td>
             </tr>`).join('');
     } catch {
         body.innerHTML = '<tr><td colspan="4" class="py-lg px-md text-center text-slate-400">Erreur de chargement.</td></tr>';

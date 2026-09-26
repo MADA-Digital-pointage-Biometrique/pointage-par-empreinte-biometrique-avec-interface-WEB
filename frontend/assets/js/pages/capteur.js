@@ -13,7 +13,7 @@ function initials(u) {
 
 function avatar(u, size = 'w-9 h-9') {
     if (u.photo_url) {
-        return `<div class="${size} rounded-full overflow-hidden border-2 border-[#F46A21]/30 shadow-sm flex-shrink-0"><img src="${u.photo_url}" alt="${u.prenom} ${u.nom}" class="w-full h-full object-cover"></div>`;
+        return `<div class="${size} rounded-full overflow-hidden border-2 border-[#F46A21]/30 shadow-sm flex-shrink-0"><img src="${u.photo_url}" alt="${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}" class="w-full h-full object-cover"></div>`;
     }
     return `<div class="${size} rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[12px] shadow-sm flex-shrink-0">${initials(u)}</div>`;
 }
@@ -46,12 +46,12 @@ function empRow(u) {
                 <div class="flex items-center gap-md">
                     ${avatar(u)}
                     <div>
-                        <div class="font-semibold text-slate-900 dark:text-white">${u.prenom} ${u.nom}</div>
-                        <div class="text-[11px] text-slate-400 md:hidden">${u.matricule}</div>
+                        <div class="font-semibold text-slate-900 dark:text-white">${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</div>
+                        <div class="text-[11px] text-slate-400 md:hidden">${escapeHtml(u.matricule)}</div>
                     </div>
                 </div>
             </td>
-            <td class="py-sm px-md hidden md:table-cell font-mono text-[13px] text-slate-600 dark:text-slate-300">${u.matricule}</td>
+            <td class="py-sm px-md hidden md:table-cell font-mono text-[13px] text-slate-600 dark:text-slate-300">${escapeHtml(u.matricule)}</td>
             <td class="py-sm px-md text-center font-mono font-bold text-[14px] text-[#F46A21] dark:text-[#F9AE3F]">${(u.slot_number ?? null) !== null ? u.slot_number : '<span class="text-slate-300 dark:text-slate-600 font-medium">—</span>'}</td>
             <td class="py-sm px-md font-medium text-[13px] text-slate-600 dark:text-slate-300 whitespace-nowrap">${fmtDateEnrolement(u.date_enrolement)}</td>
             <td class="py-sm px-md text-right"><div class="inline-flex items-center gap-1">${action}</div></td>

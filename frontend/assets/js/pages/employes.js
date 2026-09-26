@@ -11,7 +11,7 @@ function initials(u) {
 function avatar(u, size = 'w-9 h-9') {
     if (u.photo_url) {
         return `<div class="${size} rounded-full overflow-hidden border-2 border-[#F46A21]/30 shadow-sm flex-shrink-0">
-            <img src="${u.photo_url}" alt="${u.prenom} ${u.nom}" class="w-full h-full object-cover">
+            <img src="${u.photo_url}" alt="${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}" class="w-full h-full object-cover">
         </div>`;
     }
     return `<div class="${size} rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[12px] shadow-sm flex-shrink-0">

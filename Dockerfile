@@ -23,6 +23,12 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 WORKDIR /var/www/html
 COPY . /var/www/html/
 
+# ZAP : masque la version Apache (Server: Apache) — interdit en .htaccess.
+# Préfixe zz- : charge APRES le security.conf Debian (ServerTokens OS) qui
+# sinon écrase notre réglage (ordre alphabétique dans conf-enabled/).
+RUN cp /var/www/html/docker/apache-security.conf /etc/apache2/conf-available/zz-mada-security.conf \
+    && a2enconf zz-mada-security
+
 # Racine Docker = / : le RewriteBase XAMPP (/projet_Stage_MADA-Digital/) devient /
 RUN sed -i 's#RewriteBase /projet_Stage_MADA-Digital/#RewriteBase /#' /var/www/html/.htaccess
 

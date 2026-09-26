@@ -650,7 +650,7 @@ function renderEmbeddedFlash(el, message, type) {
         <div class="border rounded-2xl px-md py-sm text-[13px] flex items-center justify-between gap-sm mb-md shadow-md ${s.bg} border-l-4">
             <div class="flex items-center gap-sm">
                 ${icon(s.ic, 20)}
-                <span>${message}</span>
+                <span>${escapeHtml(message)}</span>
             </div>
             <button data-dismiss class="opacity-60 hover:opacity-100 cursor-pointer">
                 ${icon('close', 16)}
@@ -673,8 +673,8 @@ function flash(message, type = 'success', title = null) {
             ${icon(s.ic, 20)}
         </div>
         <div class="flex-1 min-w-0 pr-4">
-            <div class="font-bold text-[13px] tracking-tight">${toastTitle}</div>
-            <div class="text-[12px] opacity-90 leading-snug mt-0.5">${message}</div>
+            <div class="font-bold text-[13px] tracking-tight">${escapeHtml(toastTitle)}</div>
+            <div class="text-[12px] opacity-90 leading-snug mt-0.5">${escapeHtml(message)}</div>
         </div>
         <button class="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer p-1 rounded-lg" data-dismiss>
             ${icon('close', 16)}
@@ -737,8 +737,8 @@ function showConfirmModal({ title, message, type = 'warning', confirmText = 'Con
             <div class="w-14 h-14 rounded-2xl ${typeConfig.icBg} flex items-center justify-center mx-auto mb-md shadow-inner">
                 ${icon(typeConfig.ic, 32)}
             </div>
-            <h3 class="font-bold text-lg text-slate-900 dark:text-white mb-xs">${title}</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-lg">${message}</p>
+            <h3 class="font-bold text-lg text-slate-900 dark:text-white mb-xs">${escapeHtml(title)}</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-lg">${escapeHtml(message)}</p>
             
             <div class="flex items-center justify-center gap-sm pt-md border-t border-slate-100 dark:border-slate-800">
                 <button id="btn-cancel-confirm" class="w-1/2 px-md py-2.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors">

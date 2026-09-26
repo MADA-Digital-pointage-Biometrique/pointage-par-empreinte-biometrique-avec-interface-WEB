@@ -102,15 +102,15 @@ function rowHTML(p) {
         <tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors h-14">
             <td class="py-sm px-md text-center">
                 <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-[12px] shadow-sm mx-auto">
-                    ${initials(p.user)}
+                    ${escapeHtml(initials(p.user))}
                 </div>
             </td>
             <td class="py-sm px-md">
-                <div class="font-semibold text-slate-900 dark:text-white">${p.user ? p.user.prenom + ' ' + p.user.nom : 'Employé'}</div>
-                <div class="text-[11px] font-mono text-slate-400">${p.user ? p.user.matricule : ''}</div>
+                <div class="font-semibold text-slate-900 dark:text-white">${p.user ? escapeHtml(p.user.prenom) + ' ' + escapeHtml(p.user.nom) : 'Employé'}</div>
+                <div class="text-[11px] font-mono text-slate-400">${p.user ? escapeHtml(p.user.matricule) : ''}</div>
             </td>
             <td class="py-sm px-md font-mono text-[13px] text-slate-600 dark:text-slate-300">${time ? time.slice(0, 5) : '—'}</td>
-            <td class="py-sm px-md text-slate-600 dark:text-slate-400">${p.user && p.user.departement ? p.user.departement : '—'}</td>
+            <td class="py-sm px-md text-slate-600 dark:text-slate-400">${p.user && p.user.departement ? escapeHtml(p.user.departement) : '—'}</td>
             <td class="py-sm px-md text-right">${statusBadge(p)}</td>
         </tr>`;
 }

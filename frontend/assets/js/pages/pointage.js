@@ -304,7 +304,7 @@ function initPage() {
         const select = document.getElementById('a-p-user');
         if (select) {
             select.innerHTML = '<option value="">— Sélectionner un employé —</option>' +
-                users.map(u => `<option value="${u.id}">${u.prenom} ${u.nom} (${u.matricule})</option>`).join('');
+                users.map(u => `<option value="${u.id}">${escapeHtml(u.prenom)} ${escapeHtml(u.nom)} (${escapeHtml(u.matricule)})</option>`).join('');
         }
         const dateInput = document.getElementById('a-p-date');
         if (dateInput) dateInput.value = todayISO();

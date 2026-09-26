@@ -98,5 +98,5 @@ try {
     }
 } catch(Throwable $e){
     error_log('sensor_status: '.$e->getMessage());
-    echo json_encode(['ok'=>true,'status'=>'hs','label'=>'HS','detail'=>$e->getMessage(),'port'=>($port ?? null)]);
+    echo json_encode(['ok'=>true,'status'=>'hs','label'=>'HS','detail'=>'Capteur momentanément indisponible — réessayez.','port'=>($port ?? null)]);
 }

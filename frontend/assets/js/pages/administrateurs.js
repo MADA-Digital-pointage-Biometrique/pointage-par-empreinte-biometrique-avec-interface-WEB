@@ -5,7 +5,7 @@
 
 function adminAvatar(u) {
     if (u.photo_url) {
-        return `<img src="${u.photo_url}" alt="${u.prenom} ${u.nom}" class="w-9 h-9 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm shrink-0">`;
+        return `<img src="${u.photo_url}" alt="${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}" class="w-9 h-9 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm shrink-0">`;
     }
     const initials = ((u.prenom?.[0] || '') + (u.nom?.[0] || '')).toUpperCase() || 'AD';
     return `<div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#F46A21] to-[#F9AE3F] text-white flex items-center justify-center font-bold text-xs shadow-sm shrink-0">${initials}</div>`;
@@ -35,12 +35,12 @@ function adminRow(u) {
                 <div class="flex items-center gap-md">
                     ${adminAvatar(u)}
                     <div>
-                        <div class="font-semibold text-slate-900 dark:text-white">${u.prenom} ${u.nom}</div>
-                        <div class="text-[11px] text-slate-400 md:hidden">${u.email || '—'}</div>
+                        <div class="font-semibold text-slate-900 dark:text-white">${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</div>
+                        <div class="text-[11px] text-slate-400 md:hidden">${escapeHtml(u.email) || '—'}</div>
                     </div>
                 </div>
             </td>
-            <td class="py-sm px-md hidden md:table-cell font-mono text-[13px] text-slate-600 dark:text-slate-300">${u.matricule}</td>
+            <td class="py-sm px-md hidden md:table-cell font-mono text-[13px] text-slate-600 dark:text-slate-300">${escapeHtml(u.matricule)}</td>
             <td class="py-sm px-md hidden md:table-cell text-slate-600 dark:text-slate-400">${u.email || '—'}</td>
             <td class="py-sm px-md hidden md:table-cell font-medium text-slate-700 dark:text-slate-300">${u.departement || 'Direction'}</td>
             <td class="py-sm px-md">${roleBadge}</td>
@@ -114,7 +114,7 @@ function showAdminDetail(u) {
     const photoContainer = document.getElementById('detail-admin-photo');
     if (photoContainer) {
         if (u.photo_url) {
-            photoContainer.innerHTML = `<img src="${u.photo_url}" alt="${u.prenom} ${u.nom}" class="w-full h-full object-cover">`;
+            photoContainer.innerHTML = `<img src="${u.photo_url}" alt="${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}" class="w-full h-full object-cover">`;
         } else {
             const initials = ((u.prenom?.[0] || '') + (u.nom?.[0] || '')).toUpperCase() || 'AD';
             photoContainer.innerHTML = `<span>${initials}</span>`;
