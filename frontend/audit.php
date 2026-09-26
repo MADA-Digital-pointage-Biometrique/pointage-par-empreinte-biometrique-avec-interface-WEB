@@ -39,10 +39,6 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['super_admin', 'a
                     <span class="material-symbols-outlined">refresh</span>
                     Actualiser
                 </button>
-                <button id="btn-delete-audit" class="btn-refresh self-start md:self-auto opacity-50 cursor-not-allowed" type="button" disabled>
-                    <span class="material-symbols-outlined">delete</span>
-                    Supprimer (<span id="audit-selected-count">0</span>)
-                </button>
             </div>
 
             <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-md rounded-2xl shadow-sm mb-lg flex flex-wrap items-center gap-sm w-full max-w-full">
@@ -65,6 +61,10 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['super_admin', 'a
                     </select>
                 </div>
                 <div class="text-xs font-mono text-slate-400 ml-auto" id="audit-count-summary">Chargement…</div>
+                <button id="btn-delete-audit" class="btn-danger" type="button" disabled title="Cochez au moins une entrée pour activer la suppression">
+                    <span class="material-symbols-outlined">delete</span>
+                    Supprimer (<span id="audit-selected-count">0</span>)
+                </button>
             </div>
 
             <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden w-full max-w-full" id="card-audit">
@@ -72,7 +72,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['super_admin', 'a
                     <table class="w-full min-w-[640px] text-left border-collapse text-[13px]">
                         <thead>
                             <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/50 dark:bg-slate-900">
-                                <th class="py-md px-md w-10"><input type="checkbox" id="audit-select-all" class="accent-[#F46A21] w-4 h-4 cursor-pointer" title="Tout sélectionner"></th>
+                                <th class="py-md px-md w-16"><label class="audit-select-all" title="Tout cocher / tout décocher"><input type="checkbox" id="audit-select-all" class="audit-check">Tout</label></th>
                                 <th class="py-md px-md">Heure</th>
                                 <th class="py-md px-md">Action</th>
                                 <th class="py-md px-md hidden md:table-cell">Table</th>

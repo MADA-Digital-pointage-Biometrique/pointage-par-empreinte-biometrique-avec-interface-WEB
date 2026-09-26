@@ -63,7 +63,7 @@ async function renderAudit() {
         if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="py-lg px-md text-center text-slate-400">Aucune entrée.</td></tr>'; return; }
         body.innerHTML = rows.map(e => `
             <tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="py-sm px-md w-10"><input type="checkbox" class="audit-check accent-[#F46A21] w-4 h-4 cursor-pointer" value="${e.id_audit}" title="Sélectionner cette entrée"></td>
+                <td class="py-sm px-md w-16"><input type="checkbox" class="audit-check" value="${e.id_audit}" title="Sélectionner cette entrée"></td>
                 <td class="py-sm px-md font-mono text-[11px] text-slate-500 whitespace-nowrap">${e.date_heure || ''}</td>
                 <td class="py-sm px-md">${badgeFor(e.action)}</td>
                 <td class="py-sm px-md hidden md:table-cell font-mono text-[11px] text-slate-400">${escapeHtml(e.table_concernee) || '–'}</td>
@@ -78,21 +78,17 @@ async function renderAudit() {
 
 // Sélection : le bouton Supprimer reste désactivé tant qu'aucune case n'est cochée.
 function updateAuditSelection() {
-    const boxes = Array.from(document.querySelectorAll('.audit-check'));
-    const checked = boxes.filter(b => b.checked);
+    const rows = Array.from(document.querySelectorAll('#audit-body .audit-check'));
+    const checked = rows.filter(b => b.checked);
     const btn = document.getElementById('btn-delete-audit');
     const count = document.getElementById('audit-selected-count');
     const all = document.getElementById('audit-select-all');
     if (count) count.textContent = checked.length;
-    if (btn) {
-        const on = checked.length > 0;
-        btn.disabled = !on;
-        btn.classList.toggle('opacity-50', !on);
-        btn.classList.toggle('cursor-not-allowed', !on);
-    }
+    if (btn) btn.disabled = checked.length === 0;
+    rows.forEach(b => b.closest('tr')?.classList.toggle('audit-row-checked', b.checked));
     if (all) {
-        all.checked = boxes.length > 0 && checked.length === boxes.length;
-        all.indeterminate = checked.length > 0 && checked.length < boxes.length;
+        all.checked = rows.length > 0 && checked.length === rows.length;
+        all.indeterminate = checked.length > 0 && checked.length < rows.length;
     }
 }
 
