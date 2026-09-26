@@ -39,6 +39,10 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['super_admin', 'a
                     <span class="material-symbols-outlined">refresh</span>
                     Actualiser
                 </button>
+                <button id="btn-delete-audit" class="btn-refresh self-start md:self-auto opacity-50 cursor-not-allowed" type="button" disabled>
+                    <span class="material-symbols-outlined">delete</span>
+                    Supprimer (<span id="audit-selected-count">0</span>)
+                </button>
             </div>
 
             <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-md rounded-2xl shadow-sm mb-lg flex flex-wrap items-center gap-sm w-full max-w-full">
@@ -68,6 +72,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['super_admin', 'a
                     <table class="w-full min-w-[640px] text-left border-collapse text-[13px]">
                         <thead>
                             <tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/50 dark:bg-slate-900">
+                                <th class="py-md px-md w-10"><input type="checkbox" id="audit-select-all" class="accent-[#F46A21] w-4 h-4 cursor-pointer" title="Tout sélectionner"></th>
                                 <th class="py-md px-md">Heure</th>
                                 <th class="py-md px-md">Action</th>
                                 <th class="py-md px-md hidden md:table-cell">Table</th>
@@ -75,7 +80,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['super_admin', 'a
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60" id="audit-body">
-                            <tr><td colspan="4" class="py-lg px-md text-center text-slate-400">Chargement…</td></tr>
+                            <tr><td colspan="5" class="py-lg px-md text-center text-slate-400">Chargement…</td></tr>
                         </tbody>
                     </table>
                 </div>

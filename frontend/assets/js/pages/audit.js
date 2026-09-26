@@ -24,7 +24,8 @@ function auditDetail(e) {
         if (d.device) bits.push(d.device);
         if (d.motif) bits.push(d.motif);
         if (e.id_enregistrement_concerne) bits.push('#' + e.id_enregistrement_concerne);
-        if (e.id_utilisateur) bits.push('par admin #' + e.id_utilisateur);
+        const actor = e.admin_nom || (e.admin_matricule ? 'Matricule ' + e.admin_matricule : null) || (e.id_utilisateur ? 'Admin #' + e.id_utilisateur : 'Système');
+        bits.push('par ' + actor);
         return bits.join(' · ') || '–';
     } catch { return '–'; }
 }
@@ -47,29 +48,100 @@ async function renderAudit() {
             // 403 = session serveur sans droits super-admin (ex. connecté avec un
             // compte admin simple, ou 2 onglets avec 2 comptes différents).
             const msg = (j.message && String(j.message)) || 'Accès refusé.';
-            body.innerHTML = '<tr><td colspan="4" class="py-lg px-md text-center text-rose-500">' + msg + '<br><span class="text-[11px] text-slate-400">Connectez-vous avec le compte Super Admin (ADM001).</span></td></tr>';
+            body.innerHTML = '<tr><td colspan="5" class="py-lg px-md text-center text-rose-500">' + msg + '<br><span class="text-[11px] text-slate-400">Connectez-vous avec le compte Super Admin (ADM001).</span></td></tr>';
             if (summary) summary.textContent = 'Accès refusé';
             return;
         }
         if (j.missing) {
-            body.innerHTML = '<tr><td colspan="4" class="py-lg px-md text-center text-amber-600 dark:text-amber-400">Table journal_audit absente — applique database/migration_journal_audit.sql sur Supabase.</td></tr>';
+            body.innerHTML = '<tr><td colspan="5" class="py-lg px-md text-center text-amber-600 dark:text-amber-400">Table journal_audit absente — applique database/migration_journal_audit.sql sur Supabase.</td></tr>';
             if (summary) summary.textContent = 'Table manquante';
             return;
         }
         const rows = j.entries || [];
         if (summary) summary.textContent = rows.length + ' entrée(s)';
-        if (!rows.length) { body.innerHTML = '<tr><td colspan="4" class="py-lg px-md text-center text-slate-400">Aucune entrée.</td></tr>'; return; }
+        updateAuditSelection();
+        if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="py-lg px-md text-center text-slate-400">Aucune entrée.</td></tr>'; return; }
         body.innerHTML = rows.map(e => `
             <tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                <td class="py-sm px-md w-10"><input type="checkbox" class="audit-check accent-[#F46A21] w-4 h-4 cursor-pointer" value="${e.id_audit}" title="Sélectionner cette entrée"></td>
                 <td class="py-sm px-md font-mono text-[11px] text-slate-500 whitespace-nowrap">${e.date_heure || ''}</td>
                 <td class="py-sm px-md">${badgeFor(e.action)}</td>
                 <td class="py-sm px-md hidden md:table-cell font-mono text-[11px] text-slate-400">${escapeHtml(e.table_concernee) || '–'}</td>
                 <td class="py-sm px-md text-slate-600 dark:text-slate-300">${escapeHtml(auditDetail(e))}</td>
             </tr>`).join('');
+        bindAuditChecks();
     } catch {
-        body.innerHTML = '<tr><td colspan="4" class="py-lg px-md text-center text-slate-400">Erreur de chargement.</td></tr>';
+        body.innerHTML = '<tr><td colspan="5" class="py-lg px-md text-center text-slate-400">Erreur de chargement.</td></tr>';
         if (summary) summary.textContent = 'Erreur';
     }
+}
+
+// Sélection : le bouton Supprimer reste désactivé tant qu'aucune case n'est cochée.
+function updateAuditSelection() {
+    const boxes = Array.from(document.querySelectorAll('.audit-check'));
+    const checked = boxes.filter(b => b.checked);
+    const btn = document.getElementById('btn-delete-audit');
+    const count = document.getElementById('audit-selected-count');
+    const all = document.getElementById('audit-select-all');
+    if (count) count.textContent = checked.length;
+    if (btn) {
+        const on = checked.length > 0;
+        btn.disabled = !on;
+        btn.classList.toggle('opacity-50', !on);
+        btn.classList.toggle('cursor-not-allowed', !on);
+    }
+    if (all) {
+        all.checked = boxes.length > 0 && checked.length === boxes.length;
+        all.indeterminate = checked.length > 0 && checked.length < boxes.length;
+    }
+}
+
+function bindAuditChecks() {
+    document.querySelectorAll('.audit-check').forEach(b =>
+        b.addEventListener('change', updateAuditSelection));
+    const all = document.getElementById('audit-select-all');
+    if (all && !all.dataset.bound) {
+        all.dataset.bound = '1';
+        all.addEventListener('change', () => {
+            document.querySelectorAll('.audit-check').forEach(b => { b.checked = all.checked; });
+            updateAuditSelection();
+        });
+    }
+    updateAuditSelection();
+}
+
+async function deleteSelectedAudits() {
+    const ids = Array.from(document.querySelectorAll('.audit-check'))
+        .filter(b => b.checked).map(b => parseInt(b.value, 10)).filter(v => v > 0);
+    if (!ids.length) return;
+    showConfirmModal({
+        title: 'Supprimer ces entrées ?',
+        message: `Voulez-vous vraiment supprimer ${ids.length} entrée(s) du journal d'audit ? Cette action est irréversible.`,
+        type: 'danger',
+        confirmText: 'Oui, Supprimer',
+        cancelText: 'Annuler',
+        onConfirm: async () => {
+            let csrf = null;
+            try { csrf = await api.getCsrfToken(); } catch {}
+            try {
+                const r = await fetch(getApiEndpoint('audit.php'), {
+                    method: 'DELETE',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                    body: JSON.stringify({ ids })
+                });
+                const j = await r.json();
+                if (j.ok) {
+                    flash(`${j.deleted ?? ids.length} entrée(s) supprimée(s).`, 'success');
+                    await renderAudit();
+                } else {
+                    flash(j.message || 'Échec de la suppression.', 'danger');
+                }
+            } catch {
+                flash('Erreur réseau pendant la suppression.', 'danger');
+            }
+        }
+    });
 }
 
 async function initPage() {
@@ -88,6 +160,7 @@ async function initPage() {
     });
     document.getElementById('filter-audit-action')?.addEventListener('change', renderAudit);
     document.getElementById('filter-audit-limit')?.addEventListener('change', renderAudit);
+    document.getElementById('btn-delete-audit')?.addEventListener('click', deleteSelectedAudits);
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};
