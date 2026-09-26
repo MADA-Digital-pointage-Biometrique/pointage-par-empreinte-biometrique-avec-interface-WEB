@@ -30,8 +30,27 @@ if ($method === 'POST' && !in_array($_SESSION['role'] ?? '', ['super_admin', 'ad
 }
 
 try {
+    // URL du daemon configurable (R307_SERVICE_URL) : 127.0.0.1 en local XAMPP,
+    // host.docker.internal:8765 en pont Docker vers le daemon Windows.
+    $serviceUrl = rtrim(getenv('R307_SERVICE_URL') ?: 'http://127.0.0.1:8765', '/');
+    $svcHost = strtolower((string)(parse_url($serviceUrl, PHP_URL_HOST) ?? ''));
+    $isLocal = in_array($svcHost, ['127.0.0.1', 'localhost', '::1', '[::1]'], true);
+    $daemonCall = function(string $path, string $method = 'GET', int $timeout = 8) use ($serviceUrl) {
+        $ctx = stream_context_create(['http' => [
+            'method' => $method,
+            'header' => "Content-Type: application/json\r\n",
+            'content' => $method === 'POST' ? '{}' : null,
+            'timeout' => $timeout,
+            'ignore_errors' => true,
+        ]]);
+        $resp = @file_get_contents($serviceUrl . $path, false, $ctx);
+        if ($resp === false) return null;
+        $data = json_decode((string)$resp, true);
+        return is_array($data) ? $data : null;
+    };
+
     if ($method === 'GET') {
-        $status = R307Supervisor::isUp();
+        $status = $daemonCall('/status', 'GET', 4);
         if ($status === null) {
             // Daemon absent : le bouton démarre sur "inactif".
             echo json_encode([
@@ -69,21 +88,26 @@ try {
 
     if ($enabled) {
         // Le daemon doit tourner pour accepter watch-on.
-        $ensure = R307Supervisor::ensureRunning();
-        if (!$ensure['up']) {
-            http_response_code(503);
-            echo json_encode(['ok' => false, 'message' => $ensure['message']]);
-            exit;
+        if ($isLocal) {
+            // Local : on peut le démarrer nous-mêmes s'il est absent.
+            $ensure = R307Supervisor::ensureRunning();
+            if (!$ensure['up']) {
+                http_response_code(503);
+                echo json_encode(['ok' => false, 'message' => $ensure['message']]);
+                exit;
+            }
+        } else {
+            // Pont distant (ex. Docker → daemon Windows) : pas de spawn local,
+            // on vérifie juste qu'il répond.
+            $probe = $daemonCall('/status', 'GET', 4);
+            if ($probe === null) {
+                http_response_code(503);
+                echo json_encode(['ok' => false,
+                    'message' => 'Daemon injoignable sur ' . $serviceUrl . ' — lancez-le sur le PC du capteur']);
+                exit;
+            }
         }
-        $ctx = stream_context_create(['http' => [
-            'method' => 'POST',
-            'header' => "Content-Type: application/json\r\n",
-            'content' => '{}',
-            'timeout' => 8,
-            'ignore_errors' => true,
-        ]]);
-        $resp = @file_get_contents('http://127.0.0.1:8765/watch-on', false, $ctx);
-        $data = json_decode((string)$resp, true);
+        $data = $daemonCall('/watch-on', 'POST', 8);
         if (!is_array($data) || empty($data['ok'])) {
             http_response_code(500);
             echo json_encode(['ok' => false,
@@ -103,15 +127,7 @@ try {
     }
 
     // watch-off : le daemon peut être arrêté — c'est un no-op réussi côté UI.
-    $ctx = stream_context_create(['http' => [
-        'method' => 'POST',
-        'header' => "Content-Type: application/json\r\n",
-        'content' => '{}',
-        'timeout' => 4,
-        'ignore_errors' => true,
-    ]]);
-    $resp = @file_get_contents('http://127.0.0.1:8765/watch-off', false, $ctx);
-    $data = json_decode((string)$resp, true);
+    $data = $daemonCall('/watch-off', 'POST', 4);
     $daemonAck = is_array($data) && !empty($data['ok']);
     echo json_encode([
         'ok' => true,
