@@ -25,5 +25,21 @@ services:
       timeout: 5s
       retries: 3
 
+  # Restauration BDD one-shot : rejoue schema.sql + data.sql SI base vide.
+  # No-op les fois suivantes (garde interne). --force INTERDIT ici (base live).
+  db-init:
+    build: .
+    image: mada-pointage:latest
+    restart: "no"
+    depends_on:
+      web:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      R307_SERVICE_URL: ""
+      APP_TZ: "Indian/Antananarivo"
+    command: ["php", "database/restore.php", "--auto"]
+
 volumes:
   uploads_photos:

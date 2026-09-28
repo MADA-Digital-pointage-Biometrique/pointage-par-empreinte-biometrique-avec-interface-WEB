@@ -67,9 +67,13 @@ Sur le PC du capteur : `py -m pip install pyserial`, puis dans l'environnement
 `BORNE_TOKEN` (identique au VPS) + `R307_API_URL=https://VOTRE-VPS/api/borne_pointage.php`,
 lancer `python\start_r307_service.bat`. Horloge NTP obligatoire (anti-rejeu `ts ±120 s`).
 
-## 6. Sauvegardes
+## 6. Sauvegardes & restauration auto
 
 * BDD : `database/schema.sql` + `database/data.sql` (dumps live, régénérables
   via `php` + PDO — voir historique Git).
+* **Restauration auto au déploiement** : le service `db-init`
+  (`php database/restore.php --auto`) rejoue le schéma à chaque `up` et ne
+  charge les données qu'en base vide. `--force` (purge+recharge) réservé aux
+  bases jetables — jamais sur la base live.
 * Photos : volume `uploads_photos` (`docker volume backup` / `docker cp`).
 * `.env` prod : à coffrer hors Git (jamais commité, `.gitignore`).
