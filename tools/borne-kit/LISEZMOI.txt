@@ -1,0 +1,47 @@
+MADA Digital — KIT BORNE (PC du capteur R307)
+===============================================
+Contenu : pilotage du capteur + envoi des pointages au serveur.
+Aucune base de données, aucun secret serveur ici.
+
+INSTALLATION (5 min)
+--------------------
+1. Python 3.11 pour Windows (cocher "Add python.exe to PATH",
+   ou utilisez le launcher "py").
+2. Driver CP2102 (Silicon Labs) puis brancher le capteur R307.
+3. Dans une console, depuis ce dossier :
+       py -m pip install pyserial
+   (ou : py -m pip install -r python\requirements.txt)
+4. Copier ".env.borne.example" en ".env" (retirer l'extension
+   .example) puis renseigner :
+     BORNE_TOKEN  = EXACTEMENT celui du serveur
+     R307_API_URL = URL complète de l'API borne, ex. :
+       test locale  : http://localhost:8080/api/borne_pointage.php
+       production   : https://VOTRE-DOMAINE/api/borne_pointage.php
+5. Double-cliquer "start_borne.bat". Laisser la fenêtre OUVERTE.
+   Démarrage auto : clic droit sur start_borne.bat >
+   Créer un raccourci, puis Win+R > shell:startup > y coller le raccourci.
+
+VERIFICATION
+------------
+- La console affiche le port détecté (ex. COM5) et "surveillance active".
+- Sur le site, page Capteur : badge "En service".
+- Posez un doigt enrôlé : le pointage apparaît dans l'historique
+  en ~2 secondes (sans même ouvrir le navigateur).
+- Activez l'interrupteur "Surveillance" page Capteur si besoin
+  (il est conservé entre redémarrages).
+
+DEPANNAGE
+---------
+- "Surveillance désactivée" au lancement : .env incomplet.
+- 401 à chaque pointage : BORNE_TOKEN différent du serveur.
+- "Accès refusé" sur COM : un autre programme tient le port
+  (ancien daemon, moniteur série...) — fermez-le, rebranchez.
+- Capteur introuvable : vérifiez le Gestionnaire de périphériques
+  (Ports COM) et le câble USB.
+- Horloge Windows à l'heure (NTP) : l'anti-rejeu tolère ±120 s.
+
+SECURITE
+--------
+- Ne diffusez jamais BORNE_TOKEN (== mot de passe de la borne).
+- Pare-feu : rien à ouvrir (la borne ne fait que des appels SORTANTS
+  HTTPS vers le serveur).

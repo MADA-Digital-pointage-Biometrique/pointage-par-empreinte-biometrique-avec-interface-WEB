@@ -67,6 +67,10 @@ Sur le PC du capteur : `py -m pip install pyserial`, puis dans l'environnement
 `BORNE_TOKEN` (identique au VPS) + `R307_API_URL=https://VOTRE-VPS/api/borne_pointage.php`,
 lancer `python\start_r307_service.bat`. Horloge NTP obligatoire (anti-rejeu `ts ±120 s`).
 
+> Kit autonome : `tools\build_borne_kit.bat` génère `dist\kit-borne.zip`
+> (python/ + `.env` 2 lignes + `start_borne.bat` + `LISEZMOI`) — seul ce
+> kit est nécessaire sur le PC borne, pas tout le projet.
+
 ## 6. Sauvegardes & restauration auto
 
 * BDD : `database/schema.sql` + `database/data.sql` (dumps live, régénérables
