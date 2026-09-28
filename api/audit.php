@@ -21,7 +21,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'DELETE') {
         $del->execute($ids);
         $n = $del->rowCount();
         auditWrite($pdo, 'audit_purge', null, 'journal_audit', ['supprimes' => $n, 'ids' => $ids]);
-        echo json_encode(['ok'=>true,'deleted'=>$n]);
+        $remaining = (int)$pdo->query('SELECT COUNT(*) FROM journal_audit')->fetchColumn();
+        echo json_encode(['ok'=>true,'deleted'=>$n,'remaining'=>$remaining]);
     } catch (Throwable $e) {
         error_log('audit DELETE: '.$e->getMessage());
         http_response_code(500); echo json_encode(['ok'=>false,'message'=>'Suppression impossible.']);

@@ -132,7 +132,14 @@ async function deleteSelectedAudits() {
                 });
                 const j = await r.json();
                 if (j.ok) {
-                    flash(`${j.deleted ?? ids.length} entrée(s) supprimée(s).`, 'success');
+                    const del = j.deleted ?? ids.length;
+                    const rem = (j.remaining ?? null);
+                    flash(
+                        `${del} entrée(s) supprimée(s)` +
+                        (rem !== null ? `, ${rem} restante(s)` : '') +
+                        (rem > 0 ? ` — recommencez (par pages de 200) pour tout effacer (+1 trace de purge).` : '.'),
+                        'success'
+                    );
                     await renderAudit();
                 } else {
                     flash(j.message || 'Échec de la suppression.', 'danger');
