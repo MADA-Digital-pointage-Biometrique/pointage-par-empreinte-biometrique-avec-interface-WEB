@@ -19,7 +19,11 @@ git clone <repo> && cd <repo> && git checkout project-final-version
 cp .env.example .env
 # 1) Renseigner DB_* (Supabase), APP_TZ=Indian/Antananarivo
 # 2) COPIER APP_ENCRYPTION_KEY depuis le .env actuel (jamais régénérer :
-#    les gabarits biométriques deviendraient illisibles)
+#    les gabarits biométriques deviendraient illisibles).
+#    Cas actuel : clé ABSENTE → repli dérivé de DB_PASSWORD (vérifié : 8/8
+#    gabarits lisibles). Règle d'or dans ce cas : NE JAMAIS changer DB_PASSWORD
+#    (sinon re-chiffrer ou ré-enrôler). Ne PAS ajouter une clé fraîche sans
+#    migration : les gabarits existants deviendraient illisibles.
 # 3) Générer des secrets frais (ne pas réutiliser les valeurs de dev) :
 php -r "echo bin2hex(random_bytes(32)),\"\n\";"   # -> BORNE_TOKEN
 php -r "echo bin2hex(random_bytes(32)),\"\n\";"   # -> CRON_SECRET
