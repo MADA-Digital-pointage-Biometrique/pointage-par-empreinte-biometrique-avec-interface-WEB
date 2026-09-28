@@ -22,5 +22,16 @@ if "%BORNE_TOKEN%"=="" echo [AVERTISSEMENT] BORNE_TOKEN manquant dans .env — s
 if "%R307_API_URL%"=="" echo [AVERTISSEMENT] R307_API_URL manquant dans .env — surveillance desactivee
 if "%BORNE_TOKEN%"=="CHANGEZ-MOI-mettre-le-meme-que-le-serveur" echo [AVERTISSEMENT] BORNE_TOKEN par defaut — mettez celui du serveur, sinon 401 a chaque pointage
 
-py python\r307_service.py --port auto --baud 57600
+REM Interpreteur Python : "py" (launcher, install python.org) sinon "python".
+where py >nul 2>nul
+if %errorlevel%==0 ( set "PYBIN=py" ) else ( set "PYBIN=python" )
+%PYBIN% -c "import sys,serial; print('pyserial OK', sys.version.split()[0])"
+if %errorlevel% neq 0 (
+    echo [ERREUR] Python 3.11 et/ou pyserial introuvables. Installez Python
+    echo depuis python.org puis : %PYBIN% -m pip install pyserial
+    pause
+    exit /b 1
+)
+
+%PYBIN% python\r307_service.py --port auto --baud 57600
 pause
