@@ -1,177 +1,191 @@
--- ============================================================
--- BASE DE DONNÉES : POINTAGE BIOMÉTRIQUE (MADA DIGITAL)
--- Modèle relationnel complet pour PostgreSQL / Supabase
--- ============================================================
+-- MADA Digital — STRUCTURE (dump Supabase public, 2026-09-28 10:59)
+-- Source : base live. Restauration : psql -f schema.sql puis psql -f data.sql
 
--- 1. DEPARTEMENTS
-CREATE TABLE IF NOT EXISTS departements (
-    id_departement SERIAL PRIMARY KEY,
-    nom_departement VARCHAR(100) NOT NULL UNIQUE,
-    description TEXT
+CREATE TABLE IF NOT EXISTS public.appareils_pointage (
+    id_appareil integer NOT NULL,
+    nom_appareil character varying(100) NOT NULL,
+    emplacement character varying(150),
+    type_capteur character varying(30) NOT NULL,
+    adresse_ip character varying(45),
+    statut character varying(20) NOT NULL DEFAULT 'actif'::character varying,
+    derniere_connexion timestamp without time zone,
+    PRIMARY KEY (id_appareil)
 );
 
--- 2. EMPLOYES
-CREATE TABLE IF NOT EXISTS employes (
-    id_employe SERIAL PRIMARY KEY,
-    matricule VARCHAR(20) NOT NULL UNIQUE,
-    nom VARCHAR(100) NOT NULL,
-    prenom VARCHAR(100) NOT NULL,
-    email VARCHAR(150) UNIQUE,
-    telephone VARCHAR(30),
-    id_departement INT REFERENCES departements(id_departement) ON DELETE SET NULL ON UPDATE CASCADE,
-    poste VARCHAR(100) DEFAULT 'Employé',
-    date_embauche DATE DEFAULT CURRENT_DATE,
-    statut VARCHAR(20) NOT NULL DEFAULT 'actif' CHECK (statut IN ('actif', 'inactif', 'suspendu')),
-    photo_profil VARCHAR(255)
+CREATE TABLE IF NOT EXISTS public.biometric_slots (
+    id integer NOT NULL DEFAULT nextval('biometric_slots_id_seq'::regclass),
+    id_employe integer NOT NULL,
+    device_id character varying(50) NOT NULL DEFAULT 'r307_main'::character varying,
+    slot_number smallint NOT NULL,
+    empreinte_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    PRIMARY KEY (id),
+    CHECK (((slot_number >= 0) AND (slot_number <= 999))),
+    UNIQUE (id_employe),
+    UNIQUE (device_id, slot_number)
+);
+CREATE INDEX IF NOT EXISTS idx_slots_device ON public.biometric_slots USING btree (device_id, slot_number);
+
+CREATE TABLE IF NOT EXISTS public.departements (
+    id_departement integer NOT NULL,
+    nom_departement character varying(100) NOT NULL,
+    description text,
+    PRIMARY KEY (id_departement)
 );
 
-CREATE INDEX IF NOT EXISTS idx_employes_departement ON employes(id_departement);
-CREATE INDEX IF NOT EXISTS idx_employes_statut ON employes(statut);
+CREATE TABLE IF NOT EXISTS public.donnees_biometriques (
+    id_biometrie integer NOT NULL,
+    id_employe integer NOT NULL,
+    type_biometrie character varying(20) NOT NULL,
+    gabarit_chiffre bytea NOT NULL,
+    algorithme character varying(50),
+    id_appareil_enrolement integer,
+    date_enregistrement timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    date_expiration timestamp without time zone,
+    statut character varying(20) NOT NULL DEFAULT 'actif'::character varying,
+    PRIMARY KEY (id_biometrie),
+    FOREIGN KEY (id_appareil_enrolement) REFERENCES appareils_pointage(id_appareil) ON UPDATE CASCADE ON DELETE SET NULL,
+    FOREIGN KEY (id_employe) REFERENCES employes(id_employe) ON UPDATE CASCADE ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_biometrie_appareil ON public.donnees_biometriques USING btree (id_appareil_enrolement);
+CREATE INDEX IF NOT EXISTS idx_biometrie_employe ON public.donnees_biometriques USING btree (id_employe);
+CREATE INDEX IF NOT EXISTS idx_biometrie_type ON public.donnees_biometriques USING btree (type_biometrie);
 
--- 3. UTILISATEURS SYSTEME (ADMINISTRATEURS WEB)
-CREATE TABLE IF NOT EXISTS utilisateurs_systeme (
-    id_utilisateur SERIAL PRIMARY KEY,
-    matricule VARCHAR(20) UNIQUE,
-    nom VARCHAR(100) NOT NULL,
-    prenom VARCHAR(100) NOT NULL,
-    email VARCHAR(150) NOT NULL UNIQUE,
-    telephone VARCHAR(30),
-    id_departement INT REFERENCES departements(id_departement) ON DELETE SET NULL ON UPDATE CASCADE,
-    mot_de_passe_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'admin' CHECK (role IN ('super_admin', 'admin_systeme', 'admin')),
-    statut VARCHAR(20) NOT NULL DEFAULT 'actif' CHECK (statut IN ('actif', 'inactif')),
-    derniere_connexion TIMESTAMPTZ
+CREATE TABLE IF NOT EXISTS public.employes (
+    id_employe integer NOT NULL,
+    matricule character varying(20) NOT NULL,
+    nom character varying(100) NOT NULL,
+    prenom character varying(100) NOT NULL,
+    email character varying(150),
+    telephone character varying(30),
+    id_departement integer,
+    poste character varying(100),
+    date_embauche date,
+    statut character varying(20) NOT NULL DEFAULT 'actif'::character varying,
+    photo_profil character varying(255),
+    PRIMARY KEY (id_employe),
+    FOREIGN KEY (id_departement) REFERENCES departements(id_departement) ON UPDATE CASCADE ON DELETE SET NULL,
+    UNIQUE (matricule),
+    UNIQUE (email)
+);
+CREATE INDEX IF NOT EXISTS idx_employes_departement ON public.employes USING btree (id_departement);
+CREATE INDEX IF NOT EXISTS idx_employes_statut ON public.employes USING btree (statut);
+
+CREATE TABLE IF NOT EXISTS public.heures_mensuelles (
+    id_employe integer NOT NULL,
+    mois date NOT NULL,
+    total_secondes integer NOT NULL DEFAULT 0,
+    nb_pointages integer NOT NULL DEFAULT 0,
+    calcule_le timestamp without time zone NOT NULL DEFAULT now(),
+    PRIMARY KEY (id_employe, mois)
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON utilisateurs_systeme(email);
-CREATE INDEX IF NOT EXISTS idx_users_matricule ON utilisateurs_systeme(matricule);
+CREATE TABLE IF NOT EXISTS public.historique_pointages (
+    id_pointage integer NOT NULL,
+    id_uuid_local uuid NOT NULL,
+    id_employe integer NOT NULL,
+    id_appareil integer,
+    type_pointage character varying(20) NOT NULL,
+    date_heure timestamp without time zone NOT NULL,
+    methode_verification character varying(20) NOT NULL,
+    score_correspondance numeric(5,2),
+    source_donnee character varying(20) NOT NULL DEFAULT 'serveur'::character varying,
+    synchronise boolean NOT NULL DEFAULT true,
+    date_synchronisation timestamp without time zone,
+    statut character varying(20) NOT NULL DEFAULT 'valide'::character varying,
+    commentaire text,
+    archived_at timestamp with time zone DEFAULT now(),
+    PRIMARY KEY (id_pointage),
+    UNIQUE (id_uuid_local)
+);
+CREATE INDEX IF NOT EXISTS historique_pointages_id_appareil_idx ON public.historique_pointages USING btree (id_appareil);
+CREATE INDEX IF NOT EXISTS historique_pointages_id_employe_idx ON public.historique_pointages USING btree (id_employe);
+CREATE INDEX IF NOT EXISTS historique_pointages_date_heure_idx ON public.historique_pointages USING btree (date_heure);
+CREATE INDEX IF NOT EXISTS historique_pointages_statut_idx ON public.historique_pointages USING btree (statut);
+CREATE INDEX IF NOT EXISTS historique_pointages_synchronise_idx ON public.historique_pointages USING btree (synchronise);
 
--- 4. APPAREILS DE POINTAGE
-CREATE TABLE IF NOT EXISTS appareils_pointage (
-    id_appareil SERIAL PRIMARY KEY,
-    nom_appareil VARCHAR(100) NOT NULL,
-    emplacement VARCHAR(150),
-    type_capteur VARCHAR(30) NOT NULL CHECK (type_capteur IN ('empreinte', 'faciale', 'mixte')),
-    adresse_ip VARCHAR(45),
-    statut VARCHAR(20) NOT NULL DEFAULT 'actif' CHECK (statut IN ('actif', 'hors_ligne', 'maintenance')),
-    derniere_connexion TIMESTAMPTZ
+CREATE TABLE IF NOT EXISTS public.horaires_travail (
+    id_horaire integer NOT NULL,
+    nom_horaire character varying(100) NOT NULL,
+    heure_debut time without time zone NOT NULL,
+    heure_fin time without time zone NOT NULL,
+    jours_travail character varying(50) NOT NULL,
+    tolerance_retard_min integer NOT NULL DEFAULT 10,
+    PRIMARY KEY (id_horaire)
 );
 
--- 5. DONNEES BIOMETRIQUES
-CREATE TABLE IF NOT EXISTS donnees_biometriques (
-    id_biometrie SERIAL PRIMARY KEY,
-    id_employe INT NOT NULL REFERENCES employes(id_employe) ON DELETE CASCADE ON UPDATE CASCADE,
-    type_biometrie VARCHAR(20) NOT NULL DEFAULT 'empreinte' CHECK (type_biometrie IN ('empreinte', 'visage')),
-    gabarit_chiffre BYTEA NOT NULL, -- aligné schéma réel (gabarit UP_CHAR via decode(?,'hex'))
-    algorithme VARCHAR(50) DEFAULT 'R307',
-    id_appareil_enrolement INT REFERENCES appareils_pointage(id_appareil) ON DELETE SET NULL ON UPDATE CASCADE,
-    date_enregistrement TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    date_expiration TIMESTAMPTZ,
-    statut VARCHAR(20) NOT NULL DEFAULT 'actif' CHECK (statut IN ('actif', 'revoque'))
+CREATE TABLE IF NOT EXISTS public.journal_audit (
+    id_audit integer NOT NULL,
+    id_utilisateur integer,
+    action character varying(60) NOT NULL,
+    table_concernee character varying(60),
+    id_enregistrement_concerne integer,
+    details text,
+    date_heure timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_audit),
+    FOREIGN KEY (id_utilisateur) REFERENCES utilisateurs_systeme(id_utilisateur) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_date ON public.journal_audit USING btree (date_heure);
+CREATE INDEX IF NOT EXISTS idx_audit_utilisateur ON public.journal_audit USING btree (id_utilisateur);
+
+CREATE TABLE IF NOT EXISTS public.pointages (
+    id_pointage integer NOT NULL,
+    id_uuid_local uuid NOT NULL,
+    id_employe integer NOT NULL,
+    id_appareil integer,
+    type_pointage character varying(20) NOT NULL,
+    date_heure timestamp without time zone NOT NULL,
+    methode_verification character varying(20) NOT NULL,
+    score_correspondance numeric(5,2),
+    source_donnee character varying(20) NOT NULL DEFAULT 'serveur'::character varying,
+    synchronise boolean NOT NULL DEFAULT true,
+    date_synchronisation timestamp without time zone,
+    statut character varying(20) NOT NULL DEFAULT 'valide'::character varying,
+    commentaire text,
+    PRIMARY KEY (id_pointage),
+    FOREIGN KEY (id_appareil) REFERENCES appareils_pointage(id_appareil) ON UPDATE CASCADE ON DELETE SET NULL,
+    FOREIGN KEY (id_employe) REFERENCES employes(id_employe) ON UPDATE CASCADE,
+    UNIQUE (id_uuid_local)
+);
+CREATE INDEX IF NOT EXISTS idx_pointages_date ON public.pointages USING btree (date_heure);
+CREATE INDEX IF NOT EXISTS idx_pointages_appareil ON public.pointages USING btree (id_appareil);
+CREATE INDEX IF NOT EXISTS idx_pointages_employe ON public.pointages USING btree (id_employe);
+CREATE INDEX IF NOT EXISTS idx_pointages_statut ON public.pointages USING btree (statut);
+CREATE INDEX IF NOT EXISTS idx_pointages_synchronise ON public.pointages USING btree (synchronise);
+
+CREATE TABLE IF NOT EXISTS public.utilisateurs_systeme (
+    id_utilisateur integer NOT NULL,
+    matricule character varying(20) NOT NULL,
+    nom character varying(100),
+    prenom character varying(100),
+    telephone character varying(30),
+    id_departement integer,
+    email character varying(150) NOT NULL,
+    mot_de_passe_hash character varying(255) NOT NULL,
+    role character varying(20) NOT NULL,
+    statut character varying(20) NOT NULL DEFAULT 'actif'::character varying,
+    derniere_connexion timestamp without time zone,
+    PRIMARY KEY (id_utilisateur),
+    FOREIGN KEY (id_departement) REFERENCES departements(id_departement) ON UPDATE CASCADE ON DELETE SET NULL,
+    UNIQUE (email),
+    UNIQUE (matricule)
 );
 
-CREATE INDEX IF NOT EXISTS idx_biometrie_employe ON donnees_biometriques(id_employe);
-
--- 6. MAPPING SLOTS R307 (APPAREILS BIOMÉTRIQUES)
-CREATE TABLE IF NOT EXISTS biometric_slots (
-    id SERIAL PRIMARY KEY,
-    id_employe INT NOT NULL UNIQUE REFERENCES employes(id_employe) ON DELETE CASCADE ON UPDATE CASCADE,
-    device_id VARCHAR(50) NOT NULL DEFAULT 'r307_main',
-    slot_number SMALLINT NOT NULL CHECK (slot_number BETWEEN 0 AND 999),
-    empreinte_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_device_slot UNIQUE (device_id, slot_number)
-);
-
-CREATE INDEX IF NOT EXISTS idx_slots_device ON biometric_slots(device_id, slot_number);
-
--- 7. HORAIRES DE TRAVAIL
-CREATE TABLE IF NOT EXISTS horaires_travail (
-    id_horaire SERIAL PRIMARY KEY,
-    nom_horaire VARCHAR(100) NOT NULL,
-    heure_debut TIME NOT NULL DEFAULT '08:30:00',
-    heure_fin TIME NOT NULL DEFAULT '17:00:00',
-    jours_travail VARCHAR(50) NOT NULL DEFAULT 'Lun-Sam',
-    tolerance_retard_min INT NOT NULL DEFAULT 10
-);
-
--- 8. AFFECTATIONS DES HORAIRES
-CREATE TABLE IF NOT EXISTS affectations_horaire (
-    id_affectation SERIAL PRIMARY KEY,
-    id_employe INT NOT NULL REFERENCES employes(id_employe) ON DELETE CASCADE ON UPDATE CASCADE,
-    id_horaire INT NOT NULL REFERENCES horaires_travail(id_horaire) ON DELETE RESTRICT ON UPDATE CASCADE,
-    date_debut DATE NOT NULL DEFAULT CURRENT_DATE,
-    date_fin DATE
-);
-
--- 9. ABSENCES ET CONGES
-CREATE TABLE IF NOT EXISTS absences_conges (
-    id_absence SERIAL PRIMARY KEY,
-    id_employe INT NOT NULL REFERENCES employes(id_employe) ON DELETE CASCADE ON UPDATE CASCADE,
-    type_absence VARCHAR(50) NOT NULL,
-    date_debut DATE NOT NULL,
-    date_fin DATE NOT NULL,
-    justificatif VARCHAR(255),
-    statut_validation VARCHAR(20) NOT NULL DEFAULT 'en_attente' CHECK (statut_validation IN ('en_attente', 'approuve', 'rejete')),
-    id_validateur INT REFERENCES utilisateurs_systeme(id_utilisateur) ON DELETE SET NULL ON UPDATE CASCADE
-);
-
--- 10. JOURNAL D'AUDIT (IMMUABLE)
-CREATE TABLE IF NOT EXISTS journal_audit (
-    id_log SERIAL PRIMARY KEY,
-    id_utilisateur INT REFERENCES utilisateurs_systeme(id_utilisateur) ON DELETE SET NULL ON UPDATE CASCADE,
-    action VARCHAR(100) NOT NULL,
-    table_concernee VARCHAR(50),
-    id_enregistrement_concerne INT,
-    details TEXT,
-    slot_number SMALLINT,
-    score DECIMAL(5,2),
-    device_id VARCHAR(50),
-    motif TEXT,
-    date_heure TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_audit_utilisateur ON journal_audit(id_utilisateur);
-CREATE INDEX IF NOT EXISTS idx_audit_date ON journal_audit(date_heure);
-
--- 11. POINTAGES
-CREATE TABLE IF NOT EXISTS pointages (
-    id_pointage SERIAL PRIMARY KEY,
-    id_uuid_local CHAR(36) NOT NULL UNIQUE DEFAULT gen_random_uuid()::text,
-    id_employe INT NOT NULL REFERENCES employes(id_employe) ON DELETE RESTRICT ON UPDATE CASCADE,
-    id_appareil INT REFERENCES appareils_pointage(id_appareil) ON DELETE SET NULL ON UPDATE CASCADE,
-    type_pointage VARCHAR(20) NOT NULL CHECK (type_pointage IN ('entree', 'sortie', 'pause_debut', 'pause_fin')),
-    date_heure TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    methode_verification VARCHAR(20) NOT NULL DEFAULT 'empreinte' CHECK (methode_verification IN ('empreinte', 'visage', 'manuel')),
-    score_correspondance DECIMAL(5,2) CHECK (score_correspondance IS NULL OR (score_correspondance >= 0 AND score_correspondance <= 100)),
-    source_donnee VARCHAR(20) NOT NULL DEFAULT 'serveur' CHECK (source_donnee IN ('serveur', 'local')),
-    synchronise BOOLEAN NOT NULL DEFAULT TRUE,
-    date_synchronisation TIMESTAMPTZ,
-    statut VARCHAR(20) NOT NULL DEFAULT 'valide' CHECK (statut IN ('valide', 'rejete', 'anomalie')),
-    commentaire TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_pointages_employe ON pointages(id_employe);
-CREATE INDEX IF NOT EXISTS idx_pointages_date ON pointages(date_heure);
-
--- 12. HISTORIQUE POINTAGES ARCHIVÉS
-CREATE TABLE IF NOT EXISTS historique_pointages (
-    LIKE pointages INCLUDING ALL,
-    archived_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- FONCTION D'ARCHIVAGE AUTOMATIQUE
-CREATE OR REPLACE FUNCTION archive_pointages()
-RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION public.archive_pointages()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
 DECLARE
-    moved INTEGER;
+  moved INTEGER;
 BEGIN
-    INSERT INTO historique_pointages
-    SELECT *, NOW() FROM pointages
-    WHERE date_heure::date < CURRENT_DATE;
+  INSERT INTO historique_pointages
+  SELECT *, NOW() FROM pointages
+  WHERE date_heure::date < CURRENT_DATE;
 
-    GET DIAGNOSTICS moved = ROW_COUNT;
-    DELETE FROM pointages WHERE date_heure::date < CURRENT_DATE;
-    RETURN moved;
+  GET DIAGNOSTICS moved = ROW_COUNT;
+  DELETE FROM pointages WHERE date_heure::date < CURRENT_DATE;
+  RETURN moved;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$function$;
+
