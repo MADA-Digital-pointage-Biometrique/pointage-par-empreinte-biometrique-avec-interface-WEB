@@ -77,3 +77,22 @@ lancer `python\start_r307_service.bat`. Horloge NTP obligatoire (anti-rejeu `ts 
   bases jetables — jamais sur la base live.
 * Photos : volume `uploads_photos` (`docker volume backup` / `docker cp`).
 * `.env` prod : à coffrer hors Git (jamais commité, `.gitignore`).
+
+## 7. Variante Dokploy (PaaS)
+
+> Erreur `port is already allocated` = le mapping `"8080:80"` du compose
+> local entre en conflit avec Traefik. Sur Dokploy on utilise
+> `docker-compose.dokploy.yml` (aucun port hôte, routage par domaine).
+
+1. Dokploy : nouveau service **Compose**, provider Git, branche
+   `project-final-version`, Compose Path `./docker-compose.dokploy.yml`.
+2. Onglet **Environment** : `DB_HOST`, `DB_PORT=6543`, `DB_NAME=postgres`,
+   `DB_USERNAME`, `DB_PASSWORD`, `DB_SSLMODE=require`, `BORNE_TOKEN` + 
+   `CRON_SECRET` (frais, `random_bytes`), `APP_TZ=Indian/Antananarivo`.
+   `APP_ENCRYPTION_KEY` : laisser absent (repli `DB_PASSWORD`, cf. §2 VPS).
+   `TRUSTED_PROXIES` : défaut déjà large (RFC1918) pour Traefik.
+3. Onglet **Domains** : service `web`, port `80`, votre domaine
+   (DNS pointé vers le serveur, HTTPS auto). Redeployer après ajout.
+4. Borne : `R307_API_URL=https://VOTRE-DOMAINE/api/borne_pointage.php`.
+5. Vérifs : `/login` via le domaine, 1er déploiement = `db-init` crée
+   structure + données (no-op ensuite).

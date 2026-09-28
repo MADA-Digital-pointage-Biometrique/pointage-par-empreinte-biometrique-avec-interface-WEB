@@ -1,0 +1,43 @@
+# MADA Digital — variante DOKPLOY (PaaS + Traefik).
+# Differences vs docker-compose.yml (local) :
+# - AUCUN mapping de port hote (le "port already allocated" vient de "8080:80").
+#   Traefik route par domaine (onglet Domains de Dokploy -> service web, port 80).
+# - AUCUN env_file (.env absent du depot) : variables dans l'onglet Environment
+#   de Dokploy. Les ${VAR-defaut} ci-dessous laissent l'UI prendre le dessus.
+# - Pas de container_name, pas de network custom : Dokploy attache
+#   dokploy-network + labels Traefik automatiquement.
+services:
+  web:
+    build: .
+    image: mada-pointage:latest
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      R307_SERVICE_URL: "${R307_SERVICE_URL-}"
+      APP_TZ: "${APP_TZ-Indian/Antananarivo}"
+      TRUSTED_PROXIES: "${TRUSTED_PROXIES-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
+    volumes:
+      - uploads_photos:/var/www/html/uploads/photos
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(is_file('/var/www/html/frontend/login.php') ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Restauration BDD one-shot : schema + data SI base vide (no-op ensuite).
+  db-init:
+    build: .
+    image: mada-pointage:latest
+    restart: "no"
+    depends_on:
+      web:
+        condition: service_started
+    environment:
+      R307_SERVICE_URL: "${R307_SERVICE_URL-}"
+      APP_TZ: "${APP_TZ-Indian/Antananarivo}"
+      TRUSTED_PROXIES: "${TRUSTED_PROXIES-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
+    command: ["php", "database/restore.php", "--auto"]
+
+volumes:
+  uploads_photos:
