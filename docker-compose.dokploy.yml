@@ -26,13 +26,12 @@ services:
       retries: 3
 
   # Restauration BDD one-shot : schema + data SI base vide (no-op ensuite).
+  # Sans build ni depends_on : réutilise l'image déjà construite par web
+  # (évite un double build parallèle incohérent) et parle à Supabase,
+  # pas à web — l'échec de web ne doit pas bloquer la restauration.
   db-init:
-    build: .
     image: mada-pointage:latest
     restart: "no"
-    depends_on:
-      web:
-        condition: service_started
     environment:
       R307_SERVICE_URL: "${R307_SERVICE_URL-}"
       APP_TZ: "${APP_TZ-Indian/Antananarivo}"
