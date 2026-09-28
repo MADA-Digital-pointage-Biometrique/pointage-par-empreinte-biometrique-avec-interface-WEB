@@ -11,8 +11,8 @@ if ($expected === '' || !hash_equals($expected, trim(str_replace('Bearer ','',$t
     http_response_code(401); echo json_encode(['ok'=>false,'message'=>'Borne non authentifiée (X-Device-Token)']); exit;
 }
 
-// H4 : rate-limit simple par IP (20 req/min), cohérent avec la borne.
-$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+// H4 : rate-limit simple par IP réelle (cf. clientIp), cohérent avec la borne.
+$ip = clientIp();
 $rlFile = sys_get_temp_dir().'/sync_rl_'.md5($ip).'.json';
 $now = microtime(true);
 $hits = [];

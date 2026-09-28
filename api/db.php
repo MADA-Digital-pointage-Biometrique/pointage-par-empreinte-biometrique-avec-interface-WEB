@@ -128,6 +128,38 @@ function getDB(): PDO {
     return $pdo;
 }
 
+// IP cliente réelle derrière un reverse-proxy (rate-limit login/borne).
+// X-Forwarded-For n'est honoré QUE si REMOTE_ADDR appartient aux proxys de
+// confiance (env TRUSTED_PROXIES, ex. "172.18.0.0/16"). Sans cela, un client
+// direct pourrait spoofeer XFF et contourner les throttles. Défaut : aucune
+// confiance (comportement historique = REMOTE_ADDR).
+function clientIp(): string {
+    $direct = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+    if ($xff === '') return $direct;
+    $trusted = array_filter(array_map('trim', explode(',', (string)(getenv('TRUSTED_PROXIES') ?: ''))));
+    if (empty($trusted)) return $direct;
+    foreach ($trusted as $cidr) {
+        if (strpos($cidr, '/') === false) {
+            if (strcasecmp($direct, $cidr) === 0) {
+                $first = trim(strtok($xff, ','));
+                return filter_var($first, FILTER_VALIDATE_IP) ? $first : $direct;
+            }
+            continue;
+        }
+        [$net, $bits] = explode('/', $cidr, 2) + [null, null];
+        $netL = ip2long($net); $ipL = ip2long($direct);
+        if ($netL !== false && $ipL !== false && is_numeric($bits) && (int)$bits >= 0 && (int)$bits <= 32) {
+            $mask = (int)$bits === 0 ? 0 : (~0 << (32 - (int)$bits));
+            if (($netL & $mask) === ($ipL & $mask)) {
+                $first = trim(strtok($xff, ','));
+                return filter_var($first, FILTER_VALIDATE_IP) ? $first : $direct;
+            }
+        }
+    }
+    return $direct;
+}
+
 function getJsonInput(): array {
     $raw = file_get_contents('php://input');
     if ($raw) {

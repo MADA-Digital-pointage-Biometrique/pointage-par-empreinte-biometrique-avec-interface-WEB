@@ -3,23 +3,46 @@
 Périmètre : l'image contient **la centrale PHP-Apache seule**.
 BDD = Supabase externe. Borne = `python/r307_service.py` sur le PC Windows du capteur.
 
-## 1. Build + run
+## 1. Test local (PC dev)
 
 ```bash
-cp .env.example .env   # puis renseigner DB_*, APP_ENCRYPTION_KEY, BORNE_TOKEN, CRON_SECRET
 docker compose up -d --build
-# local : http://localhost:8080/login — santé : /api/health.php
+# http://localhost:8080/login — santé : /api/health.php (protégé : 403 anonyme normal)
+# badge capteur : HS par design (pas de COM dans le conteneur)
 ```
 
-## 2. Points d'attention VPS
+## 2. Déploiement VPS ( rocky/ubuntu + Docker)
 
-* HTTPS : terminer TLS au reverse-proxy (Nginx/Traefik) devant `web:80`.
-* `.htaccess` : le `RewriteBase /projet_Stage_MADA-Digital/` XAMPP est réécrit en `/`
-  au build — ne pas modifier le fichier local.
-* `R307_SERVICE_URL=""` (compose) désactive la sonde daemon dans le conteneur ;
-  le badge capteur affichera `HS` côté serveur, normal : le pointage passe par la borne.
-* Photos : volume `uploads_photos` (le `.htaccess` anti-webshell est baked dans l'image).
-* `APP_ENCRYPTION_KEY` : figée, jamais régénérée (gabarits illisibles sinon).
+```bash
+# Sur le VPS :
+git clone <repo> && cd <repo> && git checkout project-final-version
+cp .env.example .env
+# 1) Renseigner DB_* (Supabase), APP_TZ=Indian/Antananarivo
+# 2) COPIER APP_ENCRYPTION_KEY depuis le .env actuel (jamais régénérer :
+#    les gabarits biométriques deviendraient illisibles)
+# 3) Générer des secrets frais (ne pas réutiliser les valeurs de dev) :
+php -r "echo bin2hex(random_bytes(32)),\"\n\";"   # -> BORNE_TOKEN
+php -r "echo bin2hex(random_bytes(32)),\"\n\";"   # -> CRON_SECRET
+# 4) TRUSTED_PROXIES = sous-réseau du reverse-proxy (voir §3)
+docker compose up -d --build
+```
+
+## 3. HTTPS + reverse-proxy (obligatoire en prod)
+
+L'app écoute en HTTP sur `web:80`. Exemple minimal Caddy (TLS auto) :
+
+```
+votre-domaine.mg {
+    reverse_proxy web:80
+}
+```
+
+* `session.php` détecte déjà `X-Forwarded-Proto: https` (cookies `Secure`/`SameSite=None` auto).
+* Rate-limits (login 5/IP, borne 20/min) utilisent `clientIp()` : renseigner
+  `TRUSTED_PROXIES` avec le(s) CIDR du proxy (ex. `172.18.0.0/16`), sinon tous
+  les clients partagent le même compteur. Sans proxy : laisser vide.
+* Pare-feu VPS : n'exposer que `80/443` (et SSH). Ne jamais exposer le
+  port du conteneur directement sans proxy.
 
 ## 4. Sessions & multi-comptes (important)
 
@@ -30,8 +53,19 @@ Règle : 1 compte par navigateur — 2e compte = autre navigateur ou profil
 séparé. Si ça arrive, l'app affiche désormais « Compte changé dans un
 autre onglet » et propose un re-login propre au lieu de boucler.
 
-## 4. Borne Windows (hors Docker)
+Note : les sessions vivent dans `/tmp` du conteneur — `down`/rebuild =
+tout le monde reconnecte. Accepté (évite la complexité des sessions BDD).
 
-Sur le PC du capteur : `py -m pip install pyserial`, renseigner dans l'environnement
+## 5. Borne Windows (hors Docker)
+
+Sur le PC du capteur : `py -m pip install pyserial`, puis dans l'environnement
+(`..\.env` lu par `start_r307_service.bat`) :
 `BORNE_TOKEN` (identique au VPS) + `R307_API_URL=https://VOTRE-VPS/api/borne_pointage.php`,
 lancer `python\start_r307_service.bat`. Horloge NTP obligatoire (anti-rejeu `ts ±120 s`).
+
+## 6. Sauvegardes
+
+* BDD : `database/schema.sql` + `database/data.sql` (dumps live, régénérables
+  via `php` + PDO — voir historique Git).
+* Photos : volume `uploads_photos` (`docker volume backup` / `docker cp`).
+* `.env` prod : à coffrer hors Git (jamais commité, `.gitignore`).

@@ -36,7 +36,8 @@ if (file_exists($nonceFile)) {
 }
 @file_put_contents($nonceFile, json_encode(['exp' => time() + 300]), LOCK_EX);
 // Rate limit par IP : écart min 0.8s + fenêtre glissante 20 req/min
-$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+// Rate limit par IP réelle (clientIp : X-Forwarded-For si proxy de confiance)
+$ip = clientIp();
 $rlFile = sys_get_temp_dir().'/borne_rl_'.md5($ip).'.json';
 $now=microtime(true); $hits=[];
 if (file_exists($rlFile)) { $hits = json_decode(@file_get_contents($rlFile), true) ?: []; if (!is_array($hits)) $hits = [$hits]; }

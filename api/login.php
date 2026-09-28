@@ -41,7 +41,7 @@ try {
         }
         return $a;
     };
-    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $ip = clientIp();
     $attemptFile = sys_get_temp_dir() . '/mada_login_' . md5($ip) . '.json';
     $attempts = $throttleRead($attemptFile);
     if ($attempts['count'] >= 5) { $throttleFail(); }
