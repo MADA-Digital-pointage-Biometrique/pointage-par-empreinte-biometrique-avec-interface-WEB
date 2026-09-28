@@ -93,13 +93,17 @@ function updateAuditSelection() {
 }
 
 function bindAuditChecks() {
-    document.querySelectorAll('.audit-check').forEach(b =>
+    // NOTE : uniquement les cases des LIGNES (#audit-body). La case d'en-tête
+    // (#audit-select-all) a son propre handler ci-dessous : l'inclure ici
+    // annulerait chaque clic « tout cocher » (updateAuditSelection la
+    // décocherait avant que le handler ne lise son état).
+    document.querySelectorAll('#audit-body .audit-check').forEach(b =>
         b.addEventListener('change', updateAuditSelection));
     const all = document.getElementById('audit-select-all');
     if (all && !all.dataset.bound) {
         all.dataset.bound = '1';
         all.addEventListener('change', () => {
-            document.querySelectorAll('.audit-check').forEach(b => { b.checked = all.checked; });
+            document.querySelectorAll('#audit-body .audit-check').forEach(b => { b.checked = all.checked; });
             updateAuditSelection();
         });
     }
@@ -107,7 +111,7 @@ function bindAuditChecks() {
 }
 
 async function deleteSelectedAudits() {
-    const ids = Array.from(document.querySelectorAll('.audit-check'))
+    const ids = Array.from(document.querySelectorAll('#audit-body .audit-check'))
         .filter(b => b.checked).map(b => parseInt(b.value, 10)).filter(v => v > 0);
     if (!ids.length) return;
     showConfirmModal({
