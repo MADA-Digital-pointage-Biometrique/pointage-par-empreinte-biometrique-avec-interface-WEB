@@ -29,6 +29,11 @@ COPY . /var/www/html/
 RUN cp /var/www/html/docker/apache-security.conf /etc/apache2/conf-available/zz-mada-security.conf \
     && a2enconf zz-mada-security
 
+# Cosmetique : supprime le warning AH00558 (ServerName indetermine -> IP du
+# conteneur devine). Sans impact fonctionnel.
+RUN echo "ServerName localhost" > /etc/apache2/conf-available/zz-mada-servername.conf \
+    && a2enconf zz-mada-servername
+
 # Racine Docker = / : le RewriteBase XAMPP (/projet_Stage_MADA-Digital/) devient /
 RUN sed -i 's#RewriteBase /projet_Stage_MADA-Digital/#RewriteBase /#' /var/www/html/.htaccess
 
