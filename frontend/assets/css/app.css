@@ -192,16 +192,16 @@ input:focus:not([class*="focus:ring"]), select:focus:not([class*="focus:ring"]),
 
 #btn-login-theme:hover { background-color: #FFFFFF; }
 
-#btn-login-theme .ticon-light { color: var(--text-secondary); }
+#btn-login-theme .ticon-light { display: none; }
 
 #btn-login-theme .ticon-dark {
-    display: none;
-    color: var(--primary-hover);
+    display: inline-block;
+    color: var(--text-secondary);
 }
 
 #btn-login-theme .dark .ticon-light,
-.dark #btn-login-theme .ticon-light { display: none; }
-.dark #btn-login-theme .ticon-dark { display: inline-block; color: var(--accent-orange); }
+.dark #btn-login-theme .ticon-light { display: inline-block; color: var(--accent-orange); }
+.dark #btn-login-theme .ticon-dark { display: none; }
 
 /* ── Page Connexion — MODE SOMBRE (Design System officiel) ── */
 .dark .login-bg {

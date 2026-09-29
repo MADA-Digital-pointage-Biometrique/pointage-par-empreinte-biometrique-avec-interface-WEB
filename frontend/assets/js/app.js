@@ -647,7 +647,7 @@ function renderEmbeddedFlash(el, message, type) {
     const s = flashSkin(type);
     el._flash = { message, type };
     el.innerHTML = `
-        <div class="border rounded-2xl px-md py-sm text-[13px] flex items-center justify-between gap-sm mb-md shadow-md ${s.bg} border-l-4">
+        <div data-flash-root class="border rounded-2xl px-md py-sm text-[13px] flex items-center justify-between gap-sm mb-md shadow-md ${s.bg} border-l-4">
             <div class="flex items-center gap-sm">
                 ${icon(s.ic, 20)}
                 <span>${escapeHtml(message)}</span>
@@ -665,6 +665,7 @@ function flash(message, type = 'success', title = null) {
 
     const toast = document.createElement('div');
     toast.dataset.flashType = type;
+    toast.setAttribute('data-flash-root', '');
     toast.className = `${FLASH_TOAST_BASE}translate-x-10 opacity-0 ${s.bg}`;
 
     toast.innerHTML = `
@@ -841,7 +842,9 @@ document.addEventListener('click', (e) => {
     if (e.target.closest('[data-print]')) { window.print(); return; }
     const dismisser = e.target.closest('[data-dismiss]');
     if (dismisser) {
-        const root = dismisser.closest('.menu-dropdown-panel') || dismisser.parentElement;
+        // Scopé STRICT aux toasts (data-flash-root) : l'ancien fallback
+        // .menu-dropdown-panel supprimait des pans entiers (ex. la carte login).
+        const root = dismisser.closest('[data-flash-root]') || dismisser.parentElement;
         if (root) root.remove();
     }
 });
