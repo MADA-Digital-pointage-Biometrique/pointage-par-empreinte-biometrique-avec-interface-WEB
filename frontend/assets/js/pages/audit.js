@@ -134,13 +134,26 @@ async function deleteSelectedAudits() {
                 if (j.ok) {
                     const del = j.deleted ?? ids.length;
                     const rem = (j.remaining ?? null);
-                    flash(
-                        `${del} entrée(s) supprimée(s)` +
-                        (rem !== null ? `, ${rem} restante(s)` : '') +
-                        (rem > 0 ? ` — recommencez (par pages de 200) pour tout effacer (+1 trace de purge).` : '.'),
-                        'success'
-                    );
                     await renderAudit();
+                    if (rem !== null && rem > 1) {
+                        // Il reste des lignes hors sélection (plafond 200 / inserts
+                        // concurrents) : proposer la purge totale plutôt qu'un
+                        // tableau qui semble inchangé.
+                        showConfirmModal({
+                            title: 'Tout purger ?',
+                            message: `${del} entrée(s) supprimée(s), mais il en reste ${rem} (journal vivant). Tout purger jusqu'à la seule trace ?`,
+                            type: 'warning',
+                            confirmText: 'Oui, tout purger',
+                            cancelText: 'Garder le reste',
+                            onConfirm: async () => { await purgeAllAudits(); }
+                        });
+                    } else {
+                        flash(
+                            `${del} entrée(s) supprimée(s)` +
+                            (rem !== null ? `, ${rem} restante(s)` : '') + '.',
+                            'success'
+                        );
+                    }
                 } else {
                     flash(j.message || 'Échec de la suppression.', 'danger');
                 }
@@ -149,6 +162,28 @@ async function deleteSelectedAudits() {
             }
         }
     });
+}
+
+async function purgeAllAudits() {
+    let csrf = null;
+    try { csrf = await api.getCsrfToken(); } catch {}
+    try {
+        const r = await fetch(getApiEndpoint('audit.php'), {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+            body: JSON.stringify({ all: true })
+        });
+        const j = await r.json();
+        if (j.ok) {
+            flash(`Purge totale : ${j.deleted ?? 0} entrée(s) supprimée(s), ${j.remaining ?? '?'} restante(s) (trace de purge).`, 'success');
+            await renderAudit();
+        } else {
+            flash(j.message || 'Échec de la purge totale.', 'danger');
+        }
+    } catch {
+        flash('Erreur réseau pendant la purge totale.', 'danger');
+    }
 }
 
 async function initPage() {

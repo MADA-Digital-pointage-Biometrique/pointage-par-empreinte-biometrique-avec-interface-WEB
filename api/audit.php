@@ -10,6 +10,31 @@ if (!in_array($_SESSION['role'] ?? '', ['super_admin','admin_systeme'])) { http_
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'DELETE') {
     if (($_SESSION['role'] ?? '') !== 'super_admin') { http_response_code(403); echo json_encode(['ok'=>false,'message'=>'Suppression réservée au Super Admin.']); exit; }
     $in = getJsonInput();
+    // Purge totale : boucle par paquets (la sélection UI est plafonnée),
+    // en excluant les traces de purge précédentes pour terminer à coup sûr.
+    // État final : exactement 1 ligne (la trace de CETTE purge).
+    if (!empty($in['all'])) {
+        try {
+            $pdo = getDB();
+            $total = 0; $tours = 0;
+            while ($tours < 50) {
+                $ids = $pdo->query("SELECT id_audit FROM journal_audit WHERE action <> 'audit_purge' ORDER BY id_audit LIMIT 200")->fetchAll(PDO::FETCH_COLUMN);
+                if (empty($ids)) break;
+                $ph = implode(',', array_fill(0, count($ids), '?'));
+                $del = $pdo->prepare("DELETE FROM journal_audit WHERE id_audit IN ($ph)");
+                $del->execute(array_map('intval', $ids));
+                $total += $del->rowCount();
+                $tours++;
+            }
+            auditWrite($pdo, 'audit_purge', null, 'journal_audit', ['supprimes' => $total, 'mode' => 'totale']);
+            $remaining = (int)$pdo->query('SELECT COUNT(*) FROM journal_audit')->fetchColumn();
+            echo json_encode(['ok'=>true,'deleted'=>$total,'remaining'=>$remaining]);
+        } catch (Throwable $e) {
+            error_log('audit DELETE all: '.$e->getMessage());
+            http_response_code(500); echo json_encode(['ok'=>false,'message'=>'Purge impossible.']);
+        }
+        exit;
+    }
     $ids = $in['ids'] ?? [];
     if (!is_array($ids) || empty($ids)) { http_response_code(400); echo json_encode(['ok'=>false,'message'=>'Aucune entrée sélectionnée.']); exit; }
     $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($v) => $v > 0)));
