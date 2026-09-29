@@ -16,6 +16,7 @@ services:
     environment:
       R307_SERVICE_URL: "${R307_SERVICE_URL-}"
       APP_TZ: "${APP_TZ-Indian/Antananarivo}"
+      
       TRUSTED_PROXIES: "${TRUSTED_PROXIES-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
     volumes:
       - uploads_photos:/var/www/html/uploads/photos
