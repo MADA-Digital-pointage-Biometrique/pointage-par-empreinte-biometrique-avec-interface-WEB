@@ -4,7 +4,7 @@ Application de pointage par **empreinte R307 + CP2102** (USB-UART) + interface W
 
 ## Architecture actuelle (semaine)
 
-* **BDD** : `Supabase Postgres 17` via `aws-1-eu-west-1.pooler.supabase.com:6543` (Transaction Pooler), `sslmode=require`, `pdo_pgsql` (`config/database.php:5`)
+* **BDD** : `Postgres` via `pdo_pgsql` — prod Dokploy = service interne (`5432`, `sslmode=disable`) ; dev local = `Supabase Postgres 17` pooler (`aws-1-eu-west-1.pooler.supabase.com:6543`, `sslmode=require`). Cible choisie par les 6 `DB_*` d’env (`config/database.php`, `.env.example` § variantes).
 * **Capteur** : `R307` 57600 bauds, `CP2102` auto-detect, piloté **PHP → Python** `python/r307_cli.py` → `SdkReader.php` (`exec`), `python/r307_driver.py` protocole `0xEF01` (checksum, `_read_ack` validé, `wait_finger_removed`, `timeout`/`password` depuis `config/biometric.php`)
 * **Mode Opératoire du Terminal** : `frontend/assets/js/app.js` + `empreintes.js` (`mada-mode` `localStorage`, défaut `pointage`), sync `api/sensor_mode.php` → `python/mode.json` + `.mode_trigger` (R307 idle si `enrolement` sans cible)
 * **Pointage** : `api/biometric.php` transaction atomique `FOR UPDATE`, décision `entree/sortie` par `DATE(date_heure)`, `INSERT pointages` (`id_uuid_local`, `score_correspondance`, `device_id`, `NOW()`), anti-double 45s `409`, audit `journal_audit`

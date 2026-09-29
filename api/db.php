@@ -74,6 +74,7 @@ function getDB(): PDO {
         }
         try {
             $config = require $configFile;
+            $dbgHost = null; $dbgSsl = null;
             // B2 : si config/database.php a lu un .env vide, retente via getenv()
             // (putenv du loader : .env présent mais lu AVANT que getenv ne soit
             //  renseigné, ex. requêtes rapides / race au chargement).
@@ -93,6 +94,7 @@ function getDB(): PDO {
             if ($driver === 'pgsql') {
                 $host = $config['host']; $port = $config['port'] ?? 5432; $db = $config['dbname']; $ssl = $config['sslmode'] ?? 'require';
                 $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s;sslmode=%s', $host, $port, $db, $ssl);
+                $dbgHost = $host; $dbgSsl = $ssl;
             } else {
                 $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', $config['host'], $config['dbname'], $config['charset']);
             }
@@ -100,7 +102,7 @@ function getDB(): PDO {
             $pdo = new PDO($dsn, $config['username'], $config['password'], [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => true, // PgBouncer (Supabase) : les prepared statements natifs cassent aleatoirement (26000/08P01) - emulation obligatoire
+                PDO::ATTR_EMULATE_PREPARES   => true, // PgBouncer (pooler Supabase distant) : les prepared statements natifs cassent aleatoirement (26000/08P01) - emulation obligatoire (inoffensive en direct interne)
                 // CORRECTIF : pas de connexions persistantes vers le pooler Supabase
                 // (PgBouncer transaction pooling). Elles provoquent des erreurs
                 // aléatoires "prepared statement ... does not exist" / "bind message
@@ -121,6 +123,21 @@ function getDB(): PDO {
         } catch (Throwable $e) {
             http_response_code(500);
             error_log('DB connect error: ' . $e->getMessage());
+            // Diagnostic : require vers hôte interne = DB_SSLMODE à corriger.
+            // (Comportement inchangé : on signale, on ne downgrade jamais seul.)
+            $isInternalHost = function (?string $h): bool {
+                if (!is_string($h) || $h === '') return false;
+                if (filter_var($h, FILTER_VALIDATE_IP)) {
+                    // Privées (10/8...) + réservées (127/8, ::1...) = interne.
+                    return filter_var($h, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+                }
+                if (strpos($h, '.') === false) return true; // nom de service Docker
+                return (bool)preg_match('/internal|localhost|\.local$|docker|database|postgres|^db[\-.]/i', $h);
+            };
+            if (stripos($e->getMessage(), 'SSL') !== false
+                && ($dbgSsl ?? 'require') === 'require' && $isInternalHost($dbgHost ?? null)) {
+                error_log('Indice : sslmode=require vers base interne probable (' . ($dbgHost ?? '?') . ') — mettez DB_SSLMODE=disable + redeployez.');
+            }
             echo json_encode(['ok' => false, 'message' => 'Erreur de connexion.']);
             exit;
         }
@@ -171,9 +188,10 @@ function getJsonInput(): array {
     return $_POST;
 }
 
-// Cache serveur fichier (TTL secondes) — absorbe la latence Supabase (~1s/requête
-// depuis MG) sur les lectures agrégées très demandées (dashboard). Pas de
-// stampede : écriture atomique via LOCK_EX, lecture tolérante aux expirations.
+// Cache serveur fichier (TTL secondes) — absorbe la latence du pooler Supabase
+// distant (~1s/requête depuis MG ; gain moindre en direct interne, inoffensif)
+// sur les lectures agrégées (dashboard). Pas de stampede : écriture atomique
+// via LOCK_EX, lecture tolérante aux expirations.
 function cacheGet(string $key, int $ttl) {
     $f = sys_get_temp_dir() . '/mada_cache_' . preg_replace('/[^a-z0-9_]/i', '_', $key) . '.json';
     if (!is_file($f) || (time() - @filemtime($f) > $ttl)) return null;

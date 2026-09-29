@@ -17,7 +17,10 @@ docker compose up -d --build
 # Sur le VPS :
 git clone <repo> && cd <repo> && git checkout project-final-version
 cp .env.example .env
-# 1) Renseigner DB_* (Supabase), APP_TZ=Indian/Antananarivo
+# 1) Renseigner DB_* selon la cible (bascule sans toucher au code) :
+#    - dev local (Supabase) : pooler ...pooler.supabase.com, 6543, require
+#    - prod Dokploy (interne) : <service>, 5432, disable — voir .env.example § variante
+#    APP_TZ=Indian/Antananarivo dans les deux cas.
 # 2) COPIER APP_ENCRYPTION_KEY depuis le .env actuel (jamais régénérer :
 #    les gabarits biométriques deviendraient illisibles).
 #    Depuis le 29/09 : clé DÉDIÉE en place (biométrie purgée avant).
