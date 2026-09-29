@@ -19,6 +19,7 @@ require_once __DIR__ . '/../app/Core/Crypto.php';
 
 use App\Core\Crypto;
 
+$pdo = getDB();
 $write = in_array('--write', $argv, true);
 
 $rows = $pdo->query("SELECT id_biometrie, id_employe, octet_length(gabarit_chiffre) AS len, encode(gabarit_chiffre,'hex') AS hex FROM donnees_biometriques WHERE type_biometrie='empreinte'")->fetchAll();

@@ -20,10 +20,10 @@ cp .env.example .env
 # 1) Renseigner DB_* (Supabase), APP_TZ=Indian/Antananarivo
 # 2) COPIER APP_ENCRYPTION_KEY depuis le .env actuel (jamais régénérer :
 #    les gabarits biométriques deviendraient illisibles).
-#    Cas actuel : clé ABSENTE → repli dérivé de DB_PASSWORD (vérifié : 8/8
-#    gabarits lisibles). Règle d'or dans ce cas : NE JAMAIS changer DB_PASSWORD
-#    (sinon re-chiffrer ou ré-enrôler). Ne PAS ajouter une clé fraîche sans
-#    migration : les gabarits existants deviendraient illisibles.
+#    Depuis le 29/09 : clé DÉDIÉE en place (biométrie purgée avant).
+#    Reporter EXACTEMENT la même valeur dans Environment Dokploy.
+#    (Ancien régime sans clé = repli dérivé de DB_PASSWORD : ne s'applique
+#    plus, mais ne changez DB_PASSWORD qu'en connaissance de cause.)
 # 3) Générer des secrets frais (ne pas réutiliser les valeurs de dev) :
 php -r "echo bin2hex(random_bytes(32)),\"\n\";"   # -> BORNE_TOKEN
 php -r "echo bin2hex(random_bytes(32)),\"\n\";"   # -> CRON_SECRET
