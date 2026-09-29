@@ -7,8 +7,11 @@
 #   IMPORTANT : sans déclaration explicite ici, Compose n'injecte RIEN dans
 #   les conteneurs (l'UI seule ne suffit pas) — d'où "Configuration
 #   indisponible" malgré des variables renseignées.
-# - Pas de container_name, pas de network custom : Dokploy attache
-#   dokploy-network + labels Traefik automatiquement.
+# - Pas de container_name : Dokploy attache dokploy-network + labels Traefik
+#   automatiquement. On déclare AUSSI dokploy-network explicitement (pattern
+#   officiel) pour partager le réseau avec la base interne : sans ça, le nom
+#   d'hôte "pointagebiometrique-database-xxxx" ne résout pas
+#   ("Temporary failure in name resolution").
 services:
   web:
     build: .
@@ -16,6 +19,9 @@ services:
     restart: unless-stopped
     expose:
       - "80"
+    networks:
+      - default
+      - dokploy-network
     environment:
       DB_DRIVER: "${DB_DRIVER:-pgsql}"
       DB_HOST: "${DB_HOST}"
@@ -45,6 +51,9 @@ services:
   db-init:
     image: mada-pointage:latest
     restart: "no"
+    networks:
+      - default
+      - dokploy-network
     environment:
       DB_DRIVER: "${DB_DRIVER:-pgsql}"
       DB_HOST: "${DB_HOST}"
@@ -63,3 +72,7 @@ services:
 
 volumes:
   uploads_photos:
+
+networks:
+  dokploy-network:
+    external: true
