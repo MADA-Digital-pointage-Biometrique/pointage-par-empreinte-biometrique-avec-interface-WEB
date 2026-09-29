@@ -29,13 +29,20 @@ if (!$dryRun && !$auto && !$force && !$onlySchema && !$onlyData) {
     exit(1);
 }
 
-/** Découpe un script SQL en ordres en respectant '...', "..." et $tag$...$tag$. */
+/** Découpe un script SQL en ordres en respectant '...', "..." et $tag$...$tag$.
+ *  Les lignes 100 % commentaires (--) sont retirées AVANT découpage : sinon
+ *  un paquet "commentaires + ordre" serait jeté avec l'ordre (bug vécu :
+ *  première table et INSERTs suivant un commentaire ignorés silencieusement). */
 function splitSql(string $sql): array {
+    $lines = [];
+    foreach (explode("\n", $sql) as $l) {
+        if (!preg_match('/^\s*--/', $l)) $lines[] = $l;
+    }
+    $sql = implode("\n", $lines);
     $stmts = []; $buf = ''; $len = strlen($sql);
-    $inS = false; $inD = false; $inLine = false; $inBlock = false; $dtag = null;
+    $inS = false; $inD = false; $inBlock = false; $dtag = null;
     for ($i = 0; $i < $len; $i++) {
         $c = $sql[$i]; $n = $i + 1 < $len ? $sql[$i + 1] : '';
-        if ($inLine) { $buf .= $c; if ($c === "\n") $inLine = false; continue; }
         if ($inBlock) {
             $buf .= $c;
             if ($c === '*' && $n === '/') { $buf .= $n; $i++; $inBlock = false; }
@@ -56,7 +63,6 @@ function splitSql(string $sql): array {
             if ($c === '"') $inD = false;
             continue;
         }
-        if ($c === '-' && $n === '-') { $buf .= $c; $inLine = true; continue; }
         if ($c === '/' && $n === '*') { $buf .= $c . $n; $i++; $inBlock = true; continue; }
         if ($c === "'") { $buf .= $c; $inS = true; continue; }
         if ($c === '"') { $buf .= $c; $inD = true; continue; }
