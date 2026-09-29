@@ -4,6 +4,9 @@
 #   Traefik route par domaine (onglet Domains de Dokploy -> service web, port 80).
 # - AUCUN env_file (.env absent du depot) : variables dans l'onglet Environment
 #   de Dokploy. Les ${VAR-defaut} ci-dessous laissent l'UI prendre le dessus.
+#   IMPORTANT : sans déclaration explicite ici, Compose n'injecte RIEN dans
+#   les conteneurs (l'UI seule ne suffit pas) — d'où "Configuration
+#   indisponible" malgré des variables renseignées.
 # - Pas de container_name, pas de network custom : Dokploy attache
 #   dokploy-network + labels Traefik automatiquement.
 services:
@@ -14,9 +17,18 @@ services:
     expose:
       - "80"
     environment:
+      DB_DRIVER: "${DB_DRIVER:-pgsql}"
+      DB_HOST: "${DB_HOST}"
+      DB_PORT: "${DB_PORT:-5432}"
+      DB_NAME: "${DB_NAME}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      DB_SSLMODE: "${DB_SSLMODE:-disable}"
+      BORNE_TOKEN: "${BORNE_TOKEN-}"
+      CRON_SECRET: "${CRON_SECRET-}"
+      APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY-}"
       R307_SERVICE_URL: "${R307_SERVICE_URL-}"
       APP_TZ: "${APP_TZ-Indian/Antananarivo}"
-      
       TRUSTED_PROXIES: "${TRUSTED_PROXIES-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
     volumes:
       - uploads_photos:/var/www/html/uploads/photos
@@ -34,6 +46,16 @@ services:
     image: mada-pointage:latest
     restart: "no"
     environment:
+      DB_DRIVER: "${DB_DRIVER:-pgsql}"
+      DB_HOST: "${DB_HOST}"
+      DB_PORT: "${DB_PORT:-5432}"
+      DB_NAME: "${DB_NAME}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      DB_SSLMODE: "${DB_SSLMODE:-disable}"
+      BORNE_TOKEN: "${BORNE_TOKEN-}"
+      CRON_SECRET: "${CRON_SECRET-}"
+      APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY-}"
       R307_SERVICE_URL: "${R307_SERVICE_URL-}"
       APP_TZ: "${APP_TZ-Indian/Antananarivo}"
       TRUSTED_PROXIES: "${TRUSTED_PROXIES-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
