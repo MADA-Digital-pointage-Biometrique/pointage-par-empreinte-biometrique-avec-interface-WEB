@@ -310,6 +310,121 @@ class WatchMixin:
         except Exception as e:
             return False, 0, str(e), {}
 
+    def _api_base(self):
+        """Base API dérivée de R307_API_URL (borne_pointage.php -> /api)."""
+        url = (self.api_url or '').strip()
+        if not url:
+            return ''
+        return url.rsplit('/', 1)[0] if '/' in url else url
+
+    def _server_post(self, path, payload, timeout=15):
+        """POST JSON authentifié vers le serveur (token + anti-rejeu)."""
+        base = self._api_base()
+        if not base or not self.borne_token:
+            return False, 0, 'non configuré', {}
+        body = dict(payload or {})
+        body.setdefault('ts', int(time.time()))
+        body.setdefault('nonce', uuid.uuid4().hex)
+        req = _urlreq.Request(
+            base + path, data=json.dumps(body).encode('utf-8'), method='POST',
+            headers={'Content-Type': 'application/json',
+                      'X-Device-Token': self.borne_token},
+        )
+        try:
+            with _urlreq.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode('utf-8') or '{}')
+                return True, resp.status, data.get('message') or 'ok', data
+        except _urlHTTPError as he:
+            try:
+                data = json.loads(he.read().decode('utf-8') or '{}')
+            except Exception:
+                data = {}
+            return False, he.code, data.get('message') or (f'HTTP {he.code}'), data
+        except Exception as e:
+            return False, 0, str(e), {}
+
+    def _server_get(self, path, params=None, timeout=10):
+        """GET authentifié vers le serveur (commandes en attente)."""
+        base = self._api_base()
+        if not base or not self.borne_token:
+            return None
+        url = base + path
+        if params:
+            url += '?' + '&'.join(f'{k}={v}' for k, v in params.items())
+        req = _urlreq.Request(url, method='GET',
+                              headers={'X-Device-Token': self.borne_token})
+        try:
+            with _urlreq.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode('utf-8') or '{}')
+        except Exception:
+            return None
+
+    def _send_heartbeat(self):
+        """État borne → serveur (badge « En service » distant). Silencieux."""
+        ok, _, _, _ = self._server_post('/sensor_heartbeat.php', {
+            'device_id': os.getenv('R307_DEVICE_ID', 'r307_main'),
+            'count': int(WATCH_STATE.get('count') or 0),
+            'hw_ok': WATCH_STATE.get('hw_ok'),
+            'watching': bool(WATCH_STATE.get('watching')),
+        })
+        return ok
+
+    def _apply_server_command(self, cmd):
+        """Applique un ordre serveur (set_mode / watch_on / watch_off)."""
+        ctype = (cmd or {}).get('type', '')
+        payload = (cmd or {}).get('payload') or {}
+        if ctype == 'set_mode' and write_mode is not None:
+            mode = payload.get('mode')
+            target = payload.get('target_id')
+            if mode in ('enrolement', 'pointage') and (mode == 'pointage' or target):
+                write_mode(mode, target, 'serveur')
+                return True
+            return False
+        if ctype in ('watch_on', 'watch_off'):
+            enabled = (ctype == 'watch_on')
+            if enabled and not WATCH_STATE.get('watch_enabled'):
+                return False
+            WATCH_STATE['watch_user_enabled'] = enabled
+            try:
+                sp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'watch_state.json')
+                with open(sp, 'w', encoding='utf-8') as f:
+                    json.dump({'watch_user_enabled': enabled}, f)
+            except Exception:
+                pass
+            if not enabled:
+                WATCH_STATE['watching'] = False
+            return True
+        return False
+
+    def _poll_commands(self):
+        """Récupère + applique les ordres serveur, puis ACK. Jamais bloquant."""
+        data = self._server_get('/borne_commandes.php',
+                                {'device_id': os.getenv('R307_DEVICE_ID', 'r307_main')})
+        if not isinstance(data, dict) or not data.get('ok'):
+            return
+        acked = []
+        for cmd in data.get('commandes') or []:
+            try:
+                if self._apply_server_command(cmd) and cmd.get('id') is not None:
+                    acked.append(int(cmd['id']))
+            except Exception:
+                pass
+        if acked:
+            self._server_post('/borne_commandes.php', {'ack_ids': acked}, timeout=10)
+
+    def _link_loop(self):
+        """Liaison PC → serveur : heartbeat ~15 s + ordres ~3 s. Sortant seul."""
+        tick = 0
+        while not STOP_EVENT.is_set():
+            try:
+                if tick % 5 == 0:
+                    self._send_heartbeat()
+                self._poll_commands()
+            except Exception:
+                pass
+            tick += 1
+            STOP_EVENT.wait(3.0)
+
     def _handle_detection(self, det):
         """Doigt détecté identifié → envoi serveur HORS lock série (jamais de
         deadlock : PHP peut rappeler le daemon pendant le POST)."""
@@ -745,6 +860,9 @@ def main():
         signal.signal(signal.SIGINT, _sigterm)
         WATCH_THREAD = threading.Thread(target=r307_instance._watchdog_loop, daemon=True)
         WATCH_THREAD.start()
+        # Liaison serveur (heartbeat + ordres) : 100 % sortante, même config.
+        LINK_THREAD = threading.Thread(target=r307_instance._link_loop, daemon=True)
+        LINK_THREAD.start()
         print(f'R307 surveillance ACTIVE (mode pointage) → {r307_instance.api_url}')
     else:
         reasons = []

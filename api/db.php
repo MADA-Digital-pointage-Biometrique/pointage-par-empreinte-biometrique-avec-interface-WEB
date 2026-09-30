@@ -229,7 +229,7 @@ function auditWrite(PDO $pdo, string $action, $recordId = null, ?string $table =
 // H2 : sensor_mode.php N'EST PLUS exempté (POST admin) — le JS envoie X-CSRF-Token.
 $__method = $_SERVER['REQUEST_METHOD'] ?? '';
 // M3 : logout.php N'EST PLUS exempté (le JS envoie X-CSRF-Token, anti-déconnexion forcée).
-$__csrfExempt = ['/api/login.php', '/api/csrf.php', '/api/me.php', '/api/sensor_status.php', '/api/borne_pointage.php', '/api/sync_offline.php'];
+$__csrfExempt = ['/api/login.php', '/api/csrf.php', '/api/me.php', '/api/sensor_status.php', '/api/borne_pointage.php', '/api/sync_offline.php', '/api/sensor_heartbeat.php', '/api/borne_commandes.php'];
 $__requestUri = $_SERVER['REQUEST_URI'] ?? '';
 $__scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
 $__isExempt = false;

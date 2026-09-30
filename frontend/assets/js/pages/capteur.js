@@ -253,7 +253,9 @@ async function applyMode(mode) {
         const r = await fetchCsrf('sensor_mode.php', {mode, target_id: targetId});
         const j = await r.json();
         if (!j.ok) throw new Error(j.message || 'Erreur mode R307');
-        flash(`Mode "${labels[mode]}" activé avec succès.`, 'success');
+        flash(j.remote?.queued
+            ? `Mode "${labels[mode]}" enregistré — appliqué par la borne (~3 s).`
+            : `Mode "${labels[mode]}" activé avec succès.`, 'success');
     } catch (e) {
         if (prevMode) storage.set(MODE_KEY, prevMode); else storage.remove(MODE_KEY);
         const realMode = getCurrentMode();
@@ -357,6 +359,12 @@ async function syncWatchButton() {
         if (!r.ok) { renderWatchButton('unknown'); return; }
         const j = await r.json();
         if (!j.ok) { renderWatchButton('unknown'); return; }
+        // Borne distante : sans daemon direct, refléter l'ordre désiré
+        // (l'appliqué suit en ~3 s via heartbeat/poll).
+        if (!j.daemon_up && j.remote && j.remote.desired) {
+            renderWatchButton(j.remote.desired === 'on' ? 'on' : 'off');
+            return;
+        }
         renderWatchButton(j.watch_user_enabled ? 'on' : 'off');
     } catch (e) { renderWatchButton('unknown'); }
 }
