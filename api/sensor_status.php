@@ -86,18 +86,32 @@ try {
         }
     } else {
         // Borne distante (VPS/Dokploy sans COM) : heartbeat poussé par le daemon
-        // du PC (~15 s). Frais (< 60 s) = En service via borne, même sans
-        // daemon local. Périmé/absent = HS (capteur débranché ou daemon éteint).
+        // du PC (~15 s). Frais (< 60 s) ET hw_ok vrai = En service via borne.
+        // Frais mais hw_ok faux/absent = HS (capteur débranché/bloqué ou non
+        // encore vérifié) — la fraîcheur seule ne suffit PAS.
+        // Périmé/absent = HS (daemon éteint, ~60 s de latence max).
+        // Normalisation : pdo_pgsql peut renvoyer bool, int ou 't'/'f'.
+        $isTrue = function ($v): bool {
+            return $v === true || $v === 1 || $v === '1' || $v === 't' || $v === 'T' || $v === 'true';
+        };
         try {
             $pdoB = getDB();
             $hb = $pdoB->query("SELECT device_id, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - last_seen)) AS age_s, empreintes, hw_ok, watching FROM borne_etat ORDER BY last_seen DESC LIMIT 1")->fetch();
             if (is_array($hb) && ($hb['age_s'] !== null) && ((float)$hb['age_s'] < 60)) {
                 $age = max(0, (int)$hb['age_s']);
-                echo json_encode(['ok'=>true,'status'=>'en_service','label'=>'En service',
-                    'detail'=>"Borne {$hb['device_id']} vue il y a {$age}s (" . (int)$hb['empreintes'] . " empreintes) — via borne",
+                if ($isTrue($hb['hw_ok'])) {
+                    echo json_encode(['ok'=>true,'status'=>'en_service','label'=>'En service',
+                        'detail'=>"Borne {$hb['device_id']} vue il y a {$age}s (" . (int)$hb['empreintes'] . " empreintes) — via borne",
+                        'count'=>(int)$hb['empreintes'],'port'=>null,'reader'=>$name,
+                        'watching'=>(bool)$hb['watching'],'watch_enabled'=>true,
+                        'watch_user_enabled'=>true,'transport'=>'borne','borne_age_s'=>$age]);
+                    exit;
+                }
+                $why = ($hb['hw_ok'] === null) ? 'vérification en cours' : 'capteur débranché ou bloqué';
+                echo json_encode(['ok'=>true,'status'=>'hs','label'=>'HS',
+                    'detail'=>"Borne {$hb['device_id']} vue il y a {$age}s mais $why.",
                     'count'=>(int)$hb['empreintes'],'port'=>null,'reader'=>$name,
-                    'watching'=>(bool)$hb['watching'],'watch_enabled'=>true,
-                    'watch_user_enabled'=>true,'transport'=>'borne','borne_age_s'=>$age]);
+                    'watching'=>false,'watch_enabled'=>false,'transport'=>'borne','borne_age_s'=>$age]);
                 exit;
             }
         } catch (Throwable $e) {}
