@@ -64,7 +64,6 @@ Note : les sessions vivent dans `/tmp` du conteneur — `down`/rebuild =
 tout le monde reconnecte. Accepté (évite la complexité des sessions BDD).
 
 ## 5. Borne Windows (hors Docker)
-
 Sur le PC du capteur : `py -m pip install pyserial`, puis dans l'environnement
 (`..\.env` lu par `start_r307_service.bat`) :
 `BORNE_TOKEN` (identique au VPS) + `R307_API_URL=https://VOTRE-VPS/api/borne_pointage.php`,
@@ -73,6 +72,12 @@ lancer `python\start_r307_service.bat`. Horloge NTP obligatoire (anti-rejeu `ts 
 > Kit autonome : `tools\build_borne_kit.bat` génère `dist\kit-borne.zip`
 > (python/ + `.env` 2 lignes + `start_borne.bat` + `LISEZMOI`) — seul ce
 > kit est nécessaire sur le PC borne, pas tout le projet.
+>
+> **Enrôlement distant** : depuis n’importe quel navigateur, si le daemon
+> tourne sur CE pc (`http://127.0.0.1:8765`, contexte sécurisé même en HTTPS),
+> la page Capteur pilote les captures en local et ne confie au serveur que
+> `allocate` + `commit` (`api/biometric_remote.php`). Sinon, repli automatique
+> sur le flux serveur historique.
 
 ## 6. Sauvegardes & restauration auto
 

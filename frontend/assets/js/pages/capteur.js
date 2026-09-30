@@ -595,6 +595,16 @@ function openEnrollModal(target) {
         const btn = document.getElementById('btn-enroll');
         const cancelBtn = document.getElementById('btn-enroll-cancel');
         document.getElementById('enroll-person').textContent = `${target.prenom} ${target.nom} (${target.matricule})`;
+        // Indicateur de transport (borne locale via navigateur vs serveur).
+        let transportEl = document.getElementById('enroll-transport');
+        if (!transportEl) {
+            transportEl = document.createElement('div');
+            transportEl.id = 'enroll-transport';
+            transportEl.className = 'text-[11px] font-semibold mt-1 text-slate-400';
+            document.getElementById('enroll-person')?.parentNode?.appendChild(transportEl);
+        }
+        transportEl.textContent = 'Détection de la borne…';
+        transportEl.className = 'text-[11px] font-semibold mt-1 text-slate-400';
         if (icon) {
             icon.className = 'w-24 h-24 rounded-full bg-[#FFF1E8] dark:bg-orange-950 text-[#F46A21] flex items-center justify-center mb-lg transition-colors duration-300 shadow-inner';
             icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">fingerprint</span>';
@@ -615,6 +625,10 @@ function openEnrollModal(target) {
                 // Annule la capture en cours (la requête Python côté serveur
                 // termine son timeout seule ; le slot sera réutilisé).
                 if (enrollAbort) enrollAbort.abort();
+                // Borne distante : libère aussi le terminal local.
+                if (api.getEnrollTransport && api.getEnrollTransport() === 'remote') {
+                    daemonLocalCall('set-mode', { mode: 'pointage' }, 5000, null).catch(() => {});
+                }
                 enrollLiveStopPoll();
                 setEnrollHint('Enrôlement annulé.');
                 if (step) step.textContent = 'Enrôlement annulé — cliquez pour recommencer.';
@@ -627,6 +641,19 @@ function openEnrollModal(target) {
         if (btn) {
             btn.onclick = async () => {
                 btn.disabled = true;
+                // Choix du transport : daemon localhost joignable (borne sur ce
+                // PC, même depuis un site HTTPS) → captures locales + commit
+                // serveur ; sinon flux serveur historique.
+                let useRemote = false;
+                try { useRemote = await probeLocalDaemon(); } catch { useRemote = false; }
+                api.setEnrollTransport(useRemote ? 'remote' : 'server');
+                const tEl = document.getElementById('enroll-transport');
+                if (tEl) {
+                    tEl.textContent = useRemote
+                        ? 'Borne locale détectée — captures sur ce PC.'
+                        : 'Borne distante — captures via le serveur.';
+                    tEl.className = 'text-[11px] font-semibold mt-1 ' + (useRemote ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400');
+                }
                 enrollAbort = new AbortController();
                 const signal = enrollAbort.signal;
                 showCancel(true);

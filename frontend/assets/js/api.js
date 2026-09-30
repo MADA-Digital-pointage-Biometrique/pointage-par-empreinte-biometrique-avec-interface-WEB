@@ -17,6 +17,43 @@ function getApiEndpoint(path) {
 
 // Cache du jeton CSRF (valable toute la session)
 let _csrfToken = null;
+// --- Transport distant : le navigateur parle au daemon localhost ---
+// localhost = contexte sécurisé : les navigateurs autorisent son appel
+// depuis une page HTTPS (borne distante).
+let _enrollRemote = false;
+const DAEMON_LOCAL_URL = 'http://127.0.0.1:8765';
+async function daemonLocalCall(action, body, timeoutMs, signal) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs || 30000);
+    const onAbort = () => ctrl.abort();
+    if (signal) {
+        if (signal.aborted) { clearTimeout(t); const e = new Error('aborted'); e.name = 'AbortError'; throw e; }
+        signal.addEventListener('abort', onAbort, { once: true });
+    }
+    try {
+        const res = await fetch(DAEMON_LOCAL_URL + '/' + action, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body || {}),
+            signal: ctrl.signal
+        });
+        return await res.json();
+    } finally {
+        clearTimeout(t);
+        if (signal) signal.removeEventListener('abort', onAbort);
+    }
+}
+// Sonde rapide (3 s) : daemon local joignable ? Ne jette jamais.
+async function probeLocalDaemon() {
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 3000);
+        const res = await fetch(DAEMON_LOCAL_URL + '/status', { signal: ctrl.signal });
+        clearTimeout(t);
+        const j = await res.json();
+        return !!(j && (j.ok !== false || j.count !== undefined));
+    } catch { return false; }
+}
 // Cache léger Supabase (évite 3 requêtes pooler à chaque filtre)
 const _cache = {};
 function _getCache(k, ttlMs) {
@@ -64,6 +101,11 @@ function handleAccountSwitch(serverMatricule) {
 }
 
 const api = {
+    // --- Transport d'enrôlement : 'server' (PHP pilote le capteur, défaut
+    // historique) ou 'remote' (le navigateur pilote le daemon localhost,
+    // serveur sans COM). Positionné par capteur.js après sondage.
+    setEnrollTransport(t) { _enrollRemote = (t === 'remote'); },
+    getEnrollTransport() { return _enrollRemote ? 'remote' : 'server'; },
     // --- Jeton CSRF (récupéré une fois, mis en cache) ---
     async getCsrfToken() {
         if (_csrfToken) return _csrfToken;
@@ -478,9 +520,28 @@ const api = {
         }
     },
 
-    // --- Enrôlement 2 étapes (temps réel : capture 1 puis capture 2) ---
-    // signal (AbortController) : annulation depuis le bouton Annuler du modal.
     async enrollStep1(userId, signal) {
+        // Borne distante : slot réservé côté serveur, capture 1 sur le daemon local.
+        if (_enrollRemote) {
+            try {
+                const csrf = await this.getCsrfToken();
+                const res = await fetch(getApiEndpoint('biometric_remote.php'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                    body: JSON.stringify({ op: 'allocate', userId }),
+                    credentials: 'include',
+                    ...(signal ? { signal } : {})
+                });
+                const j = await res.json();
+                if (!j.ok || !j.slot) return j;
+                const d1 = await daemonLocalCall('enroll1', {}, 150000, signal);
+                if (!d1 || !d1.ok) return { ok: false, message: (d1 && d1.message) || 'Capture 1 impossible (borne locale).' };
+                return { ok: true, step: 1, slot: j.slot, remote: true, message: j.message };
+            } catch (e) {
+                if (e && e.name === 'AbortError') return { ok: false, aborted: true };
+                return { ok: false, message: 'Erreur capture 1 (borne locale).' };
+            }
+        }
         try {
             const csrf = await this.getCsrfToken();
             const res = await fetch(getApiEndpoint('biometric.php'), {
@@ -498,6 +559,34 @@ const api = {
     },
 
     async enrollStep2(userId, slot, signal) {
+        // Borne distante : fusion+stockage sur le daemon local, gabarit remonté
+        // au serveur (chiffrement + upsert). Remise en pointage best-effort.
+        if (_enrollRemote) {
+            const release = () => {
+                daemonLocalCall('set-mode', { mode: 'pointage' }, 5000, null).catch(() => {});
+            };
+            try {
+                const d2 = await daemonLocalCall('enroll2', { id: slot }, 150000, signal);
+                if (!d2 || !d2.ok) { release(); return { ok: false, message: (d2 && d2.message) || 'Capture 2 impossible (borne locale).' }; }
+                const dt = await daemonLocalCall('template', { id: slot }, 60000, signal);
+                if (!dt || !dt.ok || !dt.template) { release(); return { ok: false, message: 'Lecture du gabarit impossible (borne locale).' }; }
+                const csrf = await this.getCsrfToken();
+                const res = await fetch(getApiEndpoint('biometric_remote.php'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                    body: JSON.stringify({ op: 'commit', userId, slot, hex: dt.template }),
+                    credentials: 'include',
+                    ...(signal ? { signal } : {})
+                });
+                const j = await res.json(); if (j.ok) { _clearCache('users'); }
+                release();
+                return j;
+            } catch (e) {
+                release();
+                if (e && e.name === 'AbortError') return { ok: false, aborted: true };
+                return { ok: false, message: 'Erreur capture 2 (borne locale).' };
+            }
+        }
         try {
             const csrf = await this.getCsrfToken();
             const res = await fetch(getApiEndpoint('biometric.php'), {

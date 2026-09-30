@@ -267,6 +267,17 @@ async function enrollLivePollTick() {
     const modal = document.getElementById('modal-enroll');
     if (!modal || modal.classList.contains(EL_HIDDEN)) { enrollLiveStopPoll(); enrollLiveHide(); return; }
     try {
+        // Borne distante : état temps réel direct du daemon local (même format
+        // adapté : active/step/captures_ok → active/step/capture_count).
+        if (typeof api !== 'undefined' && api.getEnrollTransport && api.getEnrollTransport() === 'remote') {
+            const d = await daemonLocalCall('enroll_status', {}, 4000, null).catch(() => null);
+            if (!d) { enrollLiveSet('offline', 'Borne locale injoignable — état momentanément indisponible.', 0); return; }
+            const n = (typeof d.captures_ok === 'number') ? d.captures_ok : 0;
+            if (!d.active) { enrollLiveHide(); return; }
+            if (d.error) { enrollLiveSet('error', d.error, n); return; }
+            enrollLiveSet('waiting', d.message || ('Capteur actif — posez le doigt (capture ' + (d.step || '?') + '/2)…'), n);
+            return;
+        }
         const csrf = await fetchCsrf();
         const res = await fetch(getApiEndpoint('biometric.php'), {
             method: 'POST',
