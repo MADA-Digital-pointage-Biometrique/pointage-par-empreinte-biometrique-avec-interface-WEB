@@ -86,7 +86,7 @@ STOP_EVENT = threading.Event()
 # État de surveillance exposé par /status (lecture sans lock : affectations atomiques)
 WATCH_STATE = {
     'watch_enabled': False,   # config BORNE_TOKEN + R307_API_URL présente
-    'watch_user_enabled': True,  # interrupteur manuel (sensor_watch.php) — activé par défaut
+    'watch_user_enabled': False,  # interrupteur manuel (sensor_watch.php) — désactivé par défaut, activation via UI
     'watching': False,        # boucle active ET mode pointage
     'hw_ok': None,            # HEARTBEAT : le capteur a répondu récemment (True/False/None)
     'hw_checked_at': None,    # ts du dernier verdict matériel (cycle watch ou /status live)
@@ -457,7 +457,7 @@ class WatchMixin:
                 # Surveillance active seulement si : config présente + interrupteur
                 # manuel ON + pas de capture (enrôlement) en cours.
                 if not WATCH_STATE.get('watch_enabled') \
-                        or not WATCH_STATE.get('watch_user_enabled', True) \
+                        or not WATCH_STATE.get('watch_user_enabled', False) \
                         or CAPTURE_LOCK.locked():
                     WATCH_STATE['watching'] = False
                     time.sleep(0.3)
@@ -869,7 +869,7 @@ def main():
         try:
             sp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'watch_state.json')
             with open(sp, 'r', encoding='utf-8') as f:
-                WATCH_STATE['watch_user_enabled'] = bool(json.load(f).get('watch_user_enabled', True))
+                WATCH_STATE['watch_user_enabled'] = bool(json.load(f).get('watch_user_enabled', False))
         except Exception:
             pass
         signal.signal(signal.SIGTERM, _sigterm)
