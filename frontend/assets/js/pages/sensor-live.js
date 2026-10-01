@@ -189,6 +189,19 @@ function sensorLiveApply(data) {
 }
 
 /** Init : injection + polling 1 s. Jamais sur la page de connexion. */
+// Transport widget : si le daemon tourne sur CE pc (borne locale, même
+// depuis HTTPS), on lit son /status en direct — il contient watching +
+// last_result/seq que la branche « borne » de sensor_status.php ne
+// transporte pas. Sinon repli serveur (comportement historique).
+let slUseLocal = false;
+let slProbeAt = 0;
+async function slRefreshTransport() {
+    if (Date.now() - slProbeAt < 30000) return;
+    slProbeAt = Date.now();
+    try {
+        slUseLocal = (typeof probeLocalDaemon === 'function') && await probeLocalDaemon();
+    } catch { slUseLocal = false; }
+}
 function initSensorLive() {
     const page = document.body.dataset.page || '';
     if (!page || page === 'login') return;
@@ -203,6 +216,21 @@ function initSensorLive() {
     }
     async function tick() {
         try {
+            await slRefreshTransport();
+            // Borne locale : /status direct (watching + last_result/seq).
+            if (slUseLocal && typeof DAEMON_LOCAL_URL === 'string') {
+                try {
+                    const ctrl = new AbortController();
+                    const t = setTimeout(() => ctrl.abort(), 2000);
+                    const res = await fetch(DAEMON_LOCAL_URL + '/status', { signal: ctrl.signal });
+                    clearTimeout(t);
+                    const data = await res.json();
+                    if (data && data.ok !== false && !slSessionClosed) {
+                        sensorLiveApply(data);
+                        return;
+                    }
+                } catch (e) { slUseLocal = false; /* repli serveur ci-dessous */ }
+            }
             const res = await fetch(getApiEndpoint('sensor_status.php'),
                 { credentials: 'include', cache: 'no-store' });
             const data = await res.json();
