@@ -262,6 +262,7 @@ async function applyMode(mode) {
             ? `Mode "${labels[mode]}" enregistré — appliqué par la borne (~3 s).`
             : `Mode "${labels[mode]}" activé avec succès.`, 'success');
         enforceWatchForMode(mode);
+        syncWatchButton();
     } catch (e) {
         if (prevMode) storage.set(MODE_KEY, prevMode); else storage.remove(MODE_KEY);
         const realMode = getCurrentMode();
@@ -269,65 +270,6 @@ async function applyMode(mode) {
         document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode: realMode } }));
         flash((e && e.message) || 'Erreur mode R307 — retour au mode précédent.', 'danger');
     }
-}
-
-// B3 : réconciliation slots DB ↔ capteur (diagnostic + purge orphelins).
-function renderReconcileResult(j) {
-    const box = document.getElementById('reconcile-result');
-    if (!box) return;
-    box.classList.remove('hidden');
-    if (!j.ok) {
-        box.innerHTML = `<div class="border rounded-xl px-md py-sm bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800">Capteur injoignable : ${j.message || ''} — réconciliation impossible.</div>`;
-        return;
-    }
-    const okCls = 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-    const warnCls = 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-    const rows = (j.missing_on_sensor || []).map(m =>
-        `<div class="flex items-center justify-between gap-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
-            <span class="font-mono">slot ${m.slot}</span>
-            <span class="truncate">${m.nom || ''} <span class="font-mono text-slate-400">(${m.matricule || ''})</span></span>
-            <span class="text-rose-600 dark:text-rose-400 font-semibold">absent capteur</span>
-        </div>`).join('');
-    box.innerHTML = `
-        <div class="border rounded-xl px-md py-sm ${(!j.missing_on_sensor?.length && !j.orphans_suspected) ? okCls : warnCls} border">
-            <div class="font-semibold mb-1">${j.message || ''}</div>
-            <div class="font-mono text-[11px] opacity-80">Base : ${j.db_slots} mapping(s) · Capteur : ${j.sensor_count} page(s)${j.repaired ? ` · ${j.repaired} purgé(s)` : ''}</div>
-            ${rows ? `<div class="mt-2">${rows}</div>` : ''}
-            ${(j.missing_on_sensor?.length && !j.repaired) ? `<button id="btn-reconcile-repair" class="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold px-md py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md transition-all cursor-pointer"><span class="material-symbols-outlined text-[15px]">delete_sweep</span> Purger ${j.missing_on_sensor.length} mapping(s) orphelin(s)</button>` : ''}
-        </div>`;
-    const repairBtn = document.getElementById('btn-reconcile-repair');
-    if (repairBtn) repairBtn.addEventListener('click', () => {
-        showConfirmModal({
-            title: 'Purger les mappings orphelins ?',
-            message: 'Les mappings base sans page capteur seront supprimés (gabarits désactivés). Les employés concernés devront être ré-enrôlés. Continuer ?',
-            type: 'warning',
-            confirmText: 'Oui, purger',
-            cancelText: 'Annuler',
-            onConfirm: () => runReconcile(true)
-        });
-    });
-}
-async function runReconcile(repair = false) {
-    const btn = document.getElementById('btn-reconcile');
-    const box = document.getElementById('reconcile-result');
-    if (btn) btn.disabled = true;
-    if (box) {
-        box.classList.remove('hidden');
-        box.innerHTML = '<div class="text-slate-400 text-[12px]">Sondage du capteur page par page… (peut durer ~1 s/slot)</div>';
-    }
-    try {
-        const r = await fetchCsrf('sensor_reconcile.php', repair ? { repair: 1 } : {});
-        const j = await r.json();
-        renderReconcileResult(j);
-        if (j.ok && j.repaired) renderCapteur(true);
-    } catch (e) {
-        if (box) box.innerHTML = '<div class="text-rose-600 text-[12px]">Erreur réseau pendant la réconciliation.</div>';
-    } finally {
-        if (btn) btn.disabled = false;
-    }
-}
-function initReconcile() {
-    document.getElementById('btn-reconcile')?.addEventListener('click', () => runReconcile(false));
 }
 
 // ============================================================
@@ -986,7 +928,6 @@ async function initPage() {
     syncModeButtonsWithCapteur();
     setInterval(syncModeButtonsWithCapteur, 5000);
     document.addEventListener('capteurStatusChanged', e=> setModeButtonsDisabled(e.detail?.status==='hs', e.detail?.detail));
-    initReconcile();
     initWatchToggle();
     enforceWatchForMode(getCurrentMode());
 
@@ -1001,7 +942,10 @@ async function initPage() {
     if (filterEmp) filterEmp.onchange = () => renderCapteur(false);
 
     // Re-rendu du tableau au changement de mode (le bouton Enrôler suit le mode).
-    document.addEventListener('mada:modeChanged', () => renderCapteur(false));
+    document.addEventListener('mada:modeChanged', () => {
+        renderCapteur(false);
+        syncWatchButton();
+    });
 
     // Purge totale biométrie (Super Admin uniquement).
     const purgeBtn = document.getElementById('btn-purge-bio');

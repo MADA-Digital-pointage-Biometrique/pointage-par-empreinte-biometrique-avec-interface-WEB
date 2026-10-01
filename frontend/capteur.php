@@ -204,20 +204,13 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
                                     </div>
                                     <div id="watch-state-text" class="text-[11px] font-medium text-slate-400 mt-0.5">Chargement…</div>
                                 </div>
-                                <button id="btn-watch-toggle" class="watch-switch" type="button" role="switch" aria-checked="false" aria-label="Activer ou désactiver la surveillance du capteur">
-                                    <span class="watch-knob"></span>
-                                </button>
-                            </div>
-                            <button id="btn-reconcile" class="self-end w-fit whitespace-nowrap inline-flex items-center gap-1.5 text-[12px] font-semibold px-md py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-60 disabled:pointer-events-none">
-                                <span class="material-symbols-outlined text-[16px]">sync_problem</span>
-                                Réconcilier slots
+<button id="btn-watch-toggle" class="watch-switch" type="button" role="switch" aria-checked="false" aria-label="Activer ou désactiver la surveillance du capteur">
+                                <span class="watch-knob"></span>
                             </button>
-                            <p class="text-[11px] text-slate-400 mt-1 sm:text-right">Compare base ↔ capteur</p>
                         </div>
                     </div>
                 </div>
                 <p class="text-[12px] text-slate-500 dark:text-slate-400 mt-md" id="sensor-state-detail">Interrogation du capteur…</p>
-                <div id="reconcile-result" class="hidden mt-md text-[12px]"></div>
             </div>
 
 
