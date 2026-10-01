@@ -117,25 +117,31 @@ try {
     }
 
     if ($enabled) {
-        // Le daemon doit tourner pour accepter watch-on.
+        // Le daemon doit tourner pour accepter watch-on en direct.
+        $directPossible = true;
+        $unreachableMsg = '';
         if ($isLocal) {
             // Local : on peut le démarrer nous-mêmes s'il est absent.
             $ensure = R307Supervisor::ensureRunning();
-            if (!$ensure['up']) {
-                http_response_code(503);
-                echo json_encode(['ok' => false, 'message' => $ensure['message']]);
-                exit;
-            }
+            if (!$ensure['up']) { $directPossible = false; $unreachableMsg = $ensure['message']; }
         } else {
             // Pont distant (ex. Docker → daemon Windows) : pas de spawn local,
             // on vérifie juste qu'il répond.
             $probe = $daemonCall('/status', 'GET', 4);
-            if ($probe === null) {
-                http_response_code(503);
-                echo json_encode(['ok' => false,
-                    'message' => 'Daemon injoignable sur ' . $serviceUrl . ' — lancez-le sur le PC du capteur']);
+            if ($probe === null) { $directPossible = false; $unreachableMsg = 'Daemon injoignable sur ' . $serviceUrl . ' — lancez-le sur le PC du capteur'; }
+        }
+        if (!$directPossible) {
+            // Filet distant (VPS sans pont / borne sur PC Windows) : l'ordre est
+            // déposé en BDD et appliqué par la borne au prochain poll (~3 s).
+            if ($queueRemote('watch_on')) {
+                echo json_encode(['ok'=>true,'watching'=>false,'watch_user_enabled'=>true,
+                    'queued'=>true,'mode'=>$mode,
+                    'message'=>'Ordre enregistré — appliqué par la borne (~3 s)']);
                 exit;
             }
+            http_response_code(503);
+            echo json_encode(['ok' => false, 'message' => $unreachableMsg]);
+            exit;
         }
         $data = $daemonCall('/watch-on', 'POST', 8);
         if (!is_array($data) || empty($data['ok'])) {
