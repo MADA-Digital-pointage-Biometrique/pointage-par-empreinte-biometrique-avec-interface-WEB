@@ -328,14 +328,19 @@ const api = {
     clearChartsCache() { _clearCache('dashCharts'); },
 
     // Historique complet (historique.js, pointage.js) — cache 30s, liste entière.
+    // Timeout 25 s : sans lui, un serveur qui tarde (verrou de session tenu
+    // par une capture longue, pooler lent) laisse le bouton Actualiser
+    // tourner indéfiniment — l'échec rend [] comme avant.
     async getAllPointages(force=false) {
         if (!force) { const c = _getCache('pointagesAll', 30000); if (c) return c; }
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 25000);
         try {
-            const res = await fetch(getApiEndpoint('pointages.php'), { credentials: 'include' });
+            const res = await fetch(getApiEndpoint('pointages.php'), { credentials: 'include', signal: ctrl.signal });
             if (res.status === 401) handleUnauthorized(res);
             const data = await res.json();
             if (data.ok && data.pointages) { _setCache('pointagesAll', data.pointages); return data.pointages; }
-        } catch (e) { if (e.message==='Session expirée') throw e; }
+        } catch (e) { if (e.message==='Session expirée') throw e; } finally { clearTimeout(t); }
         return [];
     },
 
@@ -399,17 +404,21 @@ const api = {
     },
 
     // --- Gestion des Employés (cache 30s) ---
+    // Timeout 25 s : voir getAllPointages (bouton Actualiser ne reste
+    // jamais bloqué ; l'échec rend [] comme avant).
     async getUsers(force=false) {
         if (!force) { const c = _getCache('users', 30000); if (c) return c; }
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 25000);
         try {
-            const res = await fetch(getApiEndpoint('users.php'), { credentials: 'include' });
+            const res = await fetch(getApiEndpoint('users.php'), { credentials: 'include', signal: ctrl.signal });
             if (res.status === 401) handleUnauthorized(res);
             const data = await res.json();
             if (data.ok && data.users) { _setCache('users', data.users); return data.users; }
         } catch (e) {
             if (e.message==='Session expirée') throw e;
             console.error('Erreur chargement employés:', e);
-        }
+        } finally { clearTimeout(t); }
         return [];
     },
 

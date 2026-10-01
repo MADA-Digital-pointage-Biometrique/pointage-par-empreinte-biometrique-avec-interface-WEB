@@ -37,13 +37,18 @@ async function renderAudit() {
     const limit = document.getElementById('filter-audit-limit')?.value || '50';
     const summary = document.getElementById('audit-count-summary');
     if (summary) summary.textContent = 'Chargement…';
+    // Timeout 25 s : sans lui, un serveur qui tarde laisse le bouton
+    // Actualiser tourner indéfiniment — l'échec affiche l'erreur (catch).
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 25000);
     try {
         const r = await fetch(
             getApiEndpoint('audit.php') + '?limit=' + encodeURIComponent(limit) + (filter ? '&action=' + encodeURIComponent(filter) : ''),
-            { credentials: 'include', cache: 'no-store' }
+            { credentials: 'include', cache: 'no-store', signal: ctrl.signal }
         );
         if (r.status === 401) { window.location.replace('login.php'); return; }
         const j = await r.json();
+        clearTimeout(t); // réponse reçue : le garde-temps devient inutile
         if (!j.ok) {
             // 403 = session serveur sans droits super-admin (ex. connecté avec un
             // compte admin simple, ou 2 onglets avec 2 comptes différents).
@@ -71,6 +76,7 @@ async function renderAudit() {
             </tr>`).join('');
         bindAuditChecks();
     } catch {
+        clearTimeout(t);
         body.innerHTML = '<tr><td colspan="5" class="py-lg px-md text-center text-slate-400">Erreur de chargement.</td></tr>';
         if (summary) summary.textContent = 'Erreur';
     }

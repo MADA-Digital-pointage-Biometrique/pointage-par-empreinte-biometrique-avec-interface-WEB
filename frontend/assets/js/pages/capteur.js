@@ -240,6 +240,7 @@ async function applyMode(mode) {
         refreshModeUI(mode);
         document.dispatchEvent(new CustomEvent('mada:modeChanged', { detail: { mode } }));
         flash('Mode Enrôlement : sélectionne un employé — R307 reste en Pointage (en attente).', 'info');
+        enforceWatchForMode(mode);
         return;
     }
     const prevMode = storage.get(MODE_KEY);
@@ -260,6 +261,7 @@ async function applyMode(mode) {
         flash(j.remote?.queued
             ? `Mode "${labels[mode]}" enregistré — appliqué par la borne (~3 s).`
             : `Mode "${labels[mode]}" activé avec succès.`, 'success');
+        enforceWatchForMode(mode);
     } catch (e) {
         if (prevMode) storage.set(MODE_KEY, prevMode); else storage.remove(MODE_KEY);
         const realMode = getCurrentMode();
@@ -331,6 +333,37 @@ function initReconcile() {
 // ============================================================
 // SURVEILLANCE (watch) — interrupteur activer/désactiver
 // ============================================================
+// Verrou du switch en mode Enrôlement : l'interrupteur n'est cliquable
+// qu'en mode Pointage (appliqué à chaque rendu + après chaque toggle).
+function applyWatchLock() {
+    const btn = document.getElementById('btn-watch-toggle');
+    if (!btn) return;
+    const locked = getCurrentMode() === 'enrolement';
+    btn.disabled = locked;
+    if (locked) btn.title = 'Surveillance verrouillée en mode Enrôlement — repassez en Pointage pour la réactiver';
+}
+
+// Entrée en mode Enrôlement ⇒ surveillance auto-OFF (une fois par entrée).
+// Ne fait rien si déjà éteinte : aucun appel ni audit superflu.
+let watchOffFiredForEnrolment = false;
+async function enforceWatchForMode(mode) {
+    if (mode !== 'enrolement') { watchOffFiredForEnrolment = false; return; }
+    if (watchOffFiredForEnrolment) return;
+    const btn = document.getElementById('btn-watch-toggle');
+    if (!btn || btn.dataset.watchState !== 'on') return;
+    watchOffFiredForEnrolment = true;
+    try {
+        const r = await fetchCsrf('sensor_watch.php', { enabled: false });
+        const j = await r.json();
+        renderWatchButton(j.ok ? 'off' : 'on');
+        flash(j.ok ? 'Surveillance désactivée (mode Enrôlement).' : (j.message || 'Échec désactivation surveillance'), j.ok ? 'info' : 'error');
+        if (!j.ok) watchOffFiredForEnrolment = false; // réessaiera au prochain déclencheur
+    } catch (e) {
+        watchOffFiredForEnrolment = false;
+        flash('Erreur réseau — surveillance inchangée', 'error');
+    }
+}
+
 function renderWatchButton(state) {
     // state: 'unknown' | 'on' | 'off' — reflète watch_user_enabled (daemon ou défaut off)
     const btn = document.getElementById('btn-watch-toggle');
@@ -355,27 +388,33 @@ function renderWatchButton(state) {
     btn.title = on
         ? 'Cliquer pour arrêter la détection continue (le capteur s\'éteint, les scans à la demande restent possibles)'
         : 'Cliquer pour démarrer le service de surveillance — le capteur scrute en continu et enregistre les pointages';
+    applyWatchLock();
 }
 
 async function syncWatchButton() {
+    let state = 'unknown';
     try {
         const r = await fetch(getApiEndpoint('sensor_watch.php'), { credentials: 'include', cache: 'no-store' });
-        if (!r.ok) { renderWatchButton('unknown'); return; }
-        const j = await r.json();
-        if (!j.ok) { renderWatchButton('unknown'); return; }
-        // Borne distante : sans daemon direct, refléter l'ordre désiré
-        // (l'appliqué suit en ~3 s via heartbeat/poll).
-        if (!j.daemon_up && j.remote && j.remote.desired) {
-            renderWatchButton(j.remote.desired === 'on' ? 'on' : 'off');
-            return;
+        if (r.ok) {
+            const j = await r.json();
+            if (j.ok) {
+                // Borne distante : sans daemon direct, refléter l'ordre désiré
+                // (l'appliqué suit en ~3 s via heartbeat/poll).
+                if (!j.daemon_up && j.remote && j.remote.desired) state = j.remote.desired === 'on' ? 'on' : 'off';
+                else state = j.watch_user_enabled ? 'on' : 'off';
+            }
         }
-        renderWatchButton(j.watch_user_enabled ? 'on' : 'off');
-    } catch (e) { renderWatchButton('unknown'); }
+    } catch (e) { state = 'unknown'; }
+    renderWatchButton(state);
+    // Entrée en enrôlement ⇒ surveillance auto-OFF (une fois).
+    enforceWatchForMode(getCurrentMode());
 }
 
 async function toggleWatch() {
     const btn = document.getElementById('btn-watch-toggle');
     if (!btn || btn.disabled) return;
+    // Verrou mode Enrôlement : l'interrupteur ne s'active qu'en Pointage.
+    if (getCurrentMode() === 'enrolement') { flash('Mode Enrôlement : surveillance verrouillée — repassez en Pointage.', 'warning'); return; }
     const wantOn = btn.dataset.watchState !== 'on';
     btn.disabled = true;
     try {
@@ -394,7 +433,7 @@ async function toggleWatch() {
     } catch (e) {
         flash('Erreur réseau — surveillance inchangée', 'error');
     } finally {
-        btn.disabled = false;
+        applyWatchLock();
         syncModeButtonsWithCapteur(); // rafraîchit badge + état carte au cycle suivant
     }
 }
@@ -949,6 +988,7 @@ async function initPage() {
     document.addEventListener('capteurStatusChanged', e=> setModeButtonsDisabled(e.detail?.status==='hs', e.detail?.detail));
     initReconcile();
     initWatchToggle();
+    enforceWatchForMode(getCurrentMode());
 
     // Panneau sélection employé
     initEnrollTargetPanel();
