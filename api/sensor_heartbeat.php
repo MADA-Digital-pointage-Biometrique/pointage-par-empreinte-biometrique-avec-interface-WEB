@@ -43,12 +43,36 @@ $count = max(0, (int)($input['count'] ?? 0));
 $hwOk = array_key_exists('hw_ok', $input) ? ($input['hw_ok'] === null ? null : (bool)$input['hw_ok']) : null;
 $watching = !empty($input['watching']);
 
+// Dernier événement détection (widget d'un autre appareil) : seq monotone +
+// détails bornés. Absent/null = aucun événement (colonnes inchangées en NULL).
+$lastSeq = null; $lastDet = null; $lastRes = null;
+if (array_key_exists('last_result', $input) && is_array($input['last_result'])) {
+    $lr = $input['last_result'];
+    $seq = (int)($lr['seq'] ?? 0);
+    if ($seq > 0) {
+        $keep = [];
+        foreach (['page_id','score','http','ok','message','seq','at','nom','type','heure','retry_after','user_id'] as $k) {
+            if (array_key_exists($k, $lr)) $keep[$k] = $lr[$k];
+        }
+        $keep['seq'] = $seq;
+        $json = json_encode($keep, JSON_UNESCAPED_UNICODE);
+        if (is_string($json) && strlen($json) <= 2048) {
+            $lastSeq = $seq;
+            $lastRes = $json;
+            $dt = (string)($input['last_detection'] ?? ($lr['at'] ?? ''));
+            if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/', $dt)) {
+                $lastDet = str_replace('T', ' ', $dt) . (strlen($dt) === 16 ? ':00' : '');
+            }
+        }
+    }
+}
+
 try {
     $pdo = getDB();
-    $pdo->prepare("INSERT INTO borne_etat (device_id, last_seen, empreintes, hw_ok, watching)
-        VALUES (?, NOW(), ?, ?, ?)
-        ON CONFLICT (device_id) DO UPDATE SET last_seen=NOW(), empreintes=EXCLUDED.empreintes, hw_ok=EXCLUDED.hw_ok, watching=EXCLUDED.watching")
-        ->execute([$device, $count, $hwOk === null ? null : ($hwOk ? 1 : 0), $watching ? 1 : 0]);
+    $pdo->prepare("INSERT INTO borne_etat (device_id, last_seen, empreintes, hw_ok, watching, last_seq, last_detection, last_result)
+        VALUES (?, NOW(), ?, ?, ?, ?, ?::timestamp, ?::jsonb)
+        ON CONFLICT (device_id) DO UPDATE SET last_seen=NOW(), empreintes=EXCLUDED.empreintes, hw_ok=EXCLUDED.hw_ok, watching=EXCLUDED.watching, last_seq=EXCLUDED.last_seq, last_detection=EXCLUDED.last_detection, last_result=EXCLUDED.last_result")
+        ->execute([$device, $count, $hwOk === null ? null : ($hwOk ? 1 : 0), $watching ? 1 : 0, $lastSeq, $lastDet, $lastRes]);
     echo json_encode(['ok'=>true,'message'=>'État enregistré']);
 } catch (Throwable $e) {
     error_log('sensor_heartbeat: '.$e->getMessage());

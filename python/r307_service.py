@@ -360,12 +360,17 @@ class WatchMixin:
             return None
 
     def _send_heartbeat(self):
-        """État borne → serveur (badge « En service » distant). Silencieux."""
+        """État borne → serveur (badge « En service » distant + dernier
+        événement pour le widget d'un autre appareil). Silencieux."""
         ok, _, _, _ = self._server_post('/sensor_heartbeat.php', {
             'device_id': os.getenv('R307_DEVICE_ID', 'r307_main'),
             'count': int(WATCH_STATE.get('count') or 0),
             'hw_ok': WATCH_STATE.get('hw_ok'),
             'watching': bool(WATCH_STATE.get('watching')),
+            # Dernier événement détection (None si aucun) : le serveur
+            # l'expose via sensor_status.php, branche « borne ».
+            'last_detection': WATCH_STATE.get('last_detection'),
+            'last_result': WATCH_STATE.get('last_result'),
         })
         return ok
 

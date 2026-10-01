@@ -194,6 +194,12 @@ CREATE TABLE IF NOT EXISTS public.borne_commandes (
 );
 CREATE INDEX IF NOT EXISTS idx_borne_cmd_pending ON public.borne_commandes USING btree (device_id, statut, id);
 
+-- Dernier événement détection (widget d'un autre appareil) : rejouable,
+-- db-init rejoue schema.sql à chaque déploiement (base existante incluse).
+ALTER TABLE public.borne_etat ADD COLUMN IF NOT EXISTS last_seq integer;
+ALTER TABLE public.borne_etat ADD COLUMN IF NOT EXISTS last_detection timestamp without time zone;
+ALTER TABLE public.borne_etat ADD COLUMN IF NOT EXISTS last_result jsonb;
+
 CREATE OR REPLACE FUNCTION public.archive_pointages()
  RETURNS integer
  LANGUAGE plpgsql

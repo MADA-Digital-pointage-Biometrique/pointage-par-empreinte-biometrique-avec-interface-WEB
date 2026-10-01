@@ -96,15 +96,24 @@ try {
         };
         try {
             $pdoB = getDB();
-            $hb = $pdoB->query("SELECT device_id, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - last_seen)) AS age_s, empreintes, hw_ok, watching FROM borne_etat ORDER BY last_seen DESC LIMIT 1")->fetch();
+            $hb = $pdoB->query("SELECT device_id, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - last_seen)) AS age_s, empreintes, hw_ok, watching, last_seq, last_detection, last_result FROM borne_etat ORDER BY last_seen DESC LIMIT 1")->fetch();
             if (is_array($hb) && ($hb['age_s'] !== null) && ((float)$hb['age_s'] < 60)) {
                 $age = max(0, (int)$hb['age_s']);
                 if ($isTrue($hb['hw_ok'])) {
+                    // Dernier événement détection (widget d'un autre appareil) :
+                    // même forme que la branche daemon (seq monotone, dédupe côté JS).
+                    $hbLast = null;
+                    if (isset($hb['last_result']) && $hb['last_result'] !== null && $hb['last_result'] !== '') {
+                        $hbDec = is_string($hb['last_result']) ? json_decode($hb['last_result'], true) : $hb['last_result'];
+                        if (is_array($hbDec) && ((int)($hbDec['seq'] ?? 0)) > 0) $hbLast = $hbDec;
+                    }
                     echo json_encode(['ok'=>true,'status'=>'en_service','label'=>'En service',
                         'detail'=>"Borne {$hb['device_id']} vue il y a {$age}s (" . (int)$hb['empreintes'] . " empreintes) — via borne",
                         'count'=>(int)$hb['empreintes'],'port'=>null,'reader'=>$name,
                         'watching'=>(bool)$hb['watching'],'watch_enabled'=>true,
-                        'watch_user_enabled'=>true,'transport'=>'borne','borne_age_s'=>$age]);
+                        'watch_user_enabled'=>true,'transport'=>'borne','borne_age_s'=>$age,
+                        'last_detection'=>$hb['last_detection'] ?? null,
+                        'last_result'=>$hbLast]);
                     exit;
                 }
                 $why = ($hb['hw_ok'] === null) ? 'vérification en cours' : 'capteur débranché ou bloqué';
