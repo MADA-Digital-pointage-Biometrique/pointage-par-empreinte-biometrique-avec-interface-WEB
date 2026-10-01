@@ -6,6 +6,10 @@
 const MODE_KEY          = 'mada-mode';          // 'enrolement' | 'pointage' | null
 const ENROLL_TARGET_KEY = 'mada-enroll-target'; // JSON { id, prenom, nom, matricule, departement, empreinte }
 
+// Séquencement manuel d'enrôlement : libellé d'origine du bouton (phase
+// capture 1), restauré à chaque ouverture du modal et après abandon.
+let enrollBtnLabel1 = null;
+
 function initials(u) {
     if (!u || !u.prenom || !u.nom) return 'U';
     return (u.prenom[0] + u.nom[0]).toUpperCase();
@@ -620,26 +624,98 @@ function openEnrollModal(target) {
         };
         showCancel(false);
         let enrollAbort = null;
+        // Séquencement manuel : capture 1, PAUSE, puis clic opérateur pour
+        // la capture 2 (état réinitialisé à chaque ouverture du modal).
+        let enrollPhase = 'capture1';
+        let pendingSlot = null;
+        if (btn) {
+            if (enrollBtnLabel1) btn.innerHTML = enrollBtnLabel1;
+            else enrollBtnLabel1 = btn.innerHTML;
+        }
         if (cancelBtn) {
             cancelBtn.onclick = () => {
                 // Annule la capture en cours (la requête Python côté serveur
                 // termine son timeout seule ; le slot sera réutilisé).
                 if (enrollAbort) enrollAbort.abort();
-                // Borne distante : libère aussi le terminal local.
+                // Libère le terminal resté en mode enrolement (capture 1
+                // validée puis abandon, ou capture encore active côté
+                // serveur) — best-effort, silencieux.
                 if (api.getEnrollTransport && api.getEnrollTransport() === 'remote') {
                     daemonLocalCall('set-mode', { mode: 'pointage' }, 5000, null).catch(() => {});
+                } else if (api.enrollCancel) {
+                    api.enrollCancel().catch(() => {});
                 }
                 enrollLiveStopPoll();
                 setEnrollHint('Enrôlement annulé.');
                 if (step) step.textContent = 'Enrôlement annulé — cliquez pour recommencer.';
                 setEnrollStep(1, 'idle'); setEnrollStep(2, 'idle');
+                enrollPhase = 'capture1'; pendingSlot = null;
+                window.__enrollNeedsRelease = false;
+                if (btn && enrollBtnLabel1) btn.innerHTML = enrollBtnLabel1;
                 showCancel(false);
                 if (btn) btn.disabled = false;
                 flash('Enrôlement annulé.', 'info');
             };
         }
         if (btn) {
+            const btnLabel2 = '<span class="material-symbols-outlined text-[18px]">touch_app</span> Lancer la capture 2';
+            // Phase 2 manuelle : mêmes états/erreurs que l'ancien enchaînement
+            // automatique, mais déclenchée par le clic opérateur (pas de
+            // compte à rebours : le daemon gère sa vraie attente du doigt).
+            const runCapture2 = async () => {
+                btn.disabled = true;
+                enrollAbort = new AbortController();
+                const signal2 = enrollAbort.signal;
+                showCancel(true);
+                if (step) step.textContent = 'Capture 2/2 : posez le doigt sur le capteur…';
+                setEnrollHint('En attente du doigt (capture 2)…');
+                const r2 = await enrollWithAutoRetry(() => api.enrollStep2(target.id, pendingSlot, signal2), (r) => r && r.aborted);
+                if (r2 && r2.aborted) {
+                    showCancel(false);
+                    if (btn) btn.disabled = false;
+                    return;
+                }
+                showCancel(false);
+                if (!r2.ok) {
+                    if (icon) {
+                        icon.className = 'w-24 h-24 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-lg transition-colors duration-300';
+                        icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">error</span>';
+                    }
+                    if (step) step.textContent = r2.message;
+                    setEnrollStep(2, 'idle'); setEnrollHint('Échec capture 2 — reprends à la capture 1.');
+                    enrollPhase = 'capture1'; pendingSlot = null;
+                    window.__enrollNeedsRelease = false;
+                    if (enrollBtnLabel1) btn.innerHTML = enrollBtnLabel1;
+                    btn.disabled = false;
+                    return;
+                }
+                setEnrollStep(2, 'done'); setEnrollProgress(100);
+                if (icon) {
+                    icon.className = 'w-24 h-24 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-lg transition-colors duration-300';
+                    icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">check_circle</span>';
+                }
+                if (step) step.textContent = r2.message;
+                setEnrollHint('Enrôlement terminé.');
+                flash(r2.message, 'success');
+                btn.disabled = false;
+
+                // Mettre à jour la cible et rafraîchir le tableau
+                const updated = { ...target, empreinte: true };
+                selectEnrollTarget(updated);
+
+                enrollLiveStopPoll();
+                window.__enrollNeedsRelease = false;
+
+                setTimeout(() => {
+                    closeModal('modal-enroll');
+                    renderCapteur(true);
+                }, 1200);
+            };
             btn.onclick = async () => {
+                // Phase 2 : la capture 1 est validée, l'opérateur a cliqué
+                // « Lancer la capture 2 » — on réutilise le transport et le
+                // slot déjà réservé, sans re-sonde.
+                if (enrollPhase === 'capture2' && pendingSlot) { await runCapture2(); return; }
                 btn.disabled = true;
                 // Choix du transport : daemon localhost joignable (borne sur ce
                 // PC, même depuis un site HTTPS) → captures locales + commit
@@ -656,6 +732,7 @@ function openEnrollModal(target) {
                 }
                 enrollAbort = new AbortController();
                 const signal = enrollAbort.signal;
+                window.__enrollNeedsRelease = true;
                 showCancel(true);
                 enrollLiveStartPoll();
                 const wasAborted = (r) => r && r.aborted;
@@ -691,6 +768,7 @@ function openEnrollModal(target) {
                     }
                     if (step) step.textContent = r1.message;
                     setEnrollStep(1, 'idle'); setEnrollHint('Échec capture 1 — réessaie.');
+                    window.__enrollNeedsRelease = false;
                     showCancel(false);
                     btn.disabled = false;
                     return;
@@ -701,51 +779,16 @@ function openEnrollModal(target) {
                 if (step) step.textContent = 'Capture 1 validée ✓ — retirez puis reposez le doigt…';
                 setEnrollHint('En attente du doigt (capture 2)…');
                 flash('Capture 1 validée.', 'success');
-                // ── CAPTURE 2 ──
-                let timeout2 = 4; // attente de retrait côté daemon (4 s) puis capture immédiate
-                let countdown2 = timeout2;
-                const countdownInterval2 = setInterval(() => {
-                    countdown2--;
-                    if (countdown2 >= 0) {
-                        setEnrollHint(`En attente du doigt (capture 2)… ${countdown2}s`);
-                    } else {
-                        clearInterval(countdownInterval2);
-                    }
-                }, 1000);
-                const r2 = await enrollWithAutoRetry(() => api.enrollStep2(target.id, r1.slot, signal), wasAborted);
-                clearInterval(countdownInterval2);
-                if (wasAborted(r2)) { showAbort(); return; }
-                showCancel(false);
-                if (!r2.ok) {
-                    if (icon) {
-                        icon.className = 'w-24 h-24 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-lg transition-colors duration-300';
-                        icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">error</span>';
-                    }
-                    if (step) step.textContent = r2.message;
-                    setEnrollStep(2, 'idle'); setEnrollHint('Échec capture 2 — reprends à la capture 1.');
-                    btn.disabled = false;
-                    return;
-                }
-                setEnrollStep(2, 'done'); setEnrollProgress(100);
-                if (icon) {
-                    icon.className = 'w-24 h-24 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-lg transition-colors duration-300';
-                    icon.innerHTML = '<span class="material-symbols-outlined text-[48px]">check_circle</span>';
-                }
-                if (step) step.textContent = r2.message;
-                setEnrollHint('Enrôlement terminé.');
-                flash(r2.message, 'success');
+                // ── PAUSE MANUELLE : la capture 2 ne démarre que sur clic
+                // opérateur (plus d'enchaînement automatique).
+                pendingSlot = r1.slot;
+                enrollPhase = 'capture2';
+                if (step) step.textContent = 'Capture 1 validée ✓ — cliquez sur « Lancer la capture 2 ».';
+                setEnrollHint('Retirez le doigt, puis lancez la capture 2 quand prêt.');
+                btn.innerHTML = btnLabel2;
                 btn.disabled = false;
-
-                // Mettre à jour la cible et rafraîchir le tableau
-                const updated = { ...target, empreinte: true };
-                selectEnrollTarget(updated);
-
-                enrollLiveStopPoll();
-
-                setTimeout(() => {
-                    closeModal('modal-enroll');
-                    renderCapteur(true);
-                }, 1200);
+                showCancel(true); // Annuler reste possible pendant l'attente
+                return;
             };
         }
     };

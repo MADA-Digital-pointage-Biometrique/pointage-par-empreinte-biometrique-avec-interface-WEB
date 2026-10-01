@@ -604,6 +604,23 @@ const api = {
         }
     },
 
+    // Abandon d'enrôlement : repasse le terminal en mode pointage
+    // (best-effort, silencieux — ne bloque jamais l'UI).
+    async enrollCancel() {
+        try {
+            const csrf = await this.getCsrfToken();
+            const res = await fetch(getApiEndpoint('biometric.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+                body: JSON.stringify({ action: 'enroll_cancel' }),
+                credentials: 'include'
+            });
+            return await res.json();
+        } catch (e) {
+            return { ok: false };
+        }
+    },
+
     // Purge TOTALE de la biométrie : bibliothèque R307 vidée + slots + gabarits BDD.
     // Retourne { ok, message, partial?, purged?, deleted? }
     async deleteAllFingerprints() {

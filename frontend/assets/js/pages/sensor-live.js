@@ -344,11 +344,22 @@ function enrollLiveStopPoll() {
     if (elPollTimer) { clearInterval(elPollTimer); elPollTimer = null; }
 }
 
-// Arrêt du poll dès que le modal est refermé (bouton ✕ / data-close).
+// Arrêt du poll dès que le modal est refermé (bouton ✕ / data-close)
+// + libération du terminal si abandon en pause entre les 2 captures
+// (ou capture en cours) — best-effort, silencieux.
 document.addEventListener('click', (e) => {
     if (!e.target.closest('[data-close="modal-enroll"]')) return;
     enrollLiveStopPoll();
     enrollLiveHide();
+    try {
+        if (!window.__enrollNeedsRelease) return;
+        window.__enrollNeedsRelease = false;
+        if (typeof api !== 'undefined' && api.getEnrollTransport && api.getEnrollTransport() === 'remote') {
+            daemonLocalCall('set-mode', { mode: 'pointage' }, 5000, null).catch(() => {});
+        } else if (typeof api !== 'undefined' && api.enrollCancel) {
+            api.enrollCancel().catch(() => {});
+        }
+    } catch {}
 });
 
 // ============================================================
