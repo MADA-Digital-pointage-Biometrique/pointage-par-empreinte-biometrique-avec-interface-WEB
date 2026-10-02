@@ -876,10 +876,13 @@ async function showEmployeeDetail(userId, keepState) {
         data: { user, allRows, monthRows, month, todayRow, dayStatut, last }
     };
 
-    // Masque la liste (sans la détruire : les handlers délégués survivent).
+    // Masque la liste (sans la détruire : les handlers délégués survivent)
+    // + masque la recherche topbar (inutile en vue détail).
     [...main.children].forEach(el => {
         if (el.id !== 'flash' && el.id !== 'empd-root') el.classList.add('hidden');
     });
+    const topSearchWrap = document.getElementById('top-search')?.closest('div.relative.w-full.max-w-sm');
+    if (topSearchWrap) topSearchWrap.style.display = 'none';
     let root = document.getElementById('empd-root');
     if (root) root.remove();
     root = document.createElement('div');
@@ -892,8 +895,8 @@ async function showEmployeeDetail(userId, keepState) {
         amber: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800' }[dayStatut.cls];
     const dayIcon = dayStatut.key === 'present' ? 'check_circle' : (dayStatut.key === 'retard' ? 'schedule' : 'hourglass_empty');
     const statutCompte = (user.statut || 'actif') === 'actif'
-        ? '<span class="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-emerald-400/40"><span class="material-symbols-outlined text-[13px]">check_circle</span> Actif</span>'
-        : '<span class="inline-flex items-center gap-1 bg-slate-500/15 text-slate-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-slate-400/40"><span class="material-symbols-outlined text-[13px]">block</span> Inactif</span>';
+        ? '<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800"><span class="material-symbols-outlined text-[13px]">check_circle</span> Actif</span>'
+        : '<span class="inline-flex items-center gap-1 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700"><span class="material-symbols-outlined text-[13px]">block</span> Inactif</span>';
 
     root.innerHTML = `
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-lg">
@@ -907,7 +910,7 @@ async function showEmployeeDetail(userId, keepState) {
                 </div>
             </div>
             <div class="flex items-center gap-sm">
-                ${isSuper ? `<button type="button" id="empd-edit" class="inline-flex items-center gap-1.5 bg-accent-default hover:bg-accent-hover text-white text-[13px] font-semibold px-md py-2 rounded-xl shadow-md transition-all cursor-pointer"><span class="material-symbols-outlined text-[18px]">edit</span> Modifier</button>` : ''}
+                ${isSuper ? `<button type="button" id="empd-edit" class="inline-flex items-center gap-1.5 bg-gradient-to-r from-[#F46A21] to-[#F9AE3F] hover:from-[#EA580C] hover:to-[#F59E0B] text-white text-[13px] font-semibold px-md py-2 rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer"><span class="material-symbols-outlined text-[18px]">edit</span> Modifier</button>` : ''}
                 <button type="button" data-print class="inline-flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-[13px] font-semibold px-md py-2 rounded-xl transition-all cursor-pointer"><span class="material-symbols-outlined text-[18px]">print</span> Imprimer</button>
             </div>
         </div>
@@ -1049,6 +1052,8 @@ function hideEmployeeDetail(rerender) {
     empDetailState = null;
     const main = document.querySelector('main');
     if (main) [...main.children].forEach(el => { if (el.id !== 'flash') el.classList.remove('hidden'); });
+    const topSearchWrap = document.getElementById('top-search')?.closest('div.relative.w-full.max-w-sm');
+    if (topSearchWrap) topSearchWrap.style.display = '';
     if (rerender && typeof renderUsers === 'function') { try { renderUsers(false); } catch {} }
 }
 
