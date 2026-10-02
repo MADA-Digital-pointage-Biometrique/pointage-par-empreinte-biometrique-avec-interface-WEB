@@ -317,6 +317,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
     <script src="assets/js/api.js?v=<?= asset_ver('assets/js/api.js') ?>"></script>
     <script src="assets/js/templates.js?v=<?= asset_ver('assets/js/templates.js') ?>"></script>
     <script src="assets/js/app.js?v=<?= asset_ver('assets/js/app.js') ?>"></script>
+    <script src="assets/js/vendor/chart.umd.min.js?v=<?= asset_ver('assets/js/vendor/chart.umd.min.js') ?>"></script>
     <script src="assets/js/pages/employes.js?v=<?= asset_ver('assets/js/pages/employes.js') ?>"></script>
 </body>
 </html>

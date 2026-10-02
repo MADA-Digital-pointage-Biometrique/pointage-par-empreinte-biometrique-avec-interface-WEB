@@ -365,8 +365,13 @@ if (!window._employesGlobalClickAttached) {
         const detailBtn = e.target.closest('[data-detail]');
         if (detailBtn) {
             const id = parseInt(detailBtn.dataset.detail, 10);
-            const target = allUsers.find(u => u.id === id);
-            if (target) openDetailModal(target);
+            // Vue détail in-page (remplace la liste, sidebar/topbar intacts).
+            // Repli : modale si la vue détail est indisponible.
+            if (typeof showEmployeeDetail === 'function') showEmployeeDetail(id);
+            else {
+                const target = allUsers.find(u => u.id === id);
+                if (target) openDetailModal(target);
+            }
             return;
         }
 
@@ -515,12 +520,536 @@ async function initPage() {
                     photoEditFile = null;
                     formEdit.reset();
                     await renderUsers(true);
+                    if (typeof empDetailRefreshAfterEdit === 'function') { try { await empDetailRefreshAfterEdit(); } catch {} }
                 } else {
                     flash(res.message, 'danger');
                 }
             }, 'Enregistrement…');
         };
     }
+}
+
+// ============================================================
+// VUE DÉTAILS EMPLOYÉ (in-page : remplace la liste, sidebar/header
+// intacts, Retour = ré-affiche la liste). Données 100 % réelles :
+// api.getUsers() + api.getAllPointages(), calculs côté client avec
+// les mêmes règles que le reste de l'app (retard > 08:30:00,
+// dimanche non ouvré). Aucune route, aucune modale, aucun backend.
+// ============================================================
+const EMPD_PAGE_SIZE = 5;
+const EMPD_MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+let empDetailState = null;   // { userId, page, dateFrom, dateTo, statut, monthKey }
+let empDetailCharts = [];
+
+function empDetailDestroyCharts() {
+    empDetailCharts.forEach(c => { try { c.destroy(); } catch {} });
+    empDetailCharts = [];
+}
+
+function empDetailFmtJJMMAAAA(iso) {
+    if (!iso) return '—';
+    const p = String(iso).slice(0, 10).split('-');
+    return (p.length === 3) ? `${p[2]}/${p[1]}/${p[0]}` : iso;
+}
+
+function empDetailMonthLabel(key) {
+    const [y, m] = key.split('-').map(Number);
+    return `${EMPD_MONTHS[(m || 1) - 1]} ${y}`;
+}
+
+function empDetailCurrentMonthKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function empDetailMonthEndDay(key) {
+    const [y, m] = key.split('-').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    if (key === empDetailCurrentMonthKey()) {
+        return Math.min(new Date().getDate(), last);
+    }
+    return last;
+}
+
+function empDetailWorkdays(key) {
+    // Jours ouvrés lun–sam écoulés du mois (dimanche exclu, comme le dashboard).
+    const [y, m] = key.split('-').map(Number);
+    const end = empDetailMonthEndDay(key);
+    const out = [];
+    for (let d = 1; d <= end; d++) {
+        const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        if (typeof isWorkday === 'function' ? isWorkday(iso) : (new Date(y, m - 1, d).getDay() !== 0)) out.push(iso);
+    }
+    return out;
+}
+
+function empDetailTimeToHours(t) {
+    if (!t) return null;
+    const p = String(t).split(':').map(Number);
+    if (p.length < 2 || p.some(isNaN)) return null;
+    return p[0] + (p[1] / 60) + ((p[2] || 0) / 3600);
+}
+
+function empDetailFmtHour(h) {
+    if (h === null || h === undefined || isNaN(h)) return '—';
+    const H = Math.floor(h), M = Math.round((h - H) * 60);
+    return `${String(H).padStart(2, '0')}:${String(M).padStart(2, '0')}`;
+}
+
+function empDetailDuree(p) {
+    if (typeof p.total_secondes === 'number' && p.total_secondes >= 0) {
+        const s = Math.floor(p.total_secondes);
+        return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
+    }
+    if (!p.entree || !p.sortie) return '—';
+    const [h1, m1] = p.entree.split(':').map(Number);
+    const [h2, m2] = p.sortie.split(':').map(Number);
+    let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+    if (diff < 0) diff += 24 * 60;
+    return `${Math.floor(diff / 60)}h ${String(diff % 60).padStart(2, '0')}m`;
+}
+
+function empDetailStatutBadge(p) {
+    if (!p.sortie) {
+        return '<span class="inline-flex items-center gap-1 bg-[#FFF1E8] text-[#F46A21] dark:bg-orange-950/40 dark:text-[#F9AE3F] font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-[#F46A21]/25 dark:border-orange-900"><span class="material-symbols-outlined text-[13px]">pending</span> En cours</span>';
+    }
+    if (typeof isRetard === 'function' && isRetard(p.entree)) {
+        return '<span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800"><span class="material-symbols-outlined text-[13px]">schedule</span> Retard</span>';
+    }
+    return '<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800"><span class="material-symbols-outlined text-[13px]">check_circle</span> Présent</span>';
+}
+
+function empDetailMethode(p) {
+    const m = String(p.methode_verification || p.source_donnee || '').toLowerCase();
+    if (m.includes('biom')) return 'Biométrique';
+    if (m.includes('manu')) return 'Manuel';
+    return '—';
+}
+
+function empDetailDayStatut(todayRow) {
+    if (!todayRow) return { key: 'none', label: 'Pas encore pointé', cls: 'slate' };
+    if (typeof isRetard === 'function' && isRetard(todayRow.entree)) return { key: 'retard', label: 'En retard', cls: 'amber' };
+    return { key: 'present', label: 'Présent', cls: 'emerald' };
+}
+
+function empDetailLastEvent(rows) {
+    // Dernier événement horodaté (toutes journées confondues), type associé.
+    let best = null;
+    rows.forEach(r => {
+        [['sortie2', 'Sortie'], ['sortie', 'Sortie'], ['entree2', 'Entrée'], ['entree', 'Entrée']].forEach(([f, type]) => {
+            if (r[f] && (!best || r.date > best.date || (r.date === best.date && r[f] > best.heure))) {
+                best = { date: r.date, heure: String(r[f]).slice(0, 5), type };
+            }
+        });
+    });
+    return best;
+}
+
+function empDetailPalette() {
+    const isDark = document.documentElement.classList.contains('dark');
+    return {
+        text: isDark ? '#CBD5E1' : '#475569',
+        grid: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.15)'
+    };
+}
+
+function empDetailTauxRing(pct) {
+    const r = 34, c = 2 * Math.PI * r;
+    const v = Math.max(0, Math.min(100, pct));
+    return `<svg width="88" height="88" viewBox="0 0 88 88" class="shrink-0">`
+        + `<circle cx="44" cy="44" r="${r}" fill="none" stroke-width="9" class="stroke-slate-200 dark:stroke-slate-700"/>`
+        + `<circle cx="44" cy="44" r="${r}" fill="none" stroke="#10B981" stroke-width="9" stroke-linecap="round"`
+        + ` stroke-dasharray="${(v / 100 * c).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 44 44)"/>`
+        + `<text x="44" y="44" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="800" class="fill-slate-800 dark:fill-white">${v}%</text></svg>`;
+}
+
+function empDetailRenderCharts() {
+    empDetailDestroyCharts();
+    if (!empDetailState || !empDetailState.data) return;
+    const { monthRows, month } = empDetailState.data;
+    const pal = empDetailPalette();
+
+    // --- Courbe 7 derniers jours : Entrée / Sortie ---
+    const cTrend = document.getElementById('empd-chart-trend');
+    if (cTrend && window.Chart) {
+        const days = [];
+        const now = new Date();
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+            days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+        }
+        const byDate = {};
+        monthRows.forEach(r => { byDate[r.date] = r; });
+        const allRows = empDetailState.data.allRows;
+        const findRow = (iso) => (allRows.find(r => r.date === iso) || {});
+        const entrees = days.map(iso => empDetailTimeToHours(findRow(iso).entree));
+        const sorties = days.map(iso => empDetailTimeToHours(findRow(iso).sortie));
+        const vals = [...entrees, ...sorties].filter(v => v !== null && !isNaN(v));
+        const lo = vals.length ? Math.floor(Math.min(...vals) - 0.5) : 6;
+        const hi = vals.length ? Math.ceil(Math.max(...vals) + 0.5) : 18;
+        empDetailCharts.push(new Chart(cTrend, {
+            type: 'line',
+            data: {
+                labels: days.map(iso => iso.slice(8, 10) + '/' + iso.slice(5, 7)),
+                datasets: [
+                    { label: 'Entrée', data: entrees, borderColor: '#10B981', backgroundColor: '#10B981', tension: 0.35, pointRadius: 3, spanGaps: false },
+                    { label: 'Sortie', data: sorties, borderColor: '#F59E0B', backgroundColor: '#F59E0B', tension: 0.35, pointRadius: 3, spanGaps: false }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                animation: { duration: 400 },
+                plugins: { legend: { position: 'top', labels: { color: pal.text, font: { size: 11, weight: '600' }, boxWidth: 12 } } },
+                scales: {
+                    x: { grid: { color: pal.grid }, ticks: { color: pal.text, font: { size: 11 } } },
+                    y: { min: lo, max: hi, grid: { color: pal.grid }, ticks: { color: pal.text, font: { size: 11 }, stepSize: 0.5, callback: (v) => empDetailFmtHour(v) } }
+                }
+            }
+        }));
+    }
+
+    // --- Donut répartition mensuelle ---
+    const cDonut = document.getElementById('empd-chart-donut');
+    if (cDonut && window.Chart) {
+        const isDark = document.documentElement.classList.contains('dark');
+        const aLHeure = Math.max(0, month.presences - month.retards);
+        const values = [aLHeure, month.retards, month.absences];
+        const isEmpty = values.every(v => !v || v <= 0);
+        empDetailCharts.push(new Chart(cDonut, {
+            type: 'doughnut',
+            data: {
+                labels: isEmpty ? ['Aucune donnée'] : ["Présences", 'Retards', 'Absences'],
+                datasets: [{
+                    data: isEmpty ? [1] : values,
+                    backgroundColor: isEmpty ? [isDark ? '#374151' : '#E5E7EB'] : ['#10B981', '#F59E0B', '#F43F5E'],
+                    borderWidth: 3,
+                    borderColor: isDark ? '#1F2937' : '#FFFFFF',
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '72%',
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw} jour(s)` } } }
+            }
+        }));
+    }
+}
+
+if (!window._empDetailThemeHook) {
+    window._empDetailThemeHook = true;
+    document.addEventListener('mada:themeChanged', () => { if (document.getElementById('empd-root')) empDetailRenderCharts(); });
+}
+
+function empDetailFilteredHistory() {
+    const st = empDetailState;
+    const rows = st.data.allRows.filter(r => r.date >= st.dateFrom && r.date <= st.dateTo);
+    const s = st.statut;
+    return rows.filter(r => {
+        if (s === 'present') return !((typeof isRetard === 'function') && isRetard(r.entree)) && r.sortie !== null;
+        if (s === 'retard') return (typeof isRetard === 'function') && isRetard(r.entree);
+        if (s === 'encours') return !r.sortie;
+        return true;
+    }).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+function empDetailRenderHistory() {
+    const st = empDetailState;
+    if (!st) return;
+    const rows = empDetailFilteredHistory();
+    const totalPages = Math.max(1, Math.ceil(rows.length / EMPD_PAGE_SIZE));
+    if (st.page > totalPages) st.page = totalPages;
+    const start = (st.page - 1) * EMPD_PAGE_SIZE;
+    const pageRows = rows.slice(start, start + EMPD_PAGE_SIZE);
+
+    const tbody = document.getElementById('empd-tbody');
+    if (tbody) {
+        tbody.innerHTML = pageRows.map((p, i) =>
+            `<tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors h-14">`
+            + `<td class="py-sm px-md text-slate-400 font-mono">${start + i + 1}</td>`
+            + `<td class="py-sm px-md font-mono text-[12px] text-slate-600 dark:text-slate-300 whitespace-nowrap">${empDetailFmtJJMMAAAA(p.date)}</td>`
+            + `<td class="py-sm px-md font-mono text-[12px] whitespace-nowrap">${p.entree ? String(p.entree).slice(0, 5) : '—'}</td>`
+            + `<td class="py-sm px-md font-mono text-[12px] whitespace-nowrap">${p.sortie ? String(p.sortie).slice(0, 5) : '—'}</td>`
+            + `<td class="py-sm px-md font-mono text-[12px] whitespace-nowrap">${empDetailDuree(p)}</td>`
+            + `<td class="py-sm px-md whitespace-nowrap">${empDetailStatutBadge(p)}</td>`
+            + `<td class="py-sm px-md text-slate-600 dark:text-slate-300 whitespace-nowrap">${escapeHtml(empDetailMethode(p))}</td>`
+            + `</tr>`
+        ).join('') || '<tr><td colspan="7" class="py-lg px-md text-center text-slate-400">Aucun pointage sur la période filtrée.</td></tr>';
+    }
+    const from = rows.length === 0 ? 0 : start + 1;
+    const count = document.getElementById('empd-count');
+    if (count) count.textContent = `${from} – ${Math.min(start + EMPD_PAGE_SIZE, rows.length)} sur ${rows.length}`;
+    const pager = document.getElementById('empd-pager');
+    if (pager) {
+        let nums = '';
+        for (let p = 1; p <= totalPages; p++) {
+            nums += `<button type="button" data-empd-page="${p}" class="min-w-[28px] h-7 px-1.5 rounded-lg text-[12px] font-semibold cursor-pointer transition-colors ${p === st.page ? 'bg-[#F46A21] text-white shadow-md shadow-orange-500/20' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}">${p}</button>`;
+        }
+        pager.innerHTML = `<button type="button" data-empd-page="prev" class="w-7 h-7 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" ${st.page <= 1 ? 'disabled' : ''} title="Précédent"><span class="material-symbols-outlined text-[16px]">chevron_left</span></button>`
+            + nums
+            + `<button type="button" data-empd-page="next" class="w-7 h-7 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" ${st.page >= totalPages ? 'disabled' : ''} title="Suivant"><span class="material-symbols-outlined text-[16px]">chevron_right</span></button>`;
+    }
+}
+
+function empDetailExportCSV() {
+    const st = empDetailState;
+    if (!st) return;
+    const u = st.data.user;
+    const rows = empDetailFilteredHistory();
+    const now = new Date();
+    const sep = ';';
+    const lines = [];
+    lines.push('MADA DIGITAL - FICHE INDIVIDUELLE DE POINTAGE');
+    lines.push(`Employé${sep}"${u.prenom || ''} ${u.nom || ''} (${u.matricule || ''})"`);
+    lines.push(`Date d'extraction${sep}"${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}"`);
+    lines.push(`Période${sep}"${empDetailFmtJJMMAAAA(st.dateFrom)} au ${empDetailFmtJJMMAAAA(st.dateTo)}"`);
+    lines.push(`Volume${sep}"${rows.length}"`);
+    lines.push('');
+    lines.push(['Date', "Heure d'entrée", 'Heure de sortie', 'Durée', 'Statut', 'Capteur'].map(c => `"${c}"`).join(sep));
+    rows.forEach(p => {
+        const statut = !p.sortie ? 'Journée en cours' : (((typeof isRetard === 'function') && isRetard(p.entree)) ? 'En Retard' : 'Présent');
+        lines.push([
+            empDetailFmtJJMMAAAA(p.date),
+            p.entree ? String(p.entree).slice(0, 8) : '—',
+            p.sortie ? String(p.sortie).slice(0, 8) : 'Non pointé',
+            empDetailDuree(p), statut, empDetailMethode(p)
+        ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(sep));
+    });
+    const csv = '\uFEFF' + lines.join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Detail_Pointage_${u.matricule || u.id}_${typeof todayISO === 'function' ? todayISO() : ''}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    flash('Export CSV de l\u2019employé téléchargé.', 'success');
+}
+
+async function empDetailRefreshAfterEdit() {
+    // Appelé après Enregistrer (modale Modifier) si la vue détail est ouverte.
+    if (!empDetailState) return;
+    const id = empDetailState.userId;
+    const keep = { page: empDetailState.page, dateFrom: empDetailState.dateFrom, dateTo: empDetailState.dateTo, statut: empDetailState.statut };
+    await showEmployeeDetail(id, keep);
+}
+
+async function showEmployeeDetail(userId, keepState) {
+    const main = document.querySelector('main');
+    if (!main) return;
+    let users = [];
+    try {
+        users = await api.getUsers();
+        if (!users || !users.length) users = allUsers;
+    } catch { users = allUsers; }
+    const user = (users || []).find(u => u.id === userId && (u.role === 'employe' || !u.role))
+        || allUsers.find(u => u.id === userId);
+    if (!user) { flash('Employé introuvable.', 'danger'); return; }
+
+    let pointages = [];
+    try { pointages = await api.getAllPointages() || []; } catch { pointages = []; }
+    const allRows = (pointages || []).filter(p => p.user_id === userId);
+
+    const monthKey = empDetailCurrentMonthKey();
+    const mStart = monthKey + '-01';
+    const mEnd = (() => { const [y, m] = monthKey.split('-').map(Number); const last = new Date(y, m, 0).getDate(); const t = typeof todayISO === 'function' ? todayISO() : ''; return (t.slice(0, 7) === monthKey) ? t : `${monthKey}-${String(last).padStart(2, '0')}`; })();
+    const monthRows = allRows.filter(r => r.date >= mStart && r.date <= mEnd);
+    const presDates = new Set(monthRows.filter(r => r.entree).map(r => r.date));
+    const retards = monthRows.filter(r => (typeof isRetard === 'function') && isRetard(r.entree)).length;
+    const ouvrés = empDetailWorkdays(monthKey).length;
+    const presences = presDates.size;
+    const absences = Math.max(0, ouvrés - presences);
+    const taux = ouvrés > 0 ? Math.round((presences / ouvrés) * 100) : 100;
+    const month = { key: monthKey, label: empDetailMonthLabel(monthKey), presences, retards, absences, taux, total: presences + absences };
+
+    const today = (typeof todayISO === 'function') ? todayISO() : '';
+    const todayRow = allRows.find(r => r.date === today) || null;
+    const dayStatut = empDetailDayStatut(todayRow);
+    const last = empDetailLastEvent(allRows);
+
+    empDetailState = {
+        userId,
+        page: (keepState && keepState.page) || 1,
+        dateFrom: (keepState && keepState.dateFrom) || mStart,
+        dateTo: (keepState && keepState.dateTo) || mEnd,
+        statut: (keepState && keepState.statut) || '',
+        data: { user, allRows, monthRows, month, todayRow, dayStatut, last }
+    };
+
+    // Masque la liste (sans la détruire : les handlers délégués survivent).
+    [...main.children].forEach(el => {
+        if (el.id !== 'flash' && el.id !== 'empd-root') el.classList.add('hidden');
+    });
+    let root = document.getElementById('empd-root');
+    if (root) root.remove();
+    root = document.createElement('div');
+    root.id = 'empd-root';
+    main.appendChild(root);
+
+    const isSuper = (() => { try { const cu = api.getCurrentUser(); return cu && (cu.role === 'super_admin' || cu.role === 'admin_systeme'); } catch(e){ return false; } })();
+    const dayCls = { slate: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+        emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+        amber: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800' }[dayStatut.cls];
+    const dayIcon = dayStatut.key === 'present' ? 'check_circle' : (dayStatut.key === 'retard' ? 'schedule' : 'hourglass_empty');
+    const statutCompte = (user.statut || 'actif') === 'actif'
+        ? '<span class="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-emerald-400/40"><span class="material-symbols-outlined text-[13px]">check_circle</span> Actif</span>'
+        : '<span class="inline-flex items-center gap-1 bg-slate-500/15 text-slate-300 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border border-slate-400/40"><span class="material-symbols-outlined text-[13px]">block</span> Inactif</span>';
+
+    root.innerHTML = `
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-lg">
+            <div class="flex items-center gap-md">
+                <button type="button" id="empd-back" class="inline-flex items-center gap-1.5 text-[13px] font-semibold px-md py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined text-[18px]">arrow_back</span> Retour
+                </button>
+                <div>
+                    <h2 class="font-bold text-2xl tracking-tight text-slate-900 dark:text-white">Détails de l'employé</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-[13px] mt-0.5">Informations personnelles et historique des pointages</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-sm">
+                ${isSuper ? `<button type="button" id="empd-edit" class="inline-flex items-center gap-1.5 bg-[#3B82F6] hover:bg-[#2563EB] text-white text-[13px] font-semibold px-md py-2 rounded-xl shadow-md transition-all cursor-pointer"><span class="material-symbols-outlined text-[18px]">edit</span> Modifier</button>` : ''}
+                <button type="button" data-print class="inline-flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-[13px] font-semibold px-md py-2 rounded-xl transition-all cursor-pointer"><span class="material-symbols-outlined text-[18px]">print</span> Imprimer</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-lg mb-lg">
+            <div class="xl:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm p-lg">
+                <div class="flex items-center gap-md">
+                    ${avatar(user, 'w-16 h-16 text-lg')}
+                    <div class="min-w-0">
+                        <div class="font-bold text-lg text-slate-900 dark:text-white truncate">${escapeHtml(user.prenom)} ${escapeHtml(user.nom)}</div>
+                        <div class="mt-1">${statutCompte}</div>
+                    </div>
+                </div>
+                <div class="mt-md space-y-2 text-[13px]">
+                    <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400"><span class="material-symbols-outlined text-[18px]">badge</span><span class="w-24 shrink-0">Matricule</span><span class="font-mono font-semibold text-slate-800 dark:text-slate-200">: ${escapeHtml(user.matricule || '—')}</span></div>
+                    <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400"><span class="material-symbols-outlined text-[18px]">mail</span><span class="w-24 shrink-0">Email</span><span class="font-semibold text-slate-800 dark:text-slate-200 truncate">: ${escapeHtml(user.email || '—')}</span></div>
+                    <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400"><span class="material-symbols-outlined text-[18px]">domain</span><span class="w-24 shrink-0">Département</span><span class="font-semibold text-slate-800 dark:text-slate-200">: ${escapeHtml(user.departement || 'Non assigné')}</span></div>
+                    <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400"><span class="material-symbols-outlined text-[18px]">work</span><span class="w-24 shrink-0">Poste</span><span class="font-semibold text-slate-800 dark:text-slate-200">: ${escapeHtml(user.poste || 'Non renseigné')}</span></div>
+                </div>
+            </div>
+
+            <div class="xl:col-span-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm p-lg">
+                <h3 class="font-bold text-[14px] text-slate-900 dark:text-white mb-md">Statut du jour</h3>
+                <span class="inline-flex items-center gap-1.5 font-semibold text-[13px] px-3 py-1 rounded-full border ${dayCls}"><span class="material-symbols-outlined text-[16px]">${dayIcon}</span> ${dayStatut.label}</span>
+                <div class="mt-md pt-md border-t border-slate-100 dark:border-slate-800">
+                    <div class="text-[12px] text-slate-400 mb-1">Dernier pointage</div>
+                    ${last
+                        ? `<div class="flex items-center gap-2 font-mono font-semibold text-[14px] text-slate-800 dark:text-slate-200"><span class="material-symbols-outlined text-[18px] text-slate-400">schedule</span> ${empDetailFmtJJMMAAAA(last.date)} <span class="text-slate-400">-</span> ${escapeHtml(last.heure)}</div>
+                           <div class="mt-1"><span class="inline-flex items-center font-semibold text-[11px] px-2.5 py-0.5 rounded-full border ${last.type === 'Sortie' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700' : 'bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-300 border-sky-200/70 dark:border-sky-800'}">${escapeHtml(last.type)}</span></div>`
+                        : '<div class="text-[13px] text-slate-400">Aucun pointage enregistré.</div>'}
+                </div>
+            </div>
+
+            <div class="xl:col-span-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm p-lg">
+                <h3 class="font-bold text-[14px] text-slate-900 dark:text-white mb-md">Résumé du mois (${month.label})</h3>
+                <div class="flex items-center justify-around gap-2 text-center">
+                    <div><div class="font-extrabold text-2xl text-slate-900 dark:text-white">${month.presences}</div><div class="text-[11px] text-slate-400 mt-0.5">Présences</div></div>
+                    <div><div class="font-extrabold text-2xl text-slate-900 dark:text-white">${month.retards}</div><div class="text-[11px] text-slate-400 mt-0.5">Retards</div></div>
+                    <div><div class="font-extrabold text-2xl text-slate-900 dark:text-white">${month.absences}</div><div class="text-[11px] text-slate-400 mt-0.5">Absences</div></div>
+                    <div class="flex flex-col items-center gap-1">${empDetailTauxRing(month.taux)}<div class="text-[11px] text-slate-400">Taux de présence</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-lg mb-lg">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm p-lg">
+                <h3 class="font-bold text-[14px] text-slate-900 dark:text-white">Évolution des pointages <span class="font-medium text-slate-400 text-[12px]">(7 derniers jours)</span></h3>
+                <div class="mt-2 h-[220px]"><canvas id="empd-chart-trend"></canvas></div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm p-lg">
+                <h3 class="font-bold text-[14px] text-slate-900 dark:text-white">Répartition des pointages <span class="font-medium text-slate-400 text-[12px]">(mois)</span></h3>
+                <div class="mt-2 flex items-center gap-md">
+                    <div class="relative w-[150px] h-[150px] shrink-0"><canvas id="empd-chart-donut"></canvas>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span class="font-extrabold text-xl text-slate-900 dark:text-white">${month.total}</span>
+                            <span class="text-[11px] text-slate-400">jours</span>
+                        </div>
+                    </div>
+                    <div class="space-y-1.5 text-[12px]">
+                        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span><span class="text-slate-500 dark:text-slate-400">Présences</span><span class="ml-auto font-bold text-slate-800 dark:text-slate-200 pl-3">${month.presences}</span></div>
+                        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span><span class="text-slate-500 dark:text-slate-400">Retards</span><span class="ml-auto font-bold text-slate-800 dark:text-slate-200 pl-3">${month.retards}</span></div>
+                        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span><span class="text-slate-500 dark:text-slate-400">Absences</span><span class="ml-auto font-bold text-slate-800 dark:text-slate-200 pl-3">${month.absences}</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm p-lg">
+                <h3 class="font-bold text-[14px] text-slate-900 dark:text-white mb-sm">Informations supplémentaires</h3>
+                <div class="divide-y divide-slate-100 dark:divide-slate-800/60 text-[13px]">
+                    <div class="flex items-center justify-between gap-2 py-2"><span class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">calendar_today</span> Date d'embauche</span><span class="font-semibold text-slate-800 dark:text-slate-200">${escapeHtml(user.date_embauche ? empDetailFmtJJMMAAAA(String(user.date_embauche).slice(0, 10)) : 'Non renseigné')}</span></div>
+                    <div class="flex items-center justify-between gap-2 py-2"><span class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">schedule</span> Horaire de travail</span><span class="font-semibold text-slate-800 dark:text-slate-200">Non renseigné</span></div>
+                    <div class="flex items-center justify-between gap-2 py-2"><span class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bedtime</span> Shift</span><span class="font-semibold text-slate-800 dark:text-slate-200">Non renseigné</span></div>
+                    <div class="flex items-center justify-between gap-2 py-2"><span class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">domain</span> Branche / établissement</span><span class="font-semibold text-slate-800 dark:text-slate-200">Non renseigné</span></div>
+                    <div class="flex items-center justify-between gap-2 py-2"><span class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">work</span> Poste</span><span class="font-semibold text-slate-800 dark:text-slate-200">${escapeHtml(user.poste || 'Non renseigné')}</span></div>
+                    <div class="flex items-center justify-between gap-2 py-2"><span class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">group</span> Département</span><span class="font-semibold text-slate-800 dark:text-slate-200">${escapeHtml(user.departement || 'Non assigné')}</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm p-lg">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-md">
+                <div>
+                    <h3 class="font-bold text-[15px] text-slate-900 dark:text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#F46A21]">history</span> Historique des pointages</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-[12px] mt-0.5">Liste complète des pointages de l'employé sélectionné</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-sm">
+                    <input type="date" id="empd-from" value="${empDetailState.dateFrom}" class="bg-slate-50 dark:bg-slate-800 rounded-xl px-md py-1.5 border border-slate-200 dark:border-slate-700 text-xs font-mono outline-none focus:ring-2 focus:ring-[#F46A21]">
+                    <span class="text-slate-400 text-xs">→</span>
+                    <input type="date" id="empd-to" value="${empDetailState.dateTo}" class="bg-slate-50 dark:bg-slate-800 rounded-xl px-md py-1.5 border border-slate-200 dark:border-slate-700 text-xs font-mono outline-none focus:ring-2 focus:ring-[#F46A21]">
+                    <select id="empd-statut" class="bg-slate-50 dark:bg-slate-800 rounded-xl px-md py-1.5 border border-slate-200 dark:border-slate-700 text-xs font-semibold outline-none cursor-pointer">
+                        <option value="">Tous statuts</option>
+                        <option value="present" ${empDetailState.statut === 'present' ? 'selected' : ''}>Présent</option>
+                        <option value="retard" ${empDetailState.statut === 'retard' ? 'selected' : ''}>Retard</option>
+                        <option value="encours" ${empDetailState.statut === 'encours' ? 'selected' : ''}>En cours</option>
+                    </select>
+                    <button type="button" id="empd-export" class="inline-flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold px-md py-2 rounded-xl transition-all cursor-pointer"><span class="material-symbols-outlined text-[16px]">download</span> Exporter CSV</button>
+                </div>
+            </div>
+            <div class="overflow-x-auto w-full max-w-full">
+                <table class="w-full min-w-[640px] text-left border-collapse text-[13px]">
+                    <thead><tr class="border-b border-slate-200/60 dark:border-slate-800 font-semibold text-slate-400 uppercase text-[11px] tracking-wider bg-slate-50/50 dark:bg-slate-900">
+                        <th class="py-md px-md">#</th><th class="py-md px-md">Date</th><th class="py-md px-md">Heure d'entrée</th><th class="py-md px-md">Heure de sortie</th><th class="py-md px-md">Durée</th><th class="py-md px-md">Statut</th><th class="py-md px-md">Capteur</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60" id="empd-tbody"></tbody>
+                </table>
+            </div>
+            <div class="flex items-center justify-end gap-2 mt-md">
+                <span class="text-[12px] text-slate-400 font-mono" id="empd-count"></span>
+                <div class="flex items-center gap-1" id="empd-pager"></div>
+            </div>
+        </div>`;
+
+    document.getElementById('empd-back').onclick = () => hideEmployeeDetail(true);
+    const editBtn = document.getElementById('empd-edit');
+    if (editBtn) editBtn.onclick = () => openEditModal(user);
+    document.getElementById('empd-from').onchange = (e) => { empDetailState.dateFrom = e.target.value || empDetailState.dateFrom; empDetailState.page = 1; empDetailRenderHistory(); };
+    document.getElementById('empd-to').onchange = (e) => { empDetailState.dateTo = e.target.value || empDetailState.dateTo; empDetailState.page = 1; empDetailRenderHistory(); };
+    document.getElementById('empd-statut').onchange = (e) => { empDetailState.statut = e.target.value; empDetailState.page = 1; empDetailRenderHistory(); };
+    document.getElementById('empd-export').onclick = () => empDetailExportCSV();
+    document.getElementById('empd-pager').onclick = (e) => {
+        const b = e.target.closest('[data-empd-page]');
+        if (!b || b.disabled) return;
+        const v = b.dataset.empdPage;
+        const rows = empDetailFilteredHistory();
+        const totalPages = Math.max(1, Math.ceil(rows.length / EMPD_PAGE_SIZE));
+        if (v === 'prev') empDetailState.page = Math.max(1, empDetailState.page - 1);
+        else if (v === 'next') empDetailState.page = Math.min(totalPages, empDetailState.page + 1);
+        else empDetailState.page = Math.min(totalPages, Math.max(1, parseInt(v, 10) || 1));
+        empDetailRenderHistory();
+    };
+
+    empDetailRenderHistory();
+    empDetailRenderCharts();
+}
+
+function hideEmployeeDetail(rerender) {
+    empDetailDestroyCharts();
+    const root = document.getElementById('empd-root');
+    if (root) root.remove();
+    empDetailState = null;
+    const main = document.querySelector('main');
+    if (main) [...main.children].forEach(el => { if (el.id !== 'flash') el.classList.remove('hidden'); });
+    if (rerender && typeof renderUsers === 'function') { try { renderUsers(false); } catch {} }
 }
 
 window.PAGE_MODULES = window.PAGE_MODULES || {};

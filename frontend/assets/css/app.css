@@ -1513,3 +1513,11 @@ tr.audit-row-checked {
         transform: none;
     }
 }
+
+/* Impression (bouton Imprimer / data-print) : seule la zone de contenu,
+   sans sidebar ni topbar. Le contenu porte md:ml-[280px] pour le sidebar. */
+@media print {
+    #app-shell, #topbar-slot, #flash, .no-print { display: none !important; }
+    .md\:ml-\[280px\] { margin-left: 0 !important; }
+    main { margin-top: 0 !important; padding: 0 !important; max-width: 100% !important; }
+}
