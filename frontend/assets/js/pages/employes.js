@@ -669,7 +669,9 @@ function empDetailRenderCharts() {
     const { monthRows, month } = empDetailState.data;
     const pal = empDetailPalette();
 
-    // --- Courbe 7 derniers jours : Entrée / Sortie ---
+    // --- Barres 7 derniers jours : Entrée / Sortie ---
+    // Même forme que la tendance du dashboard (type bar, borderRadius,
+    // légende haut, animation 400 ms) adaptée aux heures de l'employé.
     const cTrend = document.getElementById('empd-chart-trend');
     if (cTrend && window.Chart) {
         const days = [];
@@ -678,8 +680,6 @@ function empDetailRenderCharts() {
             const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
             days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
         }
-        const byDate = {};
-        monthRows.forEach(r => { byDate[r.date] = r; });
         const allRows = empDetailState.data.allRows;
         const findRow = (iso) => (allRows.find(r => r.date === iso) || {});
         const entrees = days.map(iso => empDetailTimeToHours(findRow(iso).entree));
@@ -688,18 +688,18 @@ function empDetailRenderCharts() {
         const lo = vals.length ? Math.floor(Math.min(...vals) - 0.5) : 6;
         const hi = vals.length ? Math.ceil(Math.max(...vals) + 0.5) : 18;
         empDetailCharts.push(new Chart(cTrend, {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels: days.map(iso => iso.slice(8, 10) + '/' + iso.slice(5, 7)),
                 datasets: [
-                    { label: 'Entrée', data: entrees, borderColor: '#10B981', backgroundColor: '#10B981', tension: 0.35, pointRadius: 3, spanGaps: false },
-                    { label: 'Sortie', data: sorties, borderColor: '#F59E0B', backgroundColor: '#F59E0B', tension: 0.35, pointRadius: 3, spanGaps: false }
+                    { label: 'Entrée', data: entrees, backgroundColor: '#10B981', borderRadius: 6 },
+                    { label: 'Sortie', data: sorties, backgroundColor: '#F59E0B', borderRadius: 6 }
                 ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 animation: { duration: 400 },
-                plugins: { legend: { position: 'top', labels: { color: pal.text, font: { size: 11, weight: '600' }, boxWidth: 12 } } },
+                plugins: { legend: { position: 'top', labels: { color: pal.text, font: { size: 11, weight: '600' } } } },
                 scales: {
                     x: { grid: { color: pal.grid }, ticks: { color: pal.text, font: { size: 11 } } },
                     y: { min: lo, max: hi, grid: { color: pal.grid }, ticks: { color: pal.text, font: { size: 11 }, stepSize: 0.5, callback: (v) => empDetailFmtHour(v) } }
