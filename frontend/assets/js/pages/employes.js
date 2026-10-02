@@ -907,7 +907,7 @@ async function showEmployeeDetail(userId, keepState) {
                 </div>
             </div>
             <div class="flex items-center gap-sm">
-                ${isSuper ? `<button type="button" id="empd-edit" class="inline-flex items-center gap-1.5 bg-[#3B82F6] hover:bg-[#2563EB] text-white text-[13px] font-semibold px-md py-2 rounded-xl shadow-md transition-all cursor-pointer"><span class="material-symbols-outlined text-[18px]">edit</span> Modifier</button>` : ''}
+                ${isSuper ? `<button type="button" id="empd-edit" class="inline-flex items-center gap-1.5 bg-accent-default hover:bg-accent-hover text-white text-[13px] font-semibold px-md py-2 rounded-xl shadow-md transition-all cursor-pointer"><span class="material-symbols-outlined text-[18px]">edit</span> Modifier</button>` : ''}
                 <button type="button" data-print class="inline-flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-[13px] font-semibold px-md py-2 rounded-xl transition-all cursor-pointer"><span class="material-symbols-outlined text-[18px]">print</span> Imprimer</button>
             </div>
         </div>
