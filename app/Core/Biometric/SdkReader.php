@@ -88,9 +88,18 @@ class SdkReader implements FingerprintReader
         return is_array($data) ? $data : null;
     }
 
-    /** Interprète la réponse daemon/CLI : exception codée si échec (404 = aucun match). */
+    /** Interprète la réponse daemon/CLI : exception codée si échec (404 = aucun match).
+     * Rejette les réponses "mock": true pour forcer l'usage du daemon distant. */
     private function interpret(array $data, string $action): array
     {
+        // Rejet explicite des réponses mock (CLI fallback sans matériel)
+        if (isset($data['mock']) && $data['mock'] === true) {
+            throw new \RuntimeException(
+                'Réponse mock détectée — R307_SERVICE_URL doit pointer vers le daemon sur l\'hôte (ex: http://host.docker.internal:8765). '
+                . 'Le fallback CLI mock est désactivé pour les opérations critiques.',
+                503
+            );
+        }
         if (empty($data['ok'])) {
             // F2 : aucun match = code 404 (scanWithScore → null, message propre, pas de 500).
             $isNoMatch = ($action === 'search' || $action === 'verify')

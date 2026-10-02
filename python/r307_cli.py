@@ -120,7 +120,9 @@ def main():
         elif args.action in ('search','verify'):
             print(json.dumps({"ok": False, "message": "Aucune empreinte (mock)", "mock": True}))
         elif args.action == 'delete':
-            print(json.dumps({"ok": True, "mock": True}))
+            # En mode mock (R307 non disponible), on échoue explicitement
+            # pour forcer le PHP à utiliser le daemon distant (R307_SERVICE_URL)
+            print(json.dumps({"ok": False, "message": "Delete non disponible en mode mock — utilisez R307_SERVICE_URL pour joindre le daemon sur l'hôte", "mock": True}))
         elif args.action == 'status':
             print(json.dumps({"ok": True, "mock": True, "count": 0}))
         elif args.action == 'template':

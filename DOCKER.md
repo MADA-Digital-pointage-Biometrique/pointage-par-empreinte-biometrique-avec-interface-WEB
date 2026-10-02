@@ -106,5 +106,8 @@ lancer `python\start_r307_service.bat`. Horloge NTP obligatoire (anti-rejeu `ts 
 3. Onglet **Domains** : service `web`, port `80`, votre domaine
    (DNS pointé vers le serveur, HTTPS auto). Redeployer après ajout.
 4. Borne : `R307_API_URL=https://VOTRE-DOMAINE/api/borne_pointage.php`.
-5. Vérifs : `/login` via le domaine, 1er déploiement = `db-init` crée
+5. **Onglet Environment** (obligatoire pour la borne distante) : ajouter  
+   `R307_SERVICE_URL=http://host.docker.internal:8765`  
+   (ou l'IP de l'hôte si Linux natif). Cela permet au conteneur PHP d'atteindre le daemon sur le PC borne.
+6. Vérifs : `/login` via le domaine, 1er déploiement = `db-init` crée
    structure + données (no-op ensuite).

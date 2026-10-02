@@ -166,18 +166,14 @@ class WatchMixin:
         self.ser = None
 
     def _ensure_open(self):
-        """SESSION FRAÎCHE à l'ANCIENNE (celle qui marchait) : referme tout
-        handle résiduel, ouvre le port et déverrouille le capteur — exactement
-        ce que faisait le CLI (un processus par opération : open → échange →
-        close). Tenir le handle ouvert en permanence fabrique des handles
-        périmés (WinError 22) et verrouille le port pour les autres processus
-        (Accès refusé) — c'est ce qui rendait la détection intermittente.
-        En --port auto, re-détecte le port à chaque échec (capteur (re)branché
-        ailleurs)."""
+        """SESSION FRAÎCHE à l'ANCIENNE : referme tout handle résiduel, ouvre
+        le port et déverrouille le capteur. En --port auto, re-détecte le port
+        à chaque échec (capteur (re)branché ailleurs). Ajoute auto-baud si
+        l'ouverture échoue."""
         self._close_quiet()
         try:
             self.open()
-        except Exception:
+        except Exception as e:
             retried = False
             if (getattr(args_global, 'port', '') == 'auto'):
                 now = time.time()
@@ -187,8 +183,20 @@ class WatchMixin:
                     if detected and detected != self.port:
                         self.port = detected
                         WATCH_STATE['last_error'] = None
-                        self.open()  # 2e tentative sur le nouveau port
+                        self.open()
                         retried = True
+            if not retried:
+                # Essaie les baud rates courants si l'ouverture a échoué
+                for baud in [115200, 57600, 9600, 19200, 38400]:
+                    if baud == self.baud:
+                        continue
+                    try:
+                        self.baud = baud
+                        self.open()
+                        WATCH_STATE['last_error'] = f'Baud rate corrigé à {baud}'
+                        return
+                    except Exception:
+                        continue
             if not retried:
                 raise
 
@@ -216,28 +224,41 @@ class WatchMixin:
             WATCH_STATE['hw_checked_at'] = time.time()
 
     def _resilient(self, fn, *a, **kw):
-        """Opération série robuste : 1re erreur → NOUVEL essai sur le MÊME handle
-        (les erreurs USB transitoires type WinError 22 sont absorbées sans
-        churn) ; 2e échec seulement → fermeture + réouverture + 3e essai.
-        Le port doit rester ouvert AU MAXIMUM : chaque cycle ouverture/fermeture
-        sur CP2102 est une occasion de collision avec un processus externe et
-        de bloquer le pilote (c'est ce qui rendait la détection intermittente).
+        """Opération série robuste avec récupération complète :
+        1. Essai sur handle actuel
+        2. Échec → reset input/output buffer + retry
+        3. Échec → fermeture complète + _ensure_open() + retry
+        4. Échec final → propage l'erreur
         À appeler SOUS SERIAL_LOCK."""
+        # Tentative 1 : handle actuel
         try:
             return fn(*a, **kw)
-        except Exception:
-            time.sleep(0.15)
+        except Exception as e1:
+            # Tentative 2 : purge buffers + retry
             try:
-                return fn(*a, **kw)  # 2e essai, même handle
-            except Exception:
-                try:
-                    if self.ser and self.ser.is_open:
-                        self.ser.close()
-                except Exception:
-                    pass
-                time.sleep(0.4)
-                self._ensure_open()
+                if self.ser and self.ser.is_open:
+                    self.ser.reset_input_buffer()
+                    self.ser.reset_output_buffer()
+                    time.sleep(0.1)
                 return fn(*a, **kw)
+            except Exception as e2:
+                # Tentative 3 : reset complet du port
+                try:
+                    self._close_quiet()
+                    time.sleep(0.3)
+                    self._ensure_open()
+                    time.sleep(0.2)
+                    return fn(*a, **kw)
+                except Exception as e3:
+                    # Dernière chance : réouverture complète avec réinitialisation
+                    try:
+                        self._close_quiet()
+                        time.sleep(0.5)
+                        self._ensure_open()
+                        time.sleep(0.3)
+                        return fn(*a, **kw)
+                    except Exception as e4:
+                        raise RuntimeError(f'Toutes tentatives échouées: {e1} | {e2} | {e3} | {e4}')
 
     def _detect_scan(self, finger_timeout=2.0):
         """Un cycle de détection. Retourne None (aucun doigt), ('nomatch',) ou ('match', page_id, score).
@@ -260,6 +281,20 @@ class WatchMixin:
                 raise RuntimeError(f'GenImg erreur 0x{confirm:02X}')
             time.sleep(0.10)
         return None
+
+    def _hard_reset(self):
+        """Reset complet du R307 : fermeture + réouverture + vérification complète."""
+        try:
+            self._close_quiet()
+            time.sleep(0.5)
+            self._ensure_open()
+            # Test rapide
+            self._resilient(self.template_num)
+            self._hw_mark_ok()
+            return True
+        except Exception as e:
+            WATCH_STATE['last_error'] = f'Hard reset échoué: {e}'
+            return False
 
     def _wait_finger_gone(self, timeout=5.0):
         """Attend le retrait REEL du doigt — en boucle jusqu'a confirmation.
@@ -525,6 +560,9 @@ class WatchMixin:
             except Exception as e:
                 WATCH_STATE['watching'] = False
                 self._hw_mark_fail(e)
+                # Tentative de récupération complète après échec persistant
+                if WATCH_STATE.get('_fail_streak', 0) >= 2:
+                    self._hard_reset()
                 # Session courte : le port est déjà refermé par le finally du
                 # cycle — le prochain cycle repart d'une ouverture neuve
                 # (l'équivalent du processus neuf de l'ancienne version).
@@ -551,7 +589,7 @@ class Handler(BaseHTTPRequestHandler):
     # touchent pas le matériel (traités avant toute acquisition de lock).
     ACTIONS = ('enroll', 'search', 'verify', 'delete', 'status', 'count',
                'empty', 'get-mode', 'set-mode', 'enroll1', 'enroll2',
-               'probe', 'template', 'watch-on', 'watch-off')
+               'probe', 'template', 'watch-on', 'watch-off', 'reset')
 
     def do_POST(self):
         length = int(self.headers.get('Content-Length', 0))
@@ -618,6 +656,23 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({'ok': True, **ENROLL_STATE})
                 return
 
+            if self.path == '/enroll_status':
+                # Temps réel enrôlement : polling léger (≤ 1 s) — lecture directe.
+                self.send_json({'ok': True, **ENROLL_STATE})
+                return
+
+            # ── Reset complet du R307 (hard reset) ──
+            if action == 'reset':
+                try:
+                    ok = r._hard_reset()
+                    if ok:
+                        self.send_json({'ok': True, 'message': 'R307 reset effectué'})
+                    else:
+                        self.send_json({'ok': False, 'message': 'Échec du reset R307'}, code=500)
+                except Exception as e:
+                    self.send_json({'ok': False, 'message': f'Reset échoué: {e}'}, code=500)
+                return
+
             if R307 is None or r307_instance is None:
                 raise RuntimeError('pyserial manquant ou capteur non initialisé')
             r = r307_instance
@@ -669,7 +724,7 @@ class Handler(BaseHTTPRequestHandler):
                 public = {k: v for k, v in WATCH_STATE.items() if not k.startswith('_')}
                 if fresh:
                     ok = bool(WATCH_STATE.get('hw_ok'))
-                    st = {'ok': ok, 'port': r.port}
+                    st = {'ok': ok, 'port': r.port, 'baud': r.baud}
                     if not ok:
                         st['message'] = WATCH_STATE.get('last_error') or 'Capteur indisponible'
                     self.send_json({**st, 'count': WATCH_STATE.get('count', 0), **public})
@@ -681,17 +736,17 @@ class Handler(BaseHTTPRequestHandler):
                         r._hw_mark_ok(cnt)
                     except Exception as e:
                         r._hw_mark_fail(e)
-                        self.send_json({'ok': False, 'message': str(e), 'port': r.port, **public})
+                        self.send_json({'ok': False, 'message': str(e), 'port': r.port, 'baud': r.baud, **public})
                         return
                     finally:
                         r._close_quiet()
                         SERIAL_LOCK.release()
                     self.send_json({'ok': True, 'count': WATCH_STATE.get('count', 0),
-                                    'port': r.port, **public})
+                                    'port': r.port, 'baud': r.baud, **public})
                     return
                 # Lock occupé (enrôlement/capture en cours) : dernier verdict connu.
                 ok = bool(WATCH_STATE.get('hw_ok'))
-                st = {'ok': ok, 'port': r.port}
+                st = {'ok': ok, 'port': r.port, 'baud': r.baud}
                 if not ok:
                     st['message'] = WATCH_STATE.get('last_error') or 'Capteur occupé (capture en cours)'
                 self.send_json({**st, 'count': WATCH_STATE.get('count', 0), **public})

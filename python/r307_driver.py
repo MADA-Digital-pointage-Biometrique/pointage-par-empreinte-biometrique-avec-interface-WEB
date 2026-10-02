@@ -63,9 +63,59 @@ class R307:
         return ports[0] if ports else None
 
     def open(self):
-        self.ser = serial.Serial(self.port, self.baud, timeout=self.timeout)
+        """Ouvre le port série avec configuration robuste et vérification complète."""
+        # Ferme proprement si déjà ouvert
+        if self.ser and self.ser.is_open:
+            try:
+                self.ser.close()
+            except Exception:
+                pass
+        
+        # Configuration série robuste pour CP2102 + R307
+        self.ser = serial.Serial(
+            port=self.port,
+            baudrate=self.baud,
+            timeout=self.timeout,
+            write_timeout=3,
+            bytesize=serial.EIGHTBITS,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            xonxoff=False,
+            rtscts=False,
+            dsrdtr=False
+        )
+        # Purge complète des buffers
+        time.sleep(0.3)
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
         time.sleep(0.2)
-        self.verify_pwd()
+        
+        # Vérification du mot de passe avec retry
+        self._verify_pwd_with_retry()
+
+    def _verify_pwd_with_retry(self, max_retries=3):
+        """Vérifie le mot de passe avec retry et diagnostic."""
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                confirm, _ = self._cmd(CMD_VERIFY_PWD, struct.pack('>I', self.pwd), timeout=5)
+                if confirm == CONFIRM_OK:
+                    return
+                else:
+                    raise RuntimeError(f'VerifyPwd échoué: 0x{confirm:02X}')
+            except Exception as e:
+                last_err = e
+                if attempt < max_retries - 1:
+                    time.sleep(0.5 * (attempt + 1))
+                    # Purge buffers avant retry
+                    try:
+                        if self.ser and self.ser.is_open:
+                            self.ser.reset_input_buffer()
+                            self.ser.reset_output_buffer()
+                    except Exception:
+                        pass
+                    continue
+        raise RuntimeError(f'VerifyPwd échoué après {max_retries} tentatives: {last_err}')
 
     def close(self):
         if self.ser and self.ser.is_open:
@@ -78,36 +128,65 @@ class R307:
         return HEADER + addr + struct.pack('B', pid) + struct.pack('>H', length) + payload + struct.pack('>H', chk & 0xFFFF)
 
     def _read_ack(self, timeout=3):
+        """Lit et valide un paquet ACK du R307 avec diagnostic détaillé."""
         self.ser.timeout = timeout
         hdr = self.ser.read(9)
-        if len(hdr) < 9 or hdr[0:2] != HEADER:
-            raise RuntimeError('Réponse R307 invalide (header)')
+        
+        # Diagnostic détaillé si header invalide
+        if len(hdr) < 9:
+            raise RuntimeError(f'Header R307 trop court: {len(hdr)}/9 octets (reçu: {hdr.hex() if hdr else "vide"})')
+        if hdr[0:2] != HEADER:
+            raise RuntimeError(f'Header R307 invalide: attendu {HEADER.hex()}, reçu {hdr[0:2].hex()} (brut: {hdr.hex()})')
+        
         r_addr = struct.unpack('>I', hdr[2:6])[0]
         if r_addr != self.addr:
             raise RuntimeError(f'Adresse R307 invalide 0x{r_addr:08X} != 0x{self.addr:08X}')
+        
         pid = hdr[6]
         if pid != PID_ACK:
-            raise RuntimeError(f'PID ACK attendu 0x{PID_ACK:02X} reçu 0x{pid:02X}')
+            raise RuntimeError(f'PID ACK attendu 0x{PID_ACK:02X}, reçu 0x{pid:02X}')
+        
         length = struct.unpack('>H', hdr[7:9])[0]
         if length < 3 or length > 256:
             raise RuntimeError(f'Taille paquet invalide {length}')
+        
         data = self.ser.read(length)
         if len(data) < length:
-            raise RuntimeError('Réponse R307 incomplète')
-        # checksum validation
+            raise RuntimeError(f'Réponse R307 incomplète: {len(data)}/{length} octets')
+        
+        # Checksum validation
         calc = pid + (length >> 8) + (length & 0xFF) + sum(data[:-2])
         recv = struct.unpack('>H', data[-2:])[0]
         if (calc & 0xFFFF) != recv:
-            raise RuntimeError(f'Checksum invalide calc 0x{calc & 0xFFFF:04X} recv 0x{recv:04X}')
+            raise RuntimeError(f'Checksum invalide: calc=0x{calc & 0xFFFF:04X} recv=0x{recv:04X} (data: {data.hex()})')
+        
         confirm = data[0]
         return confirm, data[1:-2]
 
-    def _cmd(self, ins, params=b'', timeout=3):
+    def _cmd(self, ins, params=b'', timeout=3, max_retries=2):
+        """Envoie une commande avec retry et purge buffers."""
         pkt = self._packet(PID_CMD, struct.pack('B', ins) + params)
-        self.ser.reset_input_buffer()
-        self.ser.write(pkt)
-        confirm, resp = self._read_ack(timeout)
-        return confirm, resp
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # Purge complète avant chaque envoi
+                self.ser.reset_input_buffer()
+                self.ser.reset_output_buffer()
+                self.ser.write(pkt)
+                self.ser.flush()
+                confirm, resp = self._read_ack(timeout)
+                return confirm, resp
+            except Exception as e:
+                if attempt >= max_retries:
+                    raise RuntimeError(f'Commande 0x{ins:02X} échouée après {max_retries+1} tentatives: {e}')
+                # Purge et attente avant retry
+                try:
+                    self.ser.reset_input_buffer()
+                    self.ser.reset_output_buffer()
+                except Exception:
+                    pass
+                time.sleep(0.1 * (attempt + 1))
+        raise RuntimeError(f'Commande 0x{ins:02X} échouée')
 
     def verify_pwd(self):
         confirm, _ = self._cmd(CMD_VERIFY_PWD, struct.pack('>I', self.pwd))
